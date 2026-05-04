@@ -23,7 +23,14 @@ This repository contains the full source code of the Zenthis frontend:
 - `js/` — Frontend logic (ethers.js v6, Firebase)
 - `firestore.rules` — Firestore security rules (data handling transparency)
 
-Smart contracts will be published here prior to mainnet launch, alongside the independent security audit report.
+### Sepolia Testnet Contracts
+
+| Contract | Address |
+|----------|---------|
+| ZENTHIS (ERC-20) | [`0xb6F7e54736C5a354989280c32b797c104A3Bf2bb`](https://sepolia.etherscan.io/address/0xb6F7e54736C5a354989280c32b797c104A3Bf2bb) |
+| HTLCVault | [`0xB6E30987957ff7354373486594E4E78F67AA50B1`](https://sepolia.etherscan.io/address/0xB6E30987957ff7354373486594E4E78F67AA50B1) |
+
+48 unit tests passing. Mainnet contracts will be deployed after the independent security audit.
 
 ---
 
