@@ -55,6 +55,7 @@ Always verify you are on the official domain before connecting your wallet or se
 | Website | https://zenthis-app.web.app |
 | Twitter | https://twitter.com/zenthis_io |
 | Telegram | https://t.me/zenthisprotocol |
+| Discord | https://discord.gg/AThqNfav |
 | GitHub | https://github.com/marcostrobo/zenthis-protocol |
 
 > ⚠️ Zenthis has no token live yet. Any token claiming to be ZENTHIS before June 15, 2026 is a scam.
