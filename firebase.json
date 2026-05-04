@@ -12,7 +12,17 @@
       "memory/**",
       "*.md",
       "**/*.md",
-      "social_media_assets/**"
+      "social_media_assets/**",
+      "telegram_bot/**",
+      "Procfile",
+      "render.yaml",
+      "*.png",
+      "**/*.py",
+      "**/*.txt",
+      "**/*.cfg",
+      "**/*.exe",
+      "**/*.pyd",
+      "**/*.dll"
     ],
     "headers": [
       {

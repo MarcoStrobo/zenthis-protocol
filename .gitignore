@@ -1,0 +1,27 @@
+# Environment & secrets
+.env
+*.env.*
+
+# Python
+venv/
+__pycache__/
+*.pyc
+*.pyo
+
+# Firebase local cache
+.firebase/
+.firebaserc
+
+# Claude local config
+.claude/
+
+# Raw asset exports (use assets/ folder instead)
+zenthis_logo_profile_*.png
+zenthis_twitter_banner_*.png
+
+# Telegram bot (separate project, not part of web app)
+telegram_bot/
+
+# OS
+.DS_Store
+Thumbs.db

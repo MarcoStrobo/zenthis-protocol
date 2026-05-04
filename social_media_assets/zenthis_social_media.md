@@ -12,7 +12,7 @@
 | Discord | Zenthis | `https://discord.gg/zenthis` | ⬜ Crear |
 | Telegram | `@zenthisprotocol` | `https://t.me/zenthisprotocol` | ✅ Creado |
 | Medium | `zenthis` | `https://medium.com/@zenthis` | ⬜ Crear |
-| GitHub | `sukofr11/zenthis-protocol` | `https://github.com/sukofr11/zenthis-protocol` | ✅ Creado |
+| GitHub | `marcostrobo/zenthis-protocol` | `https://github.com/marcostrobo/zenthis-protocol` | ✅ Creado |
 
 > Una vez creadas, actualizar todos los `href="#"` del sitio con las URLs reales.
 
@@ -41,7 +41,7 @@ Cross-chain swaps in 3–5s. No bridges. No custodians. 0.10% fee.
 ✅ Open-source contracts (48 tests)
 ✅ Demo live now
 ✅ Audit before mainnet
-🔥 IDO: June 15 · CoinList + Aerodrome
+🔥 IDO: June 15 · zenthis-app.web.app
 
 zenthis-app.web.app
 
@@ -102,7 +102,7 @@ We believe in building in public.
 
 The full smart contract code is on GitHub — open-source, readable, 48 tests passing.
 
-👉 github.com/sukofr11/zenthis-protocol
+👉 github.com/marcostrobo/zenthis-protocol
 
 An independent security audit is scheduled before mainnet.
 
@@ -126,8 +126,7 @@ Sustainable by design.
 ```
 IDO: June 15, 2026
 
-→ CoinList (launchpad)
-→ Aerodrome on Base (DEX)
+→ zenthis-app.web.app (direct IDO)
 
 Whitelist members get:
 ⚡ Priority allocation
@@ -418,7 +417,7 @@ zenthis-app.web.app/airdrop.html
 | D+21 | May 25 | ⏱️ Countdown | **21 days** — "3 semanas para el IDO" |
 | D+22 | May 26 | 📊 Airdrop | **Mid-campaign update** con datos reales de participantes |
 | D+23 | May 27 | 🔥 Token | Burn mechanics — deflación automática |
-| D+24 | May 28 | 🧵 Thread | Cómo funciona el IDO: CoinList + Aerodrome paso a paso |
+| D+24 | May 28 | 🧵 Thread | Cómo participar en el IDO: guía paso a paso (zenthis-app.web.app) |
 | D+25 | May 29 | 🔗 Airdrop | Referral push — "invite 1 friend = +300 pts" |
 | D+26 | May 30 | 🏛️ Fundación | Swiss Foundation — por qué importa la estructura legal |
 | D+27 | May 31 | 📅 Milestone | "Last day of May. 15 days to IDO." |
@@ -428,7 +427,7 @@ zenthis-app.web.app/airdrop.html
 | D+31 | Jun 4 | ⬡ Staking | Staking mechanics — cómo funciona el fee share |
 | D+32 | Jun 5 | 📅 Countdown | **10 days to IDO** — urgencia máxima |
 | D+33 | Jun 6 | 📊 Airdrop | "Leaderboard final — top wallets" — nombres visibles |
-| D+34 | Jun 7 | 🚀 IDO | CoinList + Aerodrome — links, guía de participación |
+| D+34 | Jun 7 | 🚀 IDO | IDO guide — cómo comprar ZENTHIS en zenthis-app.web.app |
 | D+35 | Jun 8 | ⏰ Airdrop | **Última semana** — "7 days, snapshot coming" |
 | D+36 | Jun 9 | 📅 Countdown | **"One week."** — tweet minimalista |
 | D+37 | Jun 10 | 🔧 Protocolo | HTLC animation / diagrama visual de un swap |
@@ -436,7 +435,7 @@ zenthis-app.web.app/airdrop.html
 | D+39 | Jun 12 | 💬 Comunidad | "3 days. Thank you for building this with us." |
 | D+40 | Jun 13 | ⚡ Final | **"48 hours."** ⬡ |
 | D+41 | Jun 14 | 🌙 Eve | **"Tomorrow."** ⬡ |
-| D+42 | Jun 15 | 🔥 IDO LIVE | **IDO LIVE** — links CoinList + Aerodrome + celebración |
+| D+42 | Jun 15 | 🔥 IDO LIVE | **IDO LIVE** — link directo zenthis-app.web.app + celebración |
 
 ---
 
@@ -448,7 +447,7 @@ We shipped the contracts before anyone asked.
 
 Open-source. Verified. 48 tests passing.
 
-👉 github.com/sukofr11/zenthis-protocol
+👉 github.com/marcostrobo/zenthis-protocol
 
 HTLC core · ERC-20 token · LP vault
 
@@ -522,8 +521,7 @@ Tomorrow.
 
 ZENTHIS is now available.
 
-→ CoinList: [link]
-→ Aerodrome (Base): [link]
+→ zenthis-app.web.app
 
 Cross-chain liquidity without bridges starts today.
 
@@ -562,7 +560,7 @@ Thank you for building this with us.
 
 ❓ SUPPORT
   #faq                  — preguntas frecuentes
-  #ido-support          — help con CoinList / Aerodrome
+  #ido-support          — help con el IDO (zenthis-app.web.app)
   #wallet-help          — support técnico wallets
 ```
 
@@ -576,7 +574,7 @@ swap between blockchains in 3–5 seconds, no bridges, no custodians.
 🗓️ IDO: June 15, 2026
 🌐 Website: zenthis-app.web.app
 📄 Whitepaper: zenthis-app.web.app/whitepaper.html
-💻 GitHub: github.com/sukofr11/zenthis-protocol
+💻 GitHub: github.com/marcostrobo/zenthis-protocol
 🐦 Twitter: @zenthis_io
 
 Read the rules in #rules and introduce yourself in #introductions!
@@ -605,14 +603,14 @@ Welcome to the official Zenthis Telegram.
 
 → What we're building: cross-chain swaps in 3–5 seconds, no bridges, no custodians, 0.10% flat fee.
 → Smart contracts: open-source on GitHub (48 tests passing)
-→ IDO: June 15th on CoinList + Aerodrome (Base)
+→ IDO: June 15th · zenthis-app.web.app
 → Audit: scheduled before mainnet
 
 Join the whitelist for priority allocation: zenthis-app.web.app
 
 🌐 Website: zenthis-app.web.app
 📄 Whitepaper: zenthis-app.web.app/whitepaper.html
-💻 Code: github.com/sukofr11/zenthis-protocol
+💻 Code: github.com/marcostrobo/zenthis-protocol
 🐦 Twitter: @zenthis_io
 💬 Discord: discord.gg/zenthis
 
@@ -653,10 +651,10 @@ El ángulo de "build in public with AI" — honesto, diferenciador, actual.
 
 ---
 
-## 💻 GitHub (sukofr11/zenthis-protocol)
+## 💻 GitHub (marcostrobo/zenthis-protocol)
 
 **Status:** ✅ Repositorio creado y publicado  
-**URL:** https://github.com/sukofr11/zenthis-protocol  
+**URL:** https://github.com/marcostrobo/zenthis-protocol  
 **Contenido:** ZenthisHTLC · ZenthisToken · ZenthisVault · 48 tests passing
 
 ### Repos adicionales a crear (futuro):
@@ -673,7 +671,7 @@ El ángulo de "build in public with AI" — honesto, diferenciador, actual.
 
 - [x] Twitter creado: @zenthis_io
 - [x] Telegram creado: @zenthisprotocol
-- [x] GitHub publicado: sukofr11/zenthis-protocol
+- [x] GitHub publicado: marcostrobo/zenthis-protocol
 - [x] Website live: zenthis-app.web.app
 - [x] Demo app live: zenthis-app.web.app/app.html
 - [x] Whitepaper publicado: zenthis-app.web.app/whitepaper.html
