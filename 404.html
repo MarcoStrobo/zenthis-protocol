@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>404 — Page Not Found | Zenthis</title>
+  <link rel="icon" type="image/png" sizes="1024x1024" href="assets/favicon.png" />
+  <link rel="apple-touch-icon" href="assets/favicon.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@700;800&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #07070f; --purple: #7c3aed; --purple-l: #9d5df5;
+      --cyan: #06b6d4; --text: #e2e8f0; --muted: #94a3b8; --dim: #64748b;
+      --grad: linear-gradient(135deg,#7c3aed,#06b6d4);
+      --grad2: linear-gradient(135deg,#9d5df5,#22d3ee);
+    }
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 24px;
+      overflow: hidden;
+    }
+    .glow {
+      position: fixed;
+      border-radius: 50%;
+      filter: blur(80px);
+      pointer-events: none;
+      z-index: 0;
+    }
+    .glow-1 { width:500px;height:500px; background:rgba(124,58,237,.18); top:-120px; left:-80px; }
+    .glow-2 { width:400px;height:400px; background:rgba(6,182,212,.12);  bottom:-80px; right:-60px; }
+
+    .content { position: relative; z-index: 1; max-width: 520px; }
+
+    .logo {
+      display: inline-flex; align-items: center; gap: 8px;
+      font-family: 'Space Grotesk', sans-serif;
+      font-weight: 800; font-size: 1.2rem; color: #fff;
+      text-decoration: none; margin-bottom: 48px;
+    }
+    .logo-icon {
+      font-size: 1.5rem;
+      background: var(--grad2);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .error-code {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 7rem; font-weight: 900; line-height: 1;
+      background: var(--grad2);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 16px;
+      letter-spacing: -.04em;
+    }
+
+    h1 {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 1.6rem; font-weight: 700;
+      margin-bottom: 14px;
+    }
+    p {
+      font-size: .95rem; color: var(--muted);
+      line-height: 1.65; margin-bottom: 36px;
+    }
+
+    .actions { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+
+    .btn-primary {
+      background: var(--grad);
+      color: #fff; font-weight: 700; font-size: .9rem;
+      padding: 13px 28px; border-radius: 10px;
+      text-decoration: none;
+      box-shadow: 0 4px 20px rgba(124,58,237,.35);
+      transition: transform .2s, box-shadow .2s;
+    }
+    .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 8px 30px rgba(124,58,237,.5); }
+
+    .btn-outline {
+      background: transparent; color: var(--text);
+      border: 1px solid rgba(255,255,255,.1);
+      font-weight: 600; font-size: .9rem;
+      padding: 13px 28px; border-radius: 10px;
+      text-decoration: none; transition: all .2s;
+    }
+    .btn-outline:hover { border-color: var(--purple); color: var(--purple-l); }
+
+    .hint {
+      margin-top: 40px;
+      font-size: .78rem; color: var(--dim);
+    }
+    .hint a { color: var(--purple-l); text-decoration: none; }
+    .hint a:hover { text-decoration: underline; }
+
+    canvas {
+      position: fixed; inset: 0;
+      width: 100%; height: 100%;
+      opacity: .3; pointer-events: none; z-index: 0;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="c"></canvas>
+  <div class="glow glow-1"></div>
+  <div class="glow glow-2"></div>
+
+  <div class="content">
+    <a class="logo" href="index.html">
+      <span class="logo-icon">⬡</span> Zenthis
+    </a>
+    <div class="error-code">404</div>
+    <h1>This chain doesn't exist.</h1>
+    <p>
+      Looks like you tried to bridge to a chain that isn't supported yet —
+      or this page was moved. No funds lost, I promise.
+    </p>
+    <div class="actions">
+      <a href="index.html" class="btn-primary">Back to Home</a>
+      <a href="index.html#waitlist" class="btn-outline">Join Waitlist</a>
+    </div>
+    <p class="hint">
+      Looking for the <a href="whitepaper.html">whitepaper</a> or
+      <a href="index.html#faq">FAQ</a>?
+    </p>
+  </div>
+
+  <script>
+    const canvas = document.getElementById('c');
+    const ctx = canvas.getContext('2d');
+    let W, H, particles;
+    const COLORS = ['#7c3aed','#06b6d4','#9d5df5','#22d3ee'];
+    function resize() { W = canvas.width = innerWidth; H = canvas.height = innerHeight; }
+    function make() { return { x:Math.random()*W, y:Math.random()*H, vx:(Math.random()-.5)*.4, vy:(Math.random()-.5)*.4, r:Math.random()*2+1, c:COLORS[Math.random()*4|0] }; }
+    function init() { resize(); particles = Array.from({length:50},make); }
+    function draw() {
+      ctx.clearRect(0,0,W,H);
+      particles.forEach(p => {
+        p.x+=p.vx; p.y+=p.vy;
+        if(p.x<0||p.x>W) p.vx*=-1;
+        if(p.y<0||p.y>H) p.vy*=-1;
+        ctx.beginPath(); ctx.arc(p.x,p.y,p.r,0,Math.PI*2);
+        ctx.fillStyle=p.c; ctx.globalAlpha=.7; ctx.fill(); ctx.globalAlpha=1;
+      });
+      requestAnimationFrame(draw);
+    }
+    init(); draw();
+    window.addEventListener('resize', init);
+  </script>
+</body>
+</html>

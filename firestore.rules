@@ -1,0 +1,47 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ─── Waitlist ────────────────────────────────────────────────────────────
+    match /waitlist/{doc} {
+      allow create: if request.resource.data.keys().hasAll(['twitter', 'email', 'ts'])
+                    && request.resource.data.keys().hasOnly(['twitter', 'email', 'wallet', 'ts'])
+                    && request.resource.data.twitter is string
+                    && request.resource.data.twitter.size() < 100
+                    && request.resource.data.email is string
+                    && request.resource.data.email.size() < 200
+                    && (!('wallet' in request.resource.data) || request.resource.data.wallet is string);
+      allow read:           if request.auth != null;
+      allow update, delete: if false;
+    }
+
+    // ─── Airdrop profiles ────────────────────────────────────────────────────
+    match /airdrop/{wallet} {
+      allow read: if true;  // public leaderboard
+      allow create: if request.auth != null
+                    && request.resource.data.keys().hasAll(['wallet', 'refCode', 'points', 'actions', 'ts'])
+                    && request.resource.data.wallet is string
+                    && request.resource.data.refCode is string
+                    && request.resource.data.refCode.size() == 6
+                    && request.resource.data.points is number;
+      allow update: if request.auth != null;  // pre-IDO: open for referral credits
+    }
+
+    // ─── Referral events (immutable log) ─────────────────────────────────────
+    match /referral_events/{eventId} {
+      allow read:   if true;
+      allow create: if request.auth != null
+                    && request.resource.data.keys().hasAll(['referrerWallet', 'referrerRefCode', 'refereeWallet', 'ts'])
+                    && request.resource.data.refereeWallet is string
+                    && request.resource.data.referrerRefCode is string;
+      allow update, delete: if false;  // immutable
+    }
+
+    // ─── Global stats ────────────────────────────────────────────────────────
+    match /airdrop_meta/{doc} {
+      allow read:   if true;
+      allow write:  if request.auth != null;
+    }
+
+  }
+}

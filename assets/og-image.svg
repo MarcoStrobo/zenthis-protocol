@@ -1,0 +1,126 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#07070f"/>
+      <stop offset="100%" stop-color="#0d0d1a"/>
+    </linearGradient>
+    <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#7c3aed"/>
+      <stop offset="100%" stop-color="#06b6d4"/>
+    </linearGradient>
+    <linearGradient id="grad2" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#9d5df5"/>
+      <stop offset="100%" stop-color="#22d3ee"/>
+    </linearGradient>
+    <filter id="glow1">
+      <feGaussianBlur stdDeviation="60" result="blur"/>
+      <feComposite in="SourceGraphic" in2="blur" operator="over"/>
+    </filter>
+    <filter id="glow2">
+      <feGaussianBlur stdDeviation="40" result="blur"/>
+      <feComposite in="SourceGraphic" in2="blur" operator="over"/>
+    </filter>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1200" height="630" fill="url(#bg)"/>
+
+  <!-- Glow blobs -->
+  <circle cx="150" cy="150" r="320" fill="#7c3aed" opacity="0.12" filter="url(#glow1)"/>
+  <circle cx="1100" cy="500" r="280" fill="#06b6d4" opacity="0.1" filter="url(#glow1)"/>
+
+  <!-- Grid dots pattern -->
+  <g opacity="0.06" fill="#ffffff">
+    <circle cx="100" cy="100" r="1.5"/><circle cx="200" cy="100" r="1.5"/><circle cx="300" cy="100" r="1.5"/>
+    <circle cx="400" cy="100" r="1.5"/><circle cx="500" cy="100" r="1.5"/><circle cx="600" cy="100" r="1.5"/>
+    <circle cx="700" cy="100" r="1.5"/><circle cx="800" cy="100" r="1.5"/><circle cx="900" cy="100" r="1.5"/>
+    <circle cx="1000" cy="100" r="1.5"/><circle cx="1100" cy="100" r="1.5"/>
+    <circle cx="100" cy="200" r="1.5"/><circle cx="200" cy="200" r="1.5"/><circle cx="300" cy="200" r="1.5"/>
+    <circle cx="400" cy="200" r="1.5"/><circle cx="500" cy="200" r="1.5"/><circle cx="600" cy="200" r="1.5"/>
+    <circle cx="700" cy="200" r="1.5"/><circle cx="800" cy="200" r="1.5"/><circle cx="900" cy="200" r="1.5"/>
+    <circle cx="1000" cy="200" r="1.5"/><circle cx="1100" cy="200" r="1.5"/>
+    <circle cx="100" cy="300" r="1.5"/><circle cx="200" cy="300" r="1.5"/><circle cx="300" cy="300" r="1.5"/>
+    <circle cx="400" cy="300" r="1.5"/><circle cx="500" cy="300" r="1.5"/><circle cx="600" cy="300" r="1.5"/>
+    <circle cx="700" cy="300" r="1.5"/><circle cx="800" cy="300" r="1.5"/><circle cx="900" cy="300" r="1.5"/>
+    <circle cx="1000" cy="300" r="1.5"/><circle cx="1100" cy="300" r="1.5"/>
+    <circle cx="100" cy="400" r="1.5"/><circle cx="200" cy="400" r="1.5"/><circle cx="300" cy="400" r="1.5"/>
+    <circle cx="400" cy="400" r="1.5"/><circle cx="500" cy="400" r="1.5"/><circle cx="600" cy="400" r="1.5"/>
+    <circle cx="700" cy="400" r="1.5"/><circle cx="800" cy="400" r="1.5"/><circle cx="900" cy="400" r="1.5"/>
+    <circle cx="1000" cy="400" r="1.5"/><circle cx="1100" cy="400" r="1.5"/>
+    <circle cx="100" cy="530" r="1.5"/><circle cx="200" cy="530" r="1.5"/><circle cx="300" cy="530" r="1.5"/>
+    <circle cx="400" cy="530" r="1.5"/><circle cx="500" cy="530" r="1.5"/><circle cx="600" cy="530" r="1.5"/>
+    <circle cx="700" cy="530" r="1.5"/><circle cx="800" cy="530" r="1.5"/><circle cx="900" cy="530" r="1.5"/>
+    <circle cx="1000" cy="530" r="1.5"/><circle cx="1100" cy="530" r="1.5"/>
+  </g>
+
+  <!-- Chain nodes (left side visual) -->
+  <g opacity="0.35">
+    <circle cx="90" cy="315" r="22" fill="none" stroke="#7c3aed" stroke-width="1.5"/>
+    <text x="90" y="321" text-anchor="middle" fill="#9d5df5" font-size="14" font-family="Arial" font-weight="bold">ETH</text>
+    <circle cx="90" cy="420" r="22" fill="none" stroke="#06b6d4" stroke-width="1.5"/>
+    <text x="90" y="426" text-anchor="middle" fill="#22d3ee" font-size="13" font-family="Arial" font-weight="bold">ARB</text>
+    <circle cx="90" cy="210" r="22" fill="none" stroke="#10b981" stroke-width="1.5"/>
+    <text x="90" y="216" text-anchor="middle" fill="#10b981" font-size="11" font-family="Arial" font-weight="bold">SOL</text>
+    <line x1="112" y1="315" x2="168" y2="315" stroke="#7c3aed" stroke-width="1" stroke-dasharray="4,3" opacity="0.5"/>
+    <line x1="112" y1="420" x2="168" y2="370" stroke="#06b6d4" stroke-width="1" stroke-dasharray="4,3" opacity="0.5"/>
+    <line x1="112" y1="210" x2="168" y2="265" stroke="#10b981" stroke-width="1" stroke-dasharray="4,3" opacity="0.5"/>
+  </g>
+
+  <!-- Central hexagon logo -->
+  <polygon points="210,265 244,246 278,265 278,302 244,321 210,302" fill="url(#grad)" opacity="0.9"/>
+  <text x="244" y="291" text-anchor="middle" fill="white" font-size="28" font-family="Arial" font-weight="900">Z</text>
+
+  <!-- Main content -->
+  <!-- Logo text -->
+  <text x="320" y="230" fill="white" font-size="52" font-family="Arial, sans-serif" font-weight="900" letter-spacing="-1">Zenthis</text>
+
+  <!-- Tagline -->
+  <text x="320" y="295" fill="url(#grad2)" font-size="28" font-family="Arial, sans-serif" font-weight="700">Unified Cross-Chain Liquidity</text>
+
+  <!-- Subtitle -->
+  <text x="320" y="345" fill="#94a3b8" font-size="20" font-family="Arial, sans-serif" font-weight="400">No bridges. No waiting. Swap any chain in 3–5 seconds.</text>
+
+  <!-- Divider -->
+  <line x1="320" y1="378" x2="900" y2="378" stroke="#ffffff" stroke-width="1" opacity="0.08"/>
+
+  <!-- Stats row -->
+  <g font-family="Arial, sans-serif">
+    <text x="340" y="418" fill="url(#grad2)" font-size="26" font-weight="800">3–5s</text>
+    <text x="340" y="442" fill="#64748b" font-size="14" font-weight="400">Cross-chain swap</text>
+
+    <line x1="470" y1="400" x2="470" y2="450" stroke="#ffffff" opacity="0.08" stroke-width="1"/>
+
+    <text x="495" y="418" fill="url(#grad2)" font-size="26" font-weight="800">0.10%</text>
+    <text x="495" y="442" fill="#64748b" font-size="14" font-weight="400">Flat fee</text>
+
+    <line x1="630" y1="400" x2="630" y2="450" stroke="#ffffff" opacity="0.08" stroke-width="1"/>
+
+    <text x="655" y="418" fill="url(#grad2)" font-size="26" font-weight="800">$2M</text>
+    <text x="655" y="442" fill="#64748b" font-size="14" font-weight="400">Bug bounty</text>
+
+    <line x1="770" y1="400" x2="770" y2="450" stroke="#ffffff" opacity="0.08" stroke-width="1"/>
+
+    <text x="795" y="418" fill="url(#grad2)" font-size="26" font-weight="800">6</text>
+    <text x="795" y="442" fill="#64748b" font-size="14" font-weight="400">Chains live</text>
+  </g>
+
+  <!-- IDO badge -->
+  <rect x="320" y="480" width="220" height="38" rx="19" fill="url(#grad)" opacity="0.9"/>
+  <text x="430" y="504" text-anchor="middle" fill="white" font-size="15" font-family="Arial" font-weight="700">IDO — June 15, 2026</text>
+
+  <!-- URL -->
+  <text x="600" y="504" fill="#64748b" font-size="15" font-family="Arial" font-weight="400">zenthis-app.web.app</text>
+
+  <!-- Right visual: chain connections -->
+  <g opacity="0.25">
+    <circle cx="1050" cy="200" r="28" fill="none" stroke="#7c3aed" stroke-width="1.5"/>
+    <text x="1050" y="206" text-anchor="middle" fill="#9d5df5" font-size="12" font-family="Arial" font-weight="bold">POL</text>
+    <circle cx="1130" cy="310" r="28" fill="none" stroke="#06b6d4" stroke-width="1.5"/>
+    <text x="1130" y="316" text-anchor="middle" fill="#22d3ee" font-size="12" font-family="Arial" font-weight="bold">BNB</text>
+    <circle cx="1050" cy="420" r="28" fill="none" stroke="#f59e0b" stroke-width="1.5"/>
+    <text x="1050" y="426" text-anchor="middle" fill="#f59e0b" font-size="11" font-family="Arial" font-weight="bold">AVAX</text>
+    <line x1="1022" y1="200" x2="960" y2="250" stroke="#7c3aed" stroke-width="1" stroke-dasharray="4,3"/>
+    <line x1="1102" y1="310" x2="960" y2="310" stroke="#06b6d4" stroke-width="1" stroke-dasharray="4,3"/>
+    <line x1="1022" y1="420" x2="960" y2="370" stroke="#f59e0b" stroke-width="1" stroke-dasharray="4,3"/>
+  </g>
+</svg>

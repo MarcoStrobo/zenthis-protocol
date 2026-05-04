@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Zenthis Airdrop — Earn ZENTHIS Before IDO</title>
+  <meta name="description" content="Join the Zenthis airdrop. Connect your wallet, complete tasks, refer friends and earn ZENTHIS tokens before the June 15 IDO." />
+  <link rel="icon" type="image/png" href="assets/favicon.png" />
+  <meta property="og:title" content="Zenthis Airdrop — 5,000,000 ZENTHIS" />
+  <meta property="og:description" content="Connect your wallet, invite friends, earn points. 5M ZENTHIS distributed before IDO." />
+  <meta property="og:image" content="https://zenthis-app.web.app/assets/og-image.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Space+Grotesk:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/airdrop.css" />
+</head>
+<body>
+
+  <!-- ─── NAVBAR ─── -->
+  <nav class="navbar">
+    <div class="nav-inner">
+      <a class="logo" href="index.html">
+        <span class="logo-icon">⬡</span>
+        <span class="logo-text">Zenthis</span>
+      </a>
+      <a href="index.html" class="nav-back">← Back to site</a>
+      <a href="index.html#buy" class="btn-nav-cta">Join IDO</a>
+    </div>
+  </nav>
+
+  <!-- ─── HERO ─── -->
+  <section class="hero">
+    <div class="hero-glow"></div>
+    <div class="container">
+      <div class="hero-badge">
+        <span class="badge-dot"></span>
+        Airdrop live · IDO June 15, 2026
+      </div>
+      <h1 class="hero-title">
+        Earn <span class="gradient-text">5,000,000 ZENTHIS</span><br/>before the IDO.
+      </h1>
+      <p class="hero-sub">
+        Connect your wallet, complete tasks, and refer friends. Points convert to ZENTHIS at TGE on June 15th.
+      </p>
+
+      <!-- Stats strip -->
+      <div class="stats-strip">
+        <div class="stat-item">
+          <span class="stat-value accent" id="statParticipants">—</span>
+          <span class="stat-label">Participants</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-value" id="statPoints">—</span>
+          <span class="stat-label">Points distributed</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-value accent">5,000,000</span>
+          <span class="stat-label">ZENTHIS pool</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-value" id="statDays">—</span>
+          <span class="stat-label">Days to TGE</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── MAIN CONTENT ─── -->
+  <main>
+    <div class="container">
+
+      <!-- Early bird banner -->
+      <div class="early-bird-banner" id="earlyBirdBanner">
+        <div class="early-bird-icon">⚡</div>
+        <div class="early-bird-text">
+          <h4>Early Bird Bonus active</h4>
+          <p>First 1,000 wallets earn +100 bonus points on top of every action.</p>
+        </div>
+        <div class="early-bird-count">
+          <span id="earlyBirdLeft">—</span>
+          <small>spots left</small>
+        </div>
+      </div>
+
+      <!-- Connect wall (shown when not connected) -->
+      <div id="connectCard" class="card">
+        <h2>Connect your wallet to claim your spot</h2>
+        <p>Your wallet address is your airdrop identity. No email required. Points are tracked on-chain after TGE.</p>
+        <button class="btn-connect" id="connectBtn" onclick="connectWallet()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2"/><path d="M1 10h22"/></svg>
+          Connect MetaMask
+        </button>
+        <p class="connect-note">Only MetaMask supported in this version · WalletConnect coming soon</p>
+      </div>
+
+      <!-- Dashboard grid (shown when connected) -->
+      <div class="main-grid" id="dashboardGrid" style="display:none">
+
+        <!-- Dashboard card -->
+        <div class="card" id="dashboardCard">
+          <div class="card-title"><span class="icon">⬡</span> Your Airdrop Dashboard</div>
+
+          <div id="tierBadge" class="tier-badge tier-bronze">🥉 Bronze Tier</div>
+
+          <div class="points-display">
+            <div class="points-number" id="userPoints">0</div>
+            <div class="points-label">Total Points</div>
+          </div>
+
+          <div class="dashboard-meta">
+            <div class="meta-item">
+              <span class="meta-value" id="userRank">#—</span>
+              <span class="meta-label">Leaderboard rank</span>
+            </div>
+            <div class="meta-item">
+              <span class="meta-value" id="userReferrals">0</span>
+              <span class="meta-label">Referrals</span>
+            </div>
+            <div class="meta-item">
+              <span class="meta-value" id="userEarlyBird">—</span>
+              <span class="meta-label">Early bird</span>
+            </div>
+          </div>
+
+          <div class="allocation-bar">
+            <span class="alloc-label">Estimated allocation</span>
+            <span class="alloc-value" id="userEstimate">— ZENTHIS</span>
+          </div>
+        </div>
+
+        <!-- Actions card -->
+        <div class="card" id="actionsCard">
+          <div class="card-title"><span class="icon">🎯</span> Earn More Points</div>
+          <div class="action-list">
+
+            <div class="action-row done" id="actionJoined">
+              <div class="action-check">✓</div>
+              <div class="action-info">
+                <div class="action-name">Connect wallet</div>
+                <div class="action-desc">Claim your airdrop spot</div>
+              </div>
+              <div class="action-pts">+100 pts</div>
+              <button class="action-btn" disabled>Done ✓</button>
+            </div>
+
+            <div class="action-row" id="actionWhitelist">
+              <div class="action-check"></div>
+              <div class="action-info">
+                <div class="action-name">Join the whitelist</div>
+                <div class="action-desc">Complete Twitter + email on the main site</div>
+              </div>
+              <div class="action-pts">+200 pts</div>
+              <button class="action-btn" onclick="doWhitelistAction()">Go →</button>
+            </div>
+
+            <div class="action-row" id="actionTweet">
+              <div class="action-check"></div>
+              <div class="action-info">
+                <div class="action-name">Post on Twitter / X</div>
+                <div class="action-desc">Tweet about Zenthis with #ZenthisIDO</div>
+              </div>
+              <div class="action-pts">+150 pts</div>
+              <button class="action-btn" id="tweetBtn" onclick="doTweetAction()">Tweet →</button>
+            </div>
+
+            <div class="action-row" id="actionReferral">
+              <div class="action-check"></div>
+              <div class="action-info">
+                <div class="action-name">Refer a friend</div>
+                <div class="action-desc">+300 pts per friend who connects wallet</div>
+              </div>
+              <div class="action-pts">+300/ref</div>
+              <button class="action-btn" onclick="scrollToRef()">Share →</button>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- Referral card -->
+        <div class="card" id="referralCard" style="grid-column: 1 / -1;">
+          <div class="card-title"><span class="icon">🔗</span> Your Referral Link</div>
+          <div class="ref-link-box">
+            <span class="ref-link-text" id="refLinkText">—</span>
+            <button class="btn-copy" id="copyBtn" onclick="copyRefLink()">Copy</button>
+          </div>
+
+          <button class="ref-share-btn" id="shareTwitterBtn" onclick="shareOnTwitter()">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.746l7.73-8.835L1.254 2.25H8.08l4.253 5.622zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+            Share on X / Twitter
+          </button>
+
+          <div class="ref-stats">
+            <div class="ref-stat">
+              <span class="ref-stat-value" id="refCount">0</span>
+              <span class="ref-stat-label">Friends joined</span>
+            </div>
+            <div class="ref-stat">
+              <span class="ref-stat-value" id="refPoints">0</span>
+              <span class="ref-stat-label">Points earned</span>
+            </div>
+            <div class="ref-stat">
+              <span class="ref-stat-value" id="refCode">—</span>
+              <span class="ref-stat-label">Your code</span>
+            </div>
+          </div>
+        </div>
+
+      </div><!-- /dashboardGrid -->
+
+      <!-- ─── HOW IT WORKS ─── -->
+      <div class="how-section">
+        <div class="section-header">
+          <h2 class="section-title">How to earn points</h2>
+          <span class="section-sub">Points → ZENTHIS at TGE</span>
+        </div>
+        <div class="how-grid">
+          <div class="how-card">
+            <div class="how-icon">🔌</div>
+            <div class="how-pts">+100</div>
+            <div class="how-title">Connect wallet</div>
+            <div class="how-desc">Join the airdrop with your MetaMask address</div>
+          </div>
+          <div class="how-card">
+            <div class="how-icon">📋</div>
+            <div class="how-pts">+200</div>
+            <div class="how-title">Join whitelist</div>
+            <div class="how-desc">Complete Twitter + email on the main site</div>
+          </div>
+          <div class="how-card">
+            <div class="how-icon">🐦</div>
+            <div class="how-pts">+150</div>
+            <div class="how-title">Tweet #ZenthisIDO</div>
+            <div class="how-desc">Share Zenthis with your followers</div>
+          </div>
+          <div class="how-card">
+            <div class="how-icon">👥</div>
+            <div class="how-pts">+300</div>
+            <div class="how-title">Refer friends</div>
+            <div class="how-desc">Earn 300 pts per wallet that joins via your link</div>
+          </div>
+          <div class="how-card">
+            <div class="how-icon">⚡</div>
+            <div class="how-pts">+100</div>
+            <div class="how-title">Early bird</div>
+            <div class="how-desc">Bonus for the first 1,000 wallets to join</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ─── TIERS ─── -->
+      <div class="how-section">
+        <div class="section-header">
+          <h2 class="section-title">Allocation tiers</h2>
+          <span class="section-sub">Based on final points at TGE</span>
+        </div>
+        <div class="how-grid">
+          <div class="how-card">
+            <div class="how-icon">🥉</div>
+            <div class="how-pts" style="color:#d97706">Bronze</div>
+            <div class="how-title">100–299 pts</div>
+            <div class="how-desc">50–149 ZENTHIS guaranteed</div>
+          </div>
+          <div class="how-card">
+            <div class="how-icon">🥈</div>
+            <div class="how-pts" style="color:#cbd5e1">Silver</div>
+            <div class="how-title">300–599 pts</div>
+            <div class="how-desc">150–299 ZENTHIS guaranteed</div>
+          </div>
+          <div class="how-card">
+            <div class="how-icon">🥇</div>
+            <div class="how-pts" style="color:#fbbf24">Gold</div>
+            <div class="how-title">600–999 pts</div>
+            <div class="how-desc">300–499 ZENTHIS guaranteed</div>
+          </div>
+          <div class="how-card" style="border-color:rgba(6,182,212,.25)">
+            <div class="how-icon">💎</div>
+            <div class="how-pts" style="color:#22d3ee">Diamond</div>
+            <div class="how-title">1000+ pts</div>
+            <div class="how-desc">500+ ZENTHIS — top leaderboard bonus</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ─── LEADERBOARD ─── -->
+      <div class="leaderboard-section">
+        <div class="section-header">
+          <h2 class="section-title">🏆 Leaderboard</h2>
+          <span class="section-sub">Top 20 wallets by points</span>
+        </div>
+
+        <div class="leaderboard-table">
+          <div class="lb-header">
+            <span>#</span>
+            <span>Wallet</span>
+            <span>Tier</span>
+            <span style="text-align:center">Referrals</span>
+            <span style="text-align:right">Points</span>
+          </div>
+          <div id="leaderboardBody">
+            <div class="lb-loading">Loading leaderboard…</div>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /container -->
+  </main>
+
+  <!-- ─── FOOTER ─── -->
+  <footer class="footer">
+    <p>⬡ Zenthis Foundation · IDO June 15, 2026 · 5M ZENTHIS airdrop pool · Distribution at TGE</p>
+  </footer>
+
+  <!-- Points pop animation element -->
+  <div class="pts-pop" id="ptsPop"></div>
+
+  <!-- ─── SCRIPTS ─── -->
+  <script type="module" src="js/airdrop.js"></script>
+
+</body>
+</html>
