@@ -234,7 +234,7 @@ window.scrollToRef = function () {
 
 // ─── Referral link helpers ────────────────────────────────────────────────────
 function buildRefLink(refCode) {
-  return `https://zenthis-app.web.app/airdrop.html?ref=${refCode}`;
+  return `https://zenthisprotocol.xyz/airdrop.html?ref=${refCode}`;
 }
 
 window.copyRefLink = function () {

@@ -22,7 +22,7 @@
 
 ### Bio (160 chars)
 ```
-Unified cross-chain liquidity. Swap between blockchains in 3–5s. No bridges. No custodians. 0.10% flat fee. 🔥 IDO June 15th → zenthis-app.web.app
+Unified cross-chain liquidity. Swap between blockchains in 3–5s. No bridges. No custodians. 0.10% flat fee. 🔥 IDO June 15th → zenthisprotocol.xyz
 ```
 
 ### Header / Banner
@@ -41,9 +41,9 @@ Cross-chain swaps in 3–5s. No bridges. No custodians. 0.10% fee.
 ✅ Open-source contracts (48 tests)
 ✅ Demo live now
 ✅ Audit before mainnet
-🔥 IDO: June 15 · zenthis-app.web.app
+🔥 IDO: June 15 · zenthisprotocol.xyz
 
-zenthis-app.web.app
+zenthisprotocol.xyz
 
 #DeFi #CrossChain #ZenthisIDO
 ```
@@ -126,14 +126,14 @@ Sustainable by design.
 ```
 IDO: June 15, 2026
 
-→ zenthis-app.web.app (direct IDO)
+→ zenthisprotocol.xyz (direct IDO)
 
 Whitelist members get:
 ⚡ Priority allocation
 🎁 Airdrop boost
 🔓 Early LP vault access (3× rewards — first 30 days)
 
-Join now → zenthis-app.web.app
+Join now → zenthisprotocol.xyz
 ```
 
 **Tweet 8/8** (~239 chars ✓)
@@ -146,7 +146,7 @@ Open-source. Pre-audit. Honest.
 
 June 15th. ⬡
 
-zenthis-app.web.app/whitepaper.html
+zenthisprotocol.xyz/whitepaper.html
 
 #ZenthisIDO #DeFi #CrossChain
 ```
@@ -168,7 +168,7 @@ zenthis-app.web.app/whitepaper.html
 
 ⚡ First 1,000 = Early Bird bonus
 
-zenthis-app.web.app/airdrop.html
+zenthisprotocol.xyz/airdrop.html
 
 #ZenthisIDO #Airdrop #DeFi
 ```
@@ -190,7 +190,7 @@ Here's exactly how the points system works 👇
 ```
 Step 1: Connect your wallet.
 
-→ zenthis-app.web.app/airdrop.html
+→ zenthisprotocol.xyz/airdrop.html
 
 Click "Connect MetaMask." Done.
 
@@ -235,7 +235,7 @@ IDO is June 15. Points snapshot before TGE.
 
 The longer you wait, the more Early Bird spots fill up. ⚡
 
-→ zenthis-app.web.app/airdrop.html
+→ zenthisprotocol.xyz/airdrop.html
 
 #ZenthisIDO #Airdrop
 ```
@@ -252,7 +252,7 @@ Spots are filling fast.
 
 Connect your wallet →
 
-zenthis-app.web.app/airdrop.html
+zenthisprotocol.xyz/airdrop.html
 
 #ZenthisIDO #Airdrop
 ```
@@ -270,7 +270,7 @@ Zenthis Airdrop tiers:
 
 Diamond is reachable with 3 referrals.
 
-zenthis-app.web.app/airdrop.html
+zenthisprotocol.xyz/airdrop.html
 
 #ZenthisIDO
 ```
@@ -289,7 +289,7 @@ Your link is unique. Your rewards are permanent.
 
 Get yours →
 
-zenthis-app.web.app/airdrop.html
+zenthisprotocol.xyz/airdrop.html
 
 #ZenthisIDO #Airdrop
 ```
@@ -306,7 +306,7 @@ You can still climb — connect your wallet and start earning points today.
 
 Each referral = +300 pts. Invite 3 friends = Gold.
 
-zenthis-app.web.app/airdrop.html
+zenthisprotocol.xyz/airdrop.html
 
 #ZenthisIDO
 ```
@@ -327,7 +327,7 @@ Each friend you refer → +300 more.
 
 5 referrals = Diamond. 💎
 
-zenthis-app.web.app/airdrop.html
+zenthisprotocol.xyz/airdrop.html
 ```
 
 ---
@@ -346,7 +346,7 @@ Top wallet: 💎 Diamond tier
 
 Still time to earn more →
 
-zenthis-app.web.app/airdrop.html
+zenthisprotocol.xyz/airdrop.html
 
 #ZenthisIDO
 ```
@@ -365,7 +365,7 @@ If you haven't connected your wallet yet, this is your last week.
 
 It takes 2 minutes →
 
-zenthis-app.web.app/airdrop.html
+zenthisprotocol.xyz/airdrop.html
 
 #ZenthisIDO #LastChance
 ```
@@ -382,7 +382,7 @@ If not, you have until June 14.
 
 Check your rank →
 
-zenthis-app.web.app/airdrop.html
+zenthisprotocol.xyz/airdrop.html
 
 #ZenthisIDO
 ```
@@ -417,7 +417,7 @@ zenthis-app.web.app/airdrop.html
 | D+21 | May 25 | ⏱️ Countdown | **21 days** — "3 semanas para el IDO" |
 | D+22 | May 26 | 📊 Airdrop | **Mid-campaign update** con datos reales de participantes |
 | D+23 | May 27 | 🔥 Token | Burn mechanics — deflación automática |
-| D+24 | May 28 | 🧵 Thread | Cómo participar en el IDO: guía paso a paso (zenthis-app.web.app) |
+| D+24 | May 28 | 🧵 Thread | Cómo participar en el IDO: guía paso a paso (zenthisprotocol.xyz) |
 | D+25 | May 29 | 🔗 Airdrop | Referral push — "invite 1 friend = +300 pts" |
 | D+26 | May 30 | 🏛️ Fundación | Swiss Foundation — por qué importa la estructura legal |
 | D+27 | May 31 | 📅 Milestone | "Last day of May. 15 days to IDO." |
@@ -427,7 +427,7 @@ zenthis-app.web.app/airdrop.html
 | D+31 | Jun 4 | ⬡ Staking | Staking mechanics — cómo funciona el fee share |
 | D+32 | Jun 5 | 📅 Countdown | **10 days to IDO** — urgencia máxima |
 | D+33 | Jun 6 | 📊 Airdrop | "Leaderboard final — top wallets" — nombres visibles |
-| D+34 | Jun 7 | 🚀 IDO | IDO guide — cómo comprar ZENTHIS en zenthis-app.web.app |
+| D+34 | Jun 7 | 🚀 IDO | IDO guide — cómo comprar ZENTHIS en zenthisprotocol.xyz |
 | D+35 | Jun 8 | ⏰ Airdrop | **Última semana** — "7 days, snapshot coming" |
 | D+36 | Jun 9 | 📅 Countdown | **"One week."** — tweet minimalista |
 | D+37 | Jun 10 | 🔧 Protocolo | HTLC animation / diagrama visual de un swap |
@@ -435,7 +435,7 @@ zenthis-app.web.app/airdrop.html
 | D+39 | Jun 12 | 💬 Comunidad | "3 days. Thank you for building this with us." |
 | D+40 | Jun 13 | ⚡ Final | **"48 hours."** ⬡ |
 | D+41 | Jun 14 | 🌙 Eve | **"Tomorrow."** ⬡ |
-| D+42 | Jun 15 | 🔥 IDO LIVE | **IDO LIVE** — link directo zenthis-app.web.app + celebración |
+| D+42 | Jun 15 | 🔥 IDO LIVE | **IDO LIVE** — link directo zenthisprotocol.xyz + celebración |
 
 ---
 
@@ -481,7 +481,7 @@ Just math, cryptography, and 0.10%.
 
 ⬡ Airdrop still open — connect your wallet.
 
-zenthis-app.web.app/airdrop.html
+zenthisprotocol.xyz/airdrop.html
 
 #ZenthisIDO
 ```
@@ -496,7 +496,7 @@ If you haven't joined the airdrop yet, this is your last real chance.
 
 Takes 2 minutes →
 
-zenthis-app.web.app/airdrop.html
+zenthisprotocol.xyz/airdrop.html
 
 #ZenthisIDO #Airdrop
 ```
@@ -521,7 +521,7 @@ Tomorrow.
 
 ZENTHIS is now available.
 
-→ zenthis-app.web.app
+→ zenthisprotocol.xyz
 
 Cross-chain liquidity without bridges starts today.
 
@@ -560,7 +560,7 @@ Thank you for building this with us.
 
 ❓ SUPPORT
   #faq                  — preguntas frecuentes
-  #ido-support          — help con el IDO (zenthis-app.web.app)
+  #ido-support          — help con el IDO (zenthisprotocol.xyz)
   #wallet-help          — support técnico wallets
 ```
 
@@ -572,8 +572,8 @@ We're building unified cross-chain liquidity —
 swap between blockchains in 3–5 seconds, no bridges, no custodians.
 
 🗓️ IDO: June 15, 2026
-🌐 Website: zenthis-app.web.app
-📄 Whitepaper: zenthis-app.web.app/whitepaper.html
+🌐 Website: zenthisprotocol.xyz
+📄 Whitepaper: zenthisprotocol.xyz/whitepaper.html
 💻 GitHub: github.com/marcostrobo/zenthis-protocol
 🐦 Twitter: @zenthis_io
 
@@ -592,7 +592,7 @@ Questions about the IDO? → #ido-support
 **Bio:**
 ```
 ⬡ Unified Cross-Chain Liquidity. No bridges. 3–5s settlement.
-🔥 IDO: June 15, 2026 → zenthis-app.web.app
+🔥 IDO: June 15, 2026 → zenthisprotocol.xyz
 ```
 
 ### Primer mensaje del canal
@@ -603,13 +603,13 @@ Welcome to the official Zenthis Telegram.
 
 → What we're building: cross-chain swaps in 3–5 seconds, no bridges, no custodians, 0.10% flat fee.
 → Smart contracts: open-source on GitHub (48 tests passing)
-→ IDO: June 15th · zenthis-app.web.app
+→ IDO: June 15th · zenthisprotocol.xyz
 → Audit: scheduled before mainnet
 
-Join the whitelist for priority allocation: zenthis-app.web.app
+Join the whitelist for priority allocation: zenthisprotocol.xyz
 
-🌐 Website: zenthis-app.web.app
-📄 Whitepaper: zenthis-app.web.app/whitepaper.html
+🌐 Website: zenthisprotocol.xyz
+📄 Whitepaper: zenthisprotocol.xyz/whitepaper.html
 💻 Code: github.com/marcostrobo/zenthis-protocol
 🐦 Twitter: @zenthis_io
 💬 Discord: discord.gg/AThqNfav
@@ -633,7 +633,7 @@ More updates coming. Stay tuned. ⬡
 5. The Token (staking, burn, governance)
 6. The Roadmap + IDO
 
-**CTA final:** *"Join the whitelist at zenthis-app.web.app — IDO opens June 15th."*
+**CTA final:** *"Join the whitelist at zenthisprotocol.xyz — IDO opens June 15th."*
 
 ---
 
@@ -672,9 +672,9 @@ El ángulo de "build in public with AI" — honesto, diferenciador, actual.
 - [x] Twitter creado: @zenthis_io
 - [x] Telegram creado: @zenthisprotocol
 - [x] GitHub publicado: marcostrobo/zenthis-protocol
-- [x] Website live: zenthis-app.web.app
-- [x] Demo app live: zenthis-app.web.app/app.html
-- [x] Whitepaper publicado: zenthis-app.web.app/whitepaper.html
+- [x] Website live: zenthisprotocol.xyz
+- [x] Demo app live: zenthisprotocol.xyz/app.html
+- [x] Whitepaper publicado: zenthisprotocol.xyz/whitepaper.html
 - [ ] Discord creado: discord.gg/AThqNfav
 - [ ] Medium creado: medium.com/@zenthis
 - [ ] Admin panel verificado (habilitar Anonymous Auth en Firebase)

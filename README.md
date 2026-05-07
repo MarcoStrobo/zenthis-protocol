@@ -4,9 +4,9 @@
 
 Zenthis enables atomic swaps between blockchains in 3–5 seconds — no bridges, no custodians, 0.10% flat fee.
 
-🌐 **Live site:** https://zenthis-app.web.app  
-📄 **Whitepaper:** https://zenthis-app.web.app/whitepaper.html  
-🎁 **Airdrop:** https://zenthis-app.web.app/airdrop.html  
+🌐 **Live site:** https://zenthisprotocol.xyz  
+📄 **Whitepaper:** https://zenthisprotocol.xyz/whitepaper.html  
+🎁 **Airdrop:** https://zenthisprotocol.xyz/airdrop.html  
 🐦 **Twitter:** [@zenthis_io](https://twitter.com/zenthis_io)
 
 ---
@@ -29,8 +29,9 @@ This repository contains the full source code of the Zenthis frontend:
 |----------|---------|
 | ZENTHIS (ERC-20) | [`0xb6F7e54736C5a354989280c32b797c104A3Bf2bb`](https://sepolia.etherscan.io/address/0xb6F7e54736C5a354989280c32b797c104A3Bf2bb) |
 | HTLCVault | [`0xB6E30987957ff7354373486594E4E78F67AA50B1`](https://sepolia.etherscan.io/address/0xB6E30987957ff7354373486594E4E78F67AA50B1) |
+| ZenthisVesting | [`0x96824ECC271D7D4DB464220A085110778341dBFb`](https://sepolia.etherscan.io/address/0x96824ECC271D7D4DB464220A085110778341dBFb) |
 
-48 unit tests passing. Mainnet contracts will be deployed after the independent security audit.
+103 unit tests passing. Security audit completed (2026-05) — all High and Medium findings resolved before mainnet.
 
 ---
 
@@ -42,7 +43,7 @@ This repository contains the full source code of the Zenthis frontend:
 - **Hard cap:** $2,500,000
 - **FDV at TGE:** $10,000,000
 
-Join the whitelist: https://zenthis-app.web.app/#buy
+Join the whitelist: https://zenthisprotocol.xyz/#buy
 
 ---
 
@@ -52,7 +53,7 @@ Always verify you are on the official domain before connecting your wallet or se
 
 | Channel | URL |
 |---------|-----|
-| Website | https://zenthis-app.web.app |
+| Website | https://zenthisprotocol.xyz |
 | Twitter | https://twitter.com/zenthis_io |
 | Telegram | https://t.me/zenthisprotocol |
 | Discord | https://discord.gg/AThqNfav |
