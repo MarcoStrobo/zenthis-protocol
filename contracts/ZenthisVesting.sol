@@ -17,9 +17,9 @@ import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
  * │ Seed                 │  15 M   │     0 %    │  6 mo  │ 24 months              │
  * │ IDO                  │  25 M   │    20 %    │  0 mo  │ 18 months (on 80%)     │
  * │ Liquidity & Reserves │  25 M   │    14 %    │  0 mo  │ 48 months (on 86%)     │
- * │ Team                 │  20 M   │     0 %    │ 12 mo  │ 36 months              │
- * │ Treasury             │  10 M   │    15 %    │  0 mo  │ 48 months (on 85%)     │
- * │ Airdrops             │   5 M   │   100 %    │   —    │ —                      │
+ * │ Team                 │  10 M   │     0 %    │ 12 mo  │ 36 months              │
+ * │ Treasury             │  20 M   │    15 %    │  0 mo  │ 48 months (on 85%)     │
+ * │ Airdrops             │  10 M   │   100 %    │   —    │ —                      │
  * └──────────────────────┴─────────┴────────────┴────────┴────────────────────────┘
  *
  * Each schedule is identified by a bytes32 key (use the public constants).
