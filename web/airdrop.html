@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Zenthis Testnet Airdrop — 5,000,000 ZENTHIS for Early Users</title>
+  <meta name="description" content="5,000,000 ZENTHIS reserved for early community members who test the Zenthis protocol on Sepolia testnet before IDO." />
+  <link rel="icon" type="image/png" href="assets/favicon.png" />
+  <meta property="og:title" content="Zenthis Testnet Airdrop — 5,000,000 ZENTHIS" />
+  <meta property="og:description" content="No points farming. No wallet tricks. Use Zenthis on Sepolia testnet and earn eligibility for the TGE airdrop." />
+  <meta property="og:image" content="https://zenthisprotocol.xyz/assets/og-airdrop.png" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:site" content="@zenthis_io" />
+  <meta name="twitter:image" content="https://zenthisprotocol.xyz/assets/og-airdrop.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Space+Grotesk:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg:       #07070f;
+      --surface:  #0f0f1a;
+      --border:   rgba(255,255,255,0.08);
+      --accent:   #7c3aed;
+      --accent2:  #06b6d4;
+      --text:     #e2e8f0;
+      --muted:    #94a3b8;
+      --green:    #10b981;
+      --yellow:   #f59e0b;
+    }
+    html { scroll-behavior: smooth; }
+    body { background: var(--bg); color: var(--text); font-family: 'Inter', sans-serif; font-size: 16px; line-height: 1.6; }
+
+    /* ── Navbar ── */
+    .navbar { position: sticky; top: 0; z-index: 100; background: rgba(7,7,15,0.92); backdrop-filter: blur(12px); border-bottom: 1px solid var(--border); }
+    .nav-inner { max-width: 1100px; margin: 0 auto; padding: 0 24px; height: 64px; display: flex; align-items: center; justify-content: space-between; }
+    .logo { display: flex; align-items: center; gap: 8px; text-decoration: none; color: var(--text); font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 1.1rem; }
+    .logo-icon { font-size: 1.4rem; color: var(--accent); }
+    .nav-links-right { display: flex; align-items: center; gap: 16px; }
+    .nav-back { color: var(--muted); text-decoration: none; font-size: 0.9rem; }
+    .nav-back:hover { color: var(--text); }
+    .btn-primary { background: var(--accent); color: #fff; padding: 10px 22px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 0.9rem; transition: opacity 0.15s; }
+    .btn-primary:hover { opacity: 0.85; }
+    .btn-outline { border: 1px solid var(--border); color: var(--text); padding: 10px 22px; border-radius: 8px; text-decoration: none; font-weight: 500; font-size: 0.9rem; transition: border-color 0.15s; }
+    .btn-outline:hover { border-color: var(--accent); color: var(--accent); }
+
+    /* ── Hero ── */
+    .hero { padding: 80px 24px 60px; text-align: center; position: relative; overflow: hidden; }
+    .hero::before { content: ''; position: absolute; inset: 0; background: radial-gradient(ellipse 60% 40% at 50% 0%, rgba(124,58,237,0.18) 0%, transparent 70%); pointer-events: none; }
+    .hero-badge { display: inline-flex; align-items: center; gap: 8px; background: rgba(16,185,129,0.12); border: 1px solid rgba(16,185,129,0.3); color: var(--green); padding: 6px 16px; border-radius: 50px; font-size: 0.82rem; font-weight: 600; margin-bottom: 28px; }
+    .badge-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green); animation: pulse 2s infinite; }
+    @keyframes pulse { 0%,100%{opacity:1}50%{opacity:0.4} }
+    .hero h1 { font-family: 'Space Grotesk', sans-serif; font-size: clamp(2.2rem, 5vw, 3.4rem); font-weight: 800; line-height: 1.1; margin-bottom: 20px; }
+    .gradient-text { background: linear-gradient(135deg, var(--accent), var(--accent2)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+    .hero-sub { max-width: 600px; margin: 0 auto 36px; color: var(--muted); font-size: 1.1rem; }
+
+    /* ── Pool banner ── */
+    .pool-banner { display: inline-flex; align-items: center; gap: 12px; background: rgba(124,58,237,0.1); border: 1px solid rgba(124,58,237,0.3); border-radius: 16px; padding: 18px 32px; font-size: 1rem; margin-bottom: 48px; }
+    .pool-number { font-family: 'Space Grotesk', sans-serif; font-size: 2rem; font-weight: 800; color: var(--accent); }
+    .pool-label { color: var(--muted); font-size: 0.9rem; }
+
+    /* ── Honest disclaimer box ── */
+    .honest-box { max-width: 700px; margin: 0 auto 64px; background: rgba(16,185,129,0.06); border: 1px solid rgba(16,185,129,0.25); border-radius: 14px; padding: 24px 28px; display: flex; gap: 16px; align-items: flex-start; text-align: left; }
+    .honest-icon { font-size: 1.5rem; flex-shrink: 0; margin-top: 2px; }
+    .honest-title { font-weight: 700; color: var(--green); margin-bottom: 6px; }
+    .honest-text { color: var(--muted); font-size: 0.92rem; line-height: 1.6; }
+
+    /* ── Section ── */
+    .section { max-width: 1000px; margin: 0 auto; padding: 0 24px 80px; }
+    .section-tag { display: inline-block; color: var(--accent); font-size: 0.78rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; background: rgba(124,58,237,0.1); border: 1px solid rgba(124,58,237,0.25); border-radius: 4px; padding: 4px 10px; margin-bottom: 12px; }
+    .section-title { font-family: 'Space Grotesk', sans-serif; font-size: 1.9rem; font-weight: 700; margin-bottom: 12px; }
+    .section-sub { color: var(--muted); max-width: 580px; margin-bottom: 40px; }
+
+    /* ── Steps ── */
+    .steps { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 20px; }
+    .step-card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 28px 24px; position: relative; }
+    .step-num { width: 36px; height: 36px; border-radius: 50%; background: linear-gradient(135deg, var(--accent), var(--accent2)); color: #fff; font-weight: 700; font-size: 0.95rem; display: flex; align-items: center; justify-content: center; margin-bottom: 16px; }
+    .step-title { font-weight: 700; font-size: 1rem; margin-bottom: 8px; }
+    .step-text { color: var(--muted); font-size: 0.9rem; line-height: 1.55; }
+    .step-link { display: inline-block; margin-top: 12px; color: var(--accent); font-size: 0.88rem; text-decoration: none; font-weight: 600; }
+    .step-link:hover { text-decoration: underline; }
+    .step-tag { display: inline-block; margin-top: 10px; font-size: 0.78rem; font-family: 'JetBrains Mono', monospace; background: rgba(6,182,212,0.1); color: var(--accent2); border: 1px solid rgba(6,182,212,0.2); border-radius: 4px; padding: 3px 8px; }
+
+    /* ── Criteria table ── */
+    .criteria-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; }
+    .criteria-card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 22px 20px; display: flex; gap: 14px; align-items: flex-start; }
+    .criteria-icon { font-size: 1.4rem; flex-shrink: 0; }
+    .criteria-title { font-weight: 700; font-size: 0.95rem; margin-bottom: 4px; }
+    .criteria-desc { color: var(--muted); font-size: 0.87rem; }
+    .criteria-bonus { display: inline-block; margin-top: 6px; font-size: 0.78rem; font-weight: 700; color: var(--green); background: rgba(16,185,129,0.1); border: 1px solid rgba(16,185,129,0.2); border-radius: 4px; padding: 2px 8px; }
+
+    /* ── Registration form ── */
+    .reg-card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 36px 32px; max-width: 560px; }
+    .reg-title { font-family: 'Space Grotesk', sans-serif; font-size: 1.3rem; font-weight: 700; margin-bottom: 8px; }
+    .reg-sub { color: var(--muted); font-size: 0.9rem; margin-bottom: 24px; }
+    .form-group { margin-bottom: 20px; }
+    .form-label { display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 6px; color: var(--muted); }
+    .form-input { width: 100%; background: rgba(255,255,255,0.04); border: 1px solid var(--border); color: var(--text); border-radius: 10px; padding: 12px 14px; font-family: 'JetBrains Mono', monospace; font-size: 0.88rem; outline: none; transition: border-color 0.15s; }
+    .form-input:focus { border-color: var(--accent); }
+    .form-input::placeholder { color: rgba(148,163,184,0.5); }
+    .form-hint { font-size: 0.8rem; color: var(--muted); margin-top: 5px; }
+    .btn-submit { width: 100%; background: var(--accent); color: #fff; border: none; border-radius: 10px; padding: 14px; font-size: 1rem; font-weight: 700; cursor: pointer; transition: opacity 0.15s; font-family: 'Inter', sans-serif; }
+    .btn-submit:hover { opacity: 0.85; }
+    .form-disclaimer { font-size: 0.78rem; color: var(--muted); margin-top: 12px; text-align: center; }
+    .form-success { display: none; text-align: center; padding: 28px; }
+    .form-success-icon { font-size: 2.5rem; margin-bottom: 12px; }
+    .form-success h3 { font-weight: 700; margin-bottom: 8px; }
+    .form-success p { color: var(--muted); font-size: 0.9rem; }
+
+    /* ── Timeline ── */
+    .timeline { display: flex; flex-direction: column; gap: 0; position: relative; padding-left: 32px; }
+    .timeline::before { content: ''; position: absolute; left: 11px; top: 12px; bottom: 12px; width: 2px; background: var(--border); }
+    .tl-item { position: relative; padding: 0 0 32px 24px; }
+    .tl-dot { position: absolute; left: -32px; top: 3px; width: 22px; height: 22px; border-radius: 50%; background: var(--surface); border: 2px solid var(--border); display: flex; align-items: center; justify-content: center; font-size: 0.65rem; font-weight: 700; }
+    .tl-dot.active { border-color: var(--green); color: var(--green); background: rgba(16,185,129,0.1); }
+    .tl-dot.upcoming { border-color: var(--accent); color: var(--accent); background: rgba(124,58,237,0.1); }
+    .tl-date { font-size: 0.78rem; font-family: 'JetBrains Mono', monospace; color: var(--muted); margin-bottom: 4px; }
+    .tl-title { font-weight: 700; margin-bottom: 4px; }
+    .tl-desc { color: var(--muted); font-size: 0.88rem; }
+
+    /* ── FAQ ── */
+    .faq-list { display: flex; flex-direction: column; gap: 12px; max-width: 700px; }
+    .faq-item { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+    .faq-q { padding: 18px 20px; font-weight: 600; cursor: pointer; display: flex; justify-content: space-between; align-items: center; user-select: none; }
+    .faq-q:hover { background: rgba(255,255,255,0.03); }
+    .faq-arrow { color: var(--muted); transition: transform 0.2s; font-size: 0.8rem; }
+    .faq-a { padding: 0 20px 18px; color: var(--muted); font-size: 0.92rem; line-height: 1.6; }
+
+    /* ── Footer ── */
+    .footer { border-top: 1px solid var(--border); padding: 32px 24px; text-align: center; color: var(--muted); font-size: 0.85rem; }
+    .footer a { color: var(--accent); text-decoration: none; }
+    .footer a:hover { text-decoration: underline; }
+
+    @media(max-width:640px){
+      .hero h1 { font-size: 2rem; }
+      .pool-banner { flex-direction: column; gap: 6px; text-align: center; }
+      .reg-card { padding: 24px 20px; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ─── NAVBAR ─── -->
+  <nav class="navbar">
+    <div class="nav-inner">
+      <a class="logo" href="index.html">
+        <span class="logo-icon">⬡</span>
+        <span class="logo-text">Zenthis</span>
+      </a>
+      <div class="nav-links-right">
+        <a href="index.html" class="nav-back">← Back to site</a>
+        <a href="index.html#buy" class="btn-primary">Join IDO</a>
+      </div>
+    </div>
+  </nav>
+
+  <!-- ─── HERO ─── -->
+  <section class="hero">
+    <div class="hero-badge">
+      <span class="badge-dot"></span>
+      Testnet live on Sepolia · IDO June 15, 2026
+    </div>
+    <h1>
+      Earn <span class="gradient-text">5,000,000 ZENTHIS</span><br/>
+      by testing the real protocol.
+    </h1>
+    <p class="hero-sub">
+      No points farming. No social media tasks. Eligibility is earned by
+      using Zenthis on Sepolia testnet — actual cross-chain swaps, real product.
+    </p>
+
+    <div class="pool-banner">
+      <div>
+        <div class="pool-number">5,000,000</div>
+        <div class="pool-label">ZENTHIS airdrop pool · 5% of total supply</div>
+      </div>
+    </div>
+
+    <div class="honest-box">
+      <div class="honest-icon">✅</div>
+      <div>
+        <div class="honest-title">Why we do it differently</div>
+        <div class="honest-text">
+          Most crypto airdrops reward wallet connections and social farming — a system that attracts bots,
+          Sybil attacks, and zero real users. Zenthis rewards people who actually test the protocol.
+          If you use Zenthis on Sepolia testnet before TGE, you are a real early user and you deserve a real allocation.
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── HOW TO QUALIFY ─── -->
+  <section class="section">
+    <div class="section-tag">How to qualify</div>
+    <h2 class="section-title">3 steps to earn your allocation</h2>
+    <p class="section-sub">All you need is a wallet and some Sepolia test ETH (free). No real money involved.</p>
+
+    <div class="steps">
+
+      <div class="step-card">
+        <div class="step-num">1</div>
+        <div class="step-title">Get Sepolia test ETH</div>
+        <div class="step-text">
+          Sepolia is Ethereum's public testnet. Test ETH is free and has no real value.
+          Use any of the faucets below to get some:
+        </div>
+        <a href="https://sepoliafaucet.com" target="_blank" rel="noopener" class="step-link">sepoliafaucet.com ↗</a><br/>
+        <a href="https://faucet.quicknode.com/ethereum/sepolia" target="_blank" rel="noopener" class="step-link">QuickNode faucet ↗</a>
+        <div class="step-tag">Sepolia · Chain ID 11155111</div>
+      </div>
+
+      <div class="step-card">
+        <div class="step-num">2</div>
+        <div class="step-title">Execute at least one testnet swap</div>
+        <div class="step-text">
+          Go to the Zenthis testnet app and complete a cross-chain swap. Your wallet address
+          is automatically recorded on-chain. Minimum: 1 swap. More activity = higher allocation tier.
+        </div>
+        <a href="app.html" class="step-link">Launch testnet app →</a>
+        <div class="step-tag">app.zenthisprotocol.xyz · Sepolia</div>
+      </div>
+
+      <div class="step-card">
+        <div class="step-num">3</div>
+        <div class="step-title">Register your mainnet address</div>
+        <div class="step-text">
+          Submit the wallet address you will use to receive ZENTHIS on mainnet at TGE.
+          This can be the same as your testnet address or a different one.
+          Snapshot is taken at IDO close (June 10, 2026).
+        </div>
+        <a href="#register" class="step-link">Register below ↓</a>
+        <div class="step-tag">Deadline: June 10, 2026</div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ─── ALLOCATION CRITERIA ─── -->
+  <section class="section" style="padding-top:0">
+    <div class="section-tag">Allocation tiers</div>
+    <h2 class="section-title">More usage = larger allocation</h2>
+    <p class="section-sub">The 5M ZENTHIS pool is distributed pro-rata based on on-chain testnet activity.</p>
+
+    <div class="criteria-grid">
+
+      <div class="criteria-card">
+        <div class="criteria-icon">🌱</div>
+        <div>
+          <div class="criteria-title">Tier 1 — Tester</div>
+          <div class="criteria-desc">Complete 1–4 testnet swaps across any supported chains.</div>
+          <div class="criteria-bonus">Base allocation</div>
+        </div>
+      </div>
+
+      <div class="criteria-card">
+        <div class="criteria-icon">⚡</div>
+        <div>
+          <div class="criteria-title">Tier 2 — Power User</div>
+          <div class="criteria-desc">Complete 5–19 swaps or add liquidity to a testnet pool.</div>
+          <div class="criteria-bonus">2× base allocation</div>
+        </div>
+      </div>
+
+      <div class="criteria-card">
+        <div class="criteria-icon">🔬</div>
+        <div>
+          <div class="criteria-title">Tier 3 — Protocol Explorer</div>
+          <div class="criteria-desc">Complete 20+ swaps, use multiple chains, and interact with the HTLC contracts directly.</div>
+          <div class="criteria-bonus">5× base allocation</div>
+        </div>
+      </div>
+
+      <div class="criteria-card">
+        <div class="criteria-icon">🐛</div>
+        <div>
+          <div class="criteria-title">Bug Reporter</div>
+          <div class="criteria-desc">Report a valid bug or security issue via GitHub Issues with reproducible steps.</div>
+          <div class="criteria-bonus">Up to 50,000 ZENTHIS bonus</div>
+        </div>
+      </div>
+
+      <div class="criteria-card">
+        <div class="criteria-icon">🏗️</div>
+        <div>
+          <div class="criteria-title">LP Provider</div>
+          <div class="criteria-desc">Provide testnet liquidity to any Zenthis pool for at least 7 days.</div>
+          <div class="criteria-bonus">3× base allocation</div>
+        </div>
+      </div>
+
+      <div class="criteria-card">
+        <div class="criteria-icon">📝</div>
+        <div>
+          <div class="criteria-title">Feedback Contributor</div>
+          <div class="criteria-desc">Submit structured feedback via Discord #testnet-feedback with UI/UX or technical observations.</div>
+          <div class="criteria-bonus">1.5× base allocation</div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ─── REGISTER ─── -->
+  <section class="section" id="register" style="padding-top:0">
+    <div class="section-tag">Step 3</div>
+    <h2 class="section-title">Register your mainnet address</h2>
+    <p class="section-sub">Submit the Ethereum address where you want to receive your ZENTHIS allocation at TGE (June 15, 2026).</p>
+
+    <div class="reg-card">
+      <div id="regForm">
+        <div class="reg-title">Airdrop Registration</div>
+        <div class="reg-sub">We only store your addresses. No email, no social login, no wallet signature required.</div>
+
+        <form onsubmit="submitRegistration(event)">
+          <div class="form-group">
+            <label class="form-label" for="testnetAddr">Sepolia testnet address (used to verify activity)</label>
+            <input class="form-input" type="text" id="testnetAddr"
+              placeholder="0x..." autocomplete="off" required
+              pattern="^0x[0-9a-fA-F]{40}$" title="Valid Ethereum address starting with 0x" />
+            <div class="form-hint">The address you used on the Zenthis Sepolia testnet app.</div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="mainnetAddr">Mainnet receiving address (where ZENTHIS will be sent)</label>
+            <input class="form-input" type="text" id="mainnetAddr"
+              placeholder="0x..." autocomplete="off" required
+              pattern="^0x[0-9a-fA-F]{40}$" title="Valid Ethereum address starting with 0x" />
+            <div class="form-hint">Can be the same as your testnet address or a hardware wallet.</div>
+          </div>
+
+          <button type="submit" class="btn-submit">Register for Airdrop</button>
+          <div class="form-disclaimer">
+            We verify testnet activity on-chain before the snapshot. Addresses with 0 testnet transactions are excluded automatically.
+          </div>
+        </form>
+      </div>
+
+      <div class="form-success" id="regSuccess">
+        <div class="form-success-icon">✅</div>
+        <h3>You're registered</h3>
+        <p>We'll verify your testnet activity before the snapshot on June 10, 2026.<br/>
+        Questions? Join <a href="https://t.me/zenthisprotocol" target="_blank" rel="noopener">Telegram</a> or
+        <a href="https://discord.gg/zenthis" target="_blank" rel="noopener">Discord</a>.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── TIMELINE ─── -->
+  <section class="section" style="padding-top:0">
+    <div class="section-tag">Timeline</div>
+    <h2 class="section-title">Key dates</h2>
+    <p class="section-sub" style="margin-bottom:32px">Everything you need to know before June 15th.</p>
+
+    <div class="timeline">
+      <div class="tl-item">
+        <div class="tl-dot active">✓</div>
+        <div class="tl-date">May 2026</div>
+        <div class="tl-title">Testnet live on Sepolia</div>
+        <div class="tl-desc">ZenthisHTLC contracts deployed on Sepolia. Testnet app available at app.zenthisprotocol.xyz. Start testing and accumulate activity.</div>
+      </div>
+      <div class="tl-item">
+        <div class="tl-dot upcoming">◎</div>
+        <div class="tl-date">May 15, 2026</div>
+        <div class="tl-title">IDO presale opens on PinkSale</div>
+        <div class="tl-desc">Public token sale opens. 25M ZENTHIS at $0.10. Softcap $500K, hardcap $2.5M. Link published on zenthisprotocol.xyz.</div>
+      </div>
+      <div class="tl-item">
+        <div class="tl-dot upcoming">◎</div>
+        <div class="tl-date">June 10, 2026</div>
+        <div class="tl-title">Airdrop snapshot & registration closes</div>
+        <div class="tl-desc">On-chain activity snapshot taken. Registration for testnet airdrop closes. No late entries accepted.</div>
+      </div>
+      <div class="tl-item">
+        <div class="tl-dot upcoming">◎</div>
+        <div class="tl-date">June 15, 2026 — TGE</div>
+        <div class="tl-title">Token Generation Event</div>
+        <div class="tl-desc">ZENTHIS distributed to IDO buyers and airdrop recipients. Uniswap V2 listing. Protocol goes live on mainnet.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── FAQ ─── -->
+  <section class="section" style="padding-top:0">
+    <div class="section-tag">FAQ</div>
+    <h2 class="section-title">Questions</h2>
+
+    <div class="faq-list">
+
+      <div class="faq-item">
+        <div class="faq-q" onclick="toggleFaq(this)">Do I need to pay anything to participate? <span class="faq-arrow">▾</span></div>
+        <div class="faq-a" style="display:none">No. Testnet ETH is free from any Sepolia faucet. You only need gas to interact with the testnet, and Sepolia gas is free.</div>
+      </div>
+
+      <div class="faq-item">
+        <div class="faq-q" onclick="toggleFaq(this)">How is my testnet activity verified? <span class="faq-arrow">▾</span></div>
+        <div class="faq-a" style="display:none">The ZenthisHTLC contract on Sepolia emits events for every swap. We index these on-chain events before the snapshot. Your testnet address must have at least one confirmed transaction with the Zenthis contract.</div>
+      </div>
+
+      <div class="faq-item">
+        <div class="faq-q" onclick="toggleFaq(this)">Can I use any wallet? <span class="faq-arrow">▾</span></div>
+        <div class="faq-a" style="display:none">Yes. Any EVM-compatible wallet works on Sepolia testnet: MetaMask, Rabby, Coinbase Wallet, hardware wallets via MetaMask, etc. For receiving the airdrop on mainnet, we recommend a hardware wallet for security.</div>
+      </div>
+
+      <div class="faq-item">
+        <div class="faq-q" onclick="toggleFaq(this)">Is the airdrop contract audited? <span class="faq-arrow">▾</span></div>
+        <div class="faq-a" style="display:none">The ZENTHIS token and HTLC contracts are published on GitHub. An external audit is scheduled before mainnet deployment. The audit report will be published on zenthisprotocol.xyz before TGE.</div>
+      </div>
+
+      <div class="faq-item">
+        <div class="faq-q" onclick="toggleFaq(this)">What if I registered but had no testnet transactions? <span class="faq-arrow">▾</span></div>
+        <div class="faq-a" style="display:none">Registrations without any on-chain testnet activity are excluded from the airdrop automatically. You must complete at least one swap on the Sepolia testnet app before June 10, 2026.</div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ─── FOOTER ─── -->
+  <footer class="footer">
+    <p style="margin-bottom:8px">
+      <a href="index.html">zenthisprotocol.xyz</a> ·
+      <a href="whitepaper.html">Whitepaper</a> ·
+      <a href="https://twitter.com/zenthis_io" target="_blank" rel="noopener">Twitter/X</a> ·
+      <a href="https://t.me/zenthisprotocol" target="_blank" rel="noopener">Telegram</a> ·
+      <a href="https://discord.gg/zenthis" target="_blank" rel="noopener">Discord</a>
+    </p>
+    <p>© 2026 Zenthis Protocol · zenthisprotocol.xyz · Not financial advice.</p>
+  </footer>
+
+  <script>
+    function toggleFaq(el) {
+      const answer = el.nextElementSibling;
+      const arrow  = el.querySelector('.faq-arrow');
+      const open   = answer.style.display !== 'none';
+      answer.style.display = open ? 'none' : 'block';
+      arrow.style.transform = open ? 'rotate(0deg)' : 'rotate(180deg)';
+    }
+
+    function submitRegistration(e) {
+      e.preventDefault();
+      const testnet = document.getElementById('testnetAddr').value.trim();
+      const mainnet = document.getElementById('mainnetAddr').value.trim();
+      if (!/^0x[0-9a-fA-F]{40}$/.test(testnet) || !/^0x[0-9a-fA-F]{40}$/.test(mainnet)) {
+        alert('Please enter valid Ethereum addresses (0x followed by 40 hex characters).');
+        return;
+      }
+      // Store locally — backend integration to be added when deploying
+      const reg = JSON.parse(localStorage.getItem('zenthis_registration') || '{}');
+      reg.testnet  = testnet;
+      reg.mainnet  = mainnet;
+      reg.ts       = Date.now();
+      localStorage.setItem('zenthis_registration', JSON.stringify(reg));
+      document.getElementById('regForm').style.display    = 'none';
+      document.getElementById('regSuccess').style.display = 'block';
+    }
+
+    // Pre-fill if already registered
+    window.addEventListener('DOMContentLoaded', () => {
+      const reg = JSON.parse(localStorage.getItem('zenthis_registration') || '{}');
+      if (reg.testnet) {
+        document.getElementById('regForm').style.display    = 'none';
+        document.getElementById('regSuccess').style.display = 'block';
+      }
+    });
+  </script>
+
+</body>
+</html>

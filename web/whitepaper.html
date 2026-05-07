@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Zenthis Whitepaper v2.3 — Unified Cross-Chain Liquidity</title>
+  <meta name="description" content="Zenthis Whitepaper v2.3. Full technical specification of the cross-chain atomic settlement protocol, tokenomics, and security model." />
+  <link rel="icon" type="image/png" sizes="1024x1024" href="assets/favicon.png" />
+  <link rel="apple-touch-icon" href="assets/favicon.png" />
+  <meta property="og:image" content="https://zenthisprotocol.xyz/assets/og-image.png" />
+  <meta name="twitter:image" content="https://zenthisprotocol.xyz/assets/og-image.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Space+Grotesk:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/whitepaper.css" />
+</head>
+<body>
+
+  <!-- ─── TOP BAR ─── -->
+  <header class="wp-topbar">
+    <a class="wp-logo" href="index.html">
+      <span class="wp-logo-icon">⬡</span>
+      <span>Zenthis</span>
+    </a>
+    <div class="wp-meta">
+      <span class="wp-version">Whitepaper v2.3</span>
+      <span class="wp-dot">·</span>
+      <span class="wp-date">Published May 2026</span>
+    </div>
+    <div class="wp-actions">
+      <button class="wp-btn-outline" onclick="window.print()">Print / PDF</button>
+      <a class="wp-btn-outline" href="app.html">⚡ Try App</a>
+      <a class="wp-btn-primary" href="index.html#buy">Join IDO</a>
+    </div>
+  </header>
+
+  <div class="wp-layout">
+
+    <!-- ─── SIDEBAR TOC ─── -->
+    <aside class="wp-sidebar" id="wpSidebar">
+      <div class="toc-label">Contents</div>
+      <nav class="toc">
+        <a class="toc-link" href="#abstract">Abstract</a>
+        <a class="toc-link" href="#problem">1. The Problem</a>
+        <a class="toc-link toc-sub" href="#problem-bridges">1.1 The Bridge Trap</a>
+        <a class="toc-link toc-sub" href="#problem-fragmentation">1.2 Liquidity Fragmentation</a>
+        <a class="toc-link" href="#solution">2. The Zenthis Solution</a>
+        <a class="toc-link toc-sub" href="#solution-overview">2.1 Overview</a>
+        <a class="toc-link toc-sub" href="#solution-htlc">2.2 Atomic Swaps via HTLC</a>
+        <a class="toc-link toc-sub" href="#solution-validators">2.3 Validator Network</a>
+        <a class="toc-link toc-sub" href="#solution-orderbook">2.4 Virtual Order Book</a>
+        <a class="toc-link" href="#competitive">3. Competitive Analysis</a>
+        <a class="toc-link toc-sub" href="#valuation-context">3.1 Valuation Context</a>
+        <a class="toc-link" href="#tokenomics">4. Token Economics</a>
+        <a class="toc-link toc-sub" href="#token-utility">4.1 Token Utility</a>
+        <a class="toc-link toc-sub" href="#token-distribution">4.2 IDO Parameters &amp; Distribution</a>
+        <a class="toc-link toc-sub" href="#token-burn">4.3 Deflationary Mechanics</a>
+        <a class="toc-link" href="#security">5. Security Model</a>
+        <a class="toc-link toc-sub" href="#security-audits">5.1 Audits</a>
+        <a class="toc-link toc-sub" href="#security-multisig">5.2 Upgrade Governance</a>
+        <a class="toc-link" href="#lp">6. Liquidity Providers</a>
+        <a class="toc-link toc-sub" href="#lp-stable">6.1 Stable Mode</a>
+        <a class="toc-link toc-sub" href="#lp-dynamic">6.2 Dynamic Mode</a>
+        <a class="toc-link" href="#roadmap-wp">7. Roadmap</a>
+        <a class="toc-link" href="#team-wp">8. Team</a>
+        <a class="toc-link" href="#disclaimer">Disclaimer</a>
+      </nav>
+      <div class="toc-footer">
+        <a href="index.html" class="toc-back">← Back to site</a>
+      </div>
+    </aside>
+
+    <!-- ─── MAIN CONTENT ─── -->
+    <main class="wp-main">
+
+      <!-- COVER -->
+      <div class="wp-cover">
+        <div class="cover-hex">⬡</div>
+        <h1 class="cover-title">Zenthis Protocol</h1>
+        <p class="cover-subtitle">Unified Cross-Chain Liquidity Without Bridges</p>
+        <div class="cover-meta">
+          <span>Whitepaper v2.3</span>
+          <span>·</span>
+          <span>May 2026</span>
+          <span>·</span>
+          <span>MarcoStrobo &amp; AI</span>
+        </div>
+      </div>
+
+      <!-- ABSTRACT -->
+      <section id="abstract">
+        <h2 class="wp-h2">Abstract</h2>
+        <p class="wp-lead">
+          Zenthis is a non-custodial, cross-chain liquidity protocol that enables atomic swaps between heterogeneous blockchains in 3–5 seconds without relying on centralized bridges or trusted intermediaries. By combining Hash Time-Locked Contracts (HTLCs), a lightweight decentralized validator network, and a unified virtual order book, Zenthis eliminates the capital inefficiency and security risks endemic to the current bridge-based cross-chain ecosystem.
+        </p>
+        <p>
+          The ZENTHIS token provides governance rights, staking rewards from protocol fees, and participates in a deflationary burn mechanism tied to swap volume. Total supply is capped at 100 million tokens with zero inflation after Year 1.
+        </p>
+        <div class="wp-callout">
+          <strong>Key design properties:</strong> (1) Cross-chain settlement target: 3–5 seconds. (2) Zero bridge custodians — atomic by construction. (3) 0.10% flat fee. (4) Independent security audit scheduled pre-mainnet. (5) Open whitepaper — community review welcome.
+        </div>
+      </section>
+
+      <hr class="wp-divider" />
+
+      <!-- 1. THE PROBLEM -->
+      <section id="problem">
+        <h2 class="wp-h2">1. The Problem</h2>
+        <p>
+          The multi-chain ecosystem has grown rapidly, but interoperability has not kept pace. As of 2026, over $180 billion in on-chain value is distributed across more than 50 EVM and non-EVM networks. Moving value between these networks remains slow, expensive, and dangerous.
+        </p>
+
+        <h3 class="wp-h3" id="problem-bridges">1.1 The Bridge Trap</h3>
+        <p>
+          The dominant approach to cross-chain value transfer relies on <strong>lock-and-mint bridges</strong>: a user locks an asset on chain A, and a smart contract on chain B mints a synthetic representation. This architecture introduces systemic risks:
+        </p>
+        <ul class="wp-list">
+          <li><strong>Custodial risk:</strong> bridge contracts hold enormous concentrated liquidity, making them high-value attack targets. Over $2.5 billion was stolen from bridge exploits in 2022 alone (Ronin: $625M, Wormhole: $320M, Nomad: $190M).</li>
+          <li><strong>Latency:</strong> finality requirements across heterogeneous chains introduce 15–45 minute settlement windows in most production bridges.</li>
+          <li><strong>Fee stacking:</strong> users pay gas on the origin chain, bridge fees, and gas on the destination chain — often totaling 0.5–1.5% of transaction value.</li>
+          <li><strong>Wrapped asset risk:</strong> synthetic tokens (wBTC, bridged USDC) are only as secure as the bridge contract that minted them.</li>
+        </ul>
+
+        <h3 class="wp-h3" id="problem-fragmentation">1.2 Liquidity Fragmentation</h3>
+        <p>
+          Beyond bridge security, liquidity fragmentation compounds capital inefficiency. The same asset (e.g., USDC) exists in separate pools across every chain, each with its own depth. A swap on Arbitrum cannot access liquidity sitting idle on Avalanche. This fragmentation leads to:
+        </p>
+        <ul class="wp-list">
+          <li>Higher slippage for large trades on any single chain</li>
+          <li>Arbitrage inefficiencies requiring capital-intensive cross-chain bots</li>
+          <li>LP capital underutilization — much of the TVL locked in DeFi is inaccessible at the moment it is most needed</li>
+        </ul>
+        <div class="wp-figure">
+          <div class="figure-diagram fragmentation-diagram">
+            <div class="fd-chain">ETH<br/><span>$45B</span></div>
+            <div class="fd-chain">ARB<br/><span>$8B</span></div>
+            <div class="fd-chain">SOL<br/><span>$12B</span></div>
+            <div class="fd-chain">BNB<br/><span>$6B</span></div>
+            <div class="fd-chain">AVAX<br/><span>$3B</span></div>
+          </div>
+          <p class="figure-caption">Fig. 1 — Liquidity siloed across chains. Each island operates independently with no shared order flow.</p>
+        </div>
+      </section>
+
+      <hr class="wp-divider" />
+
+      <!-- 2. SOLUTION -->
+      <section id="solution">
+        <h2 class="wp-h2">2. The Zenthis Solution</h2>
+
+        <h3 class="wp-h3" id="solution-overview">2.1 Overview</h3>
+        <p>
+          Zenthis replaces the lock-and-mint bridge model with a <strong>cross-chain atomic settlement protocol</strong>. No synthetic tokens are minted. No central custodian holds user funds. Settlement is atomic — both legs of a swap complete simultaneously, or neither does.
+        </p>
+        <p>
+          The protocol has three core components: Hash Time-Locked Contracts (HTLCs) for atomic execution, a decentralized validator network for cross-chain coordination, and a unified virtual order book that aggregates liquidity across all supported chains.
+        </p>
+
+        <h3 class="wp-h3" id="solution-htlc">2.2 Atomic Swaps via HTLC</h3>
+        <p>
+          A Hash Time-Locked Contract is a conditional payment where funds are released only upon presentation of a cryptographic secret (hash preimage) within a defined time window. Zenthis uses HTLCs on both the source and destination chains to guarantee atomicity:
+        </p>
+        <div class="wp-steps">
+          <div class="wp-step">
+            <span class="step-n">1</span>
+            <div>
+              <strong>Initiation:</strong> User submits swap intent. Zenthis router computes the optimal path and generates a secret <code>s</code> with hash <code>H = hash(s)</code>.
+            </div>
+          </div>
+          <div class="wp-step">
+            <span class="step-n">2</span>
+            <div>
+              <strong>Lock on source:</strong> User locks funds in an HTLC on chain A, claimable by the LP on chain B who reveals <code>s</code> within timelock <code>T</code>.
+            </div>
+          </div>
+          <div class="wp-step">
+            <span class="step-n">3</span>
+            <div>
+              <strong>Lock on destination:</strong> LP locks the equivalent output amount on chain B in a corresponding HTLC, claimable by the user with the same <code>s</code>.
+            </div>
+          </div>
+          <div class="wp-step">
+            <span class="step-n">4</span>
+            <div>
+              <strong>Settlement:</strong> Validators broadcast <code>s</code>. Both contracts unlock simultaneously. User receives output on chain B; LP claims input on chain A.
+            </div>
+          </div>
+          <div class="wp-step">
+            <span class="step-n">5</span>
+            <div>
+              <strong>Timeout fallback:</strong> If settlement does not occur within <code>T</code>, both HTLCs refund to their respective depositors. No funds are lost.
+            </div>
+          </div>
+        </div>
+        <div class="wp-callout callout-info">
+          <strong>Atomicity guarantee:</strong> Because both contracts share the same hash lock, it is cryptographically impossible for one side to settle without the other. This eliminates the custodial risk inherent in bridge architectures.
+        </div>
+
+        <h3 class="wp-h3" id="solution-validators">2.3 Validator Network</h3>
+        <p>
+          The Zenthis Validator Network (ZVN) is a permissioned-entry, slashing-based consensus layer responsible for broadcasting secret preimages and monitoring HTLC state across all supported chains. Validators must:
+        </p>
+        <ul class="wp-list">
+          <li>Stake a minimum of <strong>50,000 ZENTHIS</strong> as collateral (slashable on malicious behavior)</li>
+          <li>Maintain full nodes for each supported chain</li>
+          <li>Achieve ≥99.5% uptime over rolling 30-day periods</li>
+          <li>Participate in the lightweight BFT consensus protocol used to confirm cross-chain state</li>
+        </ul>
+        <p>
+          In Phase 1, ZVN launches with 21 validators. The set expands to 50+ in Phase 2 and becomes fully permissionless in Phase 3 subject to governance approval.
+        </p>
+
+        <h3 class="wp-h3" id="solution-orderbook">2.4 Unified Virtual Order Book</h3>
+        <p>
+          Zenthis aggregates liquidity from all supported chains into a single virtual order book. When a user submits a swap, the router:
+        </p>
+        <ol class="wp-list wp-list-ol">
+          <li>Queries available liquidity across all chains for the requested token pair</li>
+          <li>Computes the optimal fill path to minimize slippage (may split across multiple chains/LPs)</li>
+          <li>Executes the atomic settlement with the selected LP(s)</li>
+        </ol>
+        <p>
+          This architecture allows a $5M USDC→ETH swap to draw liquidity from Arbitrum, Optimism, and Polygon simultaneously, dramatically reducing price impact compared to any single-chain AMM.
+        </p>
+      </section>
+
+      <hr class="wp-divider" />
+
+      <!-- 3. COMPETITIVE -->
+      <section id="competitive">
+        <h2 class="wp-h2">3. Competitive Analysis</h2>
+        <p>
+          Zenthis occupies a unique position in the cross-chain landscape. It is not a messaging protocol, not a bridge, and not a single-chain DEX. It is the first full-stack, non-custodial, cross-chain liquidity settlement protocol.
+        </p>
+        <div class="wp-table-wrap">
+          <table class="wp-table">
+            <thead>
+              <tr>
+                <th>Feature</th>
+                <th class="highlight-col">Zenthis</th>
+                <th>Thorchain</th>
+                <th>LayerZero</th>
+                <th>Stargate</th>
+                <th>Traditional Bridges</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr><td>Settlement time</td><td class="highlight-col"><strong>3–5s</strong></td><td>1–2 min</td><td>Variable</td><td>~15s</td><td>15–45 min</td></tr>
+              <tr><td>Custodial risk</td><td class="highlight-col"><strong>None</strong></td><td>Low</td><td>Medium</td><td>Medium</td><td>High</td></tr>
+              <tr><td>Native liquidity routing</td><td class="highlight-col"><strong>Yes</strong></td><td>Yes</td><td>No</td><td>Partial</td><td>No</td></tr>
+              <tr><td>EVM + non-EVM</td><td class="highlight-col"><strong>Yes</strong></td><td>Partial</td><td>Partial</td><td>EVM only</td><td>Varies</td></tr>
+              <tr><td>Oracle dependency</td><td class="highlight-col"><strong>None</strong></td><td>Churning</td><td>Relayers</td><td>Oracles</td><td>Varies</td></tr>
+              <tr><td>Flat fee</td><td class="highlight-col"><strong>0.10%</strong></td><td>0.30%+</td><td>Variable</td><td>0.06%+</td><td>0.5–1.5%</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="wp-caption">Table 1 — Feature comparison of major cross-chain protocols as of Q2 2026.</p>
+
+        <h3 class="wp-h3" id="valuation-context">3.1 Valuation Context</h3>
+        <p>
+          The table below contextualises Zenthis's launch valuation against established cross-chain protocols. All FDV figures are approximate and sourced from public market data. They are provided for orientation only — past valuations of other projects are not indicative of future performance for any token.
+        </p>
+        <div class="wp-table-wrap">
+          <table class="wp-table">
+            <thead>
+              <tr>
+                <th>Protocol</th>
+                <th>Category</th>
+                <th>Total Supply</th>
+                <th>TGE FDV (approx.)</th>
+                <th>ATH FDV (approx.)</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr><td>THORChain (RUNE)</td><td>Native cross-chain DEX</td><td>500M</td><td>~$150M</td><td>~$6.2B</td></tr>
+              <tr><td>LayerZero (ZRO)</td><td>Cross-chain messaging</td><td>1,000M</td><td>~$1,700M</td><td>~$3,500M</td></tr>
+              <tr><td>Stargate (STG)</td><td>Cross-chain liquidity</td><td>1,000M</td><td>~$800M</td><td>~$2,100M</td></tr>
+              <tr><td>Synapse (SYN)</td><td>Cross-chain bridge</td><td>250M</td><td>~$350M</td><td>~$1,300M</td></tr>
+              <tr><td>Across (ACX)</td><td>Optimistic bridge</td><td>1,000M</td><td>~$120M</td><td>~$450M</td></tr>
+              <tr class="highlight-row"><td><strong>Zenthis (ZENTHIS)</strong></td><td><strong>Atomic swap DEX</strong></td><td><strong>100M</strong></td><td><strong>$10M</strong></td><td><strong>—</strong></td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="wp-caption">Table 2 — Approximate FDV at TGE and historical ATH for comparable cross-chain protocols. Sources: CoinGecko, CoinMarketCap. Past performance is not indicative of future results. Not financial advice.</p>
+        <div class="wp-callout callout-warning">
+          <strong>Disclaimer:</strong> This comparison is provided for informational context only. Differences in supply, unlock schedules, market conditions, and protocol maturity make direct comparisons imprecise. This does not constitute investment advice or a guarantee of returns.
+        </div>
+      </section>
+
+      <hr class="wp-divider" />
+
+      <!-- 4. TOKENOMICS -->
+      <section id="tokenomics">
+        <h2 class="wp-h2">4. Token Economics</h2>
+
+        <h3 class="wp-h3" id="token-utility">4.1 Token Utility</h3>
+        <p>The ZENTHIS token serves three core functions within the protocol:</p>
+        <div class="wp-utility-grid">
+          <div class="utility-card">
+            <div class="utility-icon">⬡</div>
+            <h4>Staking &amp; Fee Share</h4>
+            <p>Stakers receive a pro-rata share of the <strong>0.10% protocol fee</strong> on every swap. Fee distribution occurs in real time per block.</p>
+          </div>
+          <div class="utility-card">
+            <div class="utility-icon">🔥</div>
+            <h4>Deflationary Burn</h4>
+            <p>A protocol-controlled buy-back-and-burn mechanism uses a fixed percentage of fee revenue to permanently remove ZENTHIS from circulation.</p>
+          </div>
+          <div class="utility-card">
+            <div class="utility-icon">⚖</div>
+            <h4>On-chain Governance</h4>
+            <p>ZENTHIS holders vote on supported chains, fee parameters, validator set changes, treasury allocation, and protocol upgrades.</p>
+          </div>
+        </div>
+
+        <h3 class="wp-h3" id="token-distribution">4.2 IDO Parameters &amp; Distribution</h3>
+
+        <div class="ido-metrics-grid">
+          <div class="ido-metric">
+            <span class="ido-metric-label">IDO Price</span>
+            <span class="ido-metric-value">$0.10 <small>USDC</small></span>
+          </div>
+          <div class="ido-metric">
+            <span class="ido-metric-label">Seed Price</span>
+            <span class="ido-metric-value">$0.04 <small>USDC</small></span>
+          </div>
+          <div class="ido-metric">
+            <span class="ido-metric-label">Hard Cap</span>
+            <span class="ido-metric-value">$2,500,000</span>
+          </div>
+          <div class="ido-metric">
+            <span class="ido-metric-label">Soft Cap</span>
+            <span class="ido-metric-value">$500,000</span>
+          </div>
+          <div class="ido-metric">
+            <span class="ido-metric-label">FDV at TGE</span>
+            <span class="ido-metric-value">$10,000,000</span>
+          </div>
+          <div class="ido-metric">
+            <span class="ido-metric-label">Mkt Cap at TGE</span>
+            <span class="ido-metric-value">$1,500,000</span>
+          </div>
+          <div class="ido-metric">
+            <span class="ido-metric-label">Circulating at TGE</span>
+            <span class="ido-metric-value">15,000,000 <small>(15%)</small></span>
+          </div>
+          <div class="ido-metric">
+            <span class="ido-metric-label">Total Supply</span>
+            <span class="ido-metric-value">100,000,000 <small>fixed</small></span>
+          </div>
+        </div>
+
+        <p style="margin-top:24px">Total supply is hard-capped at <strong>100,000,000 ZENTHIS</strong>. No additional tokens can ever be minted. The table below shows each allocation category, unlock at TGE, cliff period, and full vesting duration.</p>
+        <div class="wp-table-wrap">
+          <table class="wp-table">
+            <thead>
+              <tr><th>Allocation</th><th>Tokens</th><th>%</th><th>Price</th><th>TGE Unlock</th><th>Cliff</th><th>Vesting</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>Seed Round</td><td>15,000,000</td><td>15%</td><td>$0.04</td><td>0%</td><td>6 months</td><td>Monthly linear · 24 months</td></tr>
+              <tr><td>Public Sale (IDO)</td><td>25,000,000</td><td>25%</td><td>$0.10</td><td>20% (5M)</td><td>—</td><td>Monthly linear · 18 months</td></tr>
+              <tr><td>Liquidity Rewards</td><td>25,000,000</td><td>25%</td><td>—</td><td>14% (3.5M)</td><td>—</td><td>Linear emission · 48 months</td></tr>
+              <tr><td>Team &amp; Advisors</td><td>20,000,000</td><td>20%</td><td>—</td><td>0%</td><td>12 months</td><td>Monthly linear · 36 months</td></tr>
+              <tr><td>Treasury &amp; Ecosystem</td><td>10,000,000</td><td>10%</td><td>—</td><td>15% (1.5M)</td><td>—</td><td>Governance-controlled · max 10%/quarter</td></tr>
+              <tr><td>Airdrops</td><td>5,000,000</td><td>5%</td><td>—</td><td>100% (5M)</td><td>—</td><td>Fully unlocked at TGE</td></tr>
+              <tr class="total-row"><td><strong>Total</strong></td><td><strong>100,000,000</strong></td><td><strong>100%</strong></td><td>—</td><td><strong>15M (15%)</strong></td><td>—</td><td>—</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="wp-caption">Table 3 — Token distribution and vesting schedule. TGE date: June 15, 2026.</p>
+
+        <h3 class="wp-h3" id="token-burn">4.3 Deflationary Mechanics</h3>
+        <p>
+          Inflation is zero after Year 1. From TGE onwards, the only change to circulating supply comes from the buy-back-and-burn program. At projected Year 1 volume, we estimate a <strong>2–5% annual reduction</strong> in circulating supply. This rate scales non-linearly with volume growth.
+        </p>
+        <div class="wp-callout callout-info">
+          <strong>Example:</strong> At $500M daily swap volume, protocol fees generate $500,000/day. If 20% is allocated to buybacks, approximately $100,000 of ZENTHIS is burned daily at prevailing market prices.
+        </div>
+      </section>
+
+      <hr class="wp-divider" />
+
+      <!-- 5. SECURITY -->
+      <section id="security">
+        <h2 class="wp-h2">5. Security Model</h2>
+        <p>
+          Zenthis approaches security as a first-class protocol property, not an afterthought. The attack surface of a cross-chain protocol is significantly larger than a single-chain application, and our security architecture reflects this.
+        </p>
+
+        <h3 class="wp-h3" id="security-audits">5.1 Audit Plan &amp; Bug Bounty</h3>
+        <p>
+          Zenthis commits to a full independent security audit of all smart contracts and the validator consensus layer prior to mainnet launch. The audit will cover HTLC contracts, the swap router, cross-chain state logic, and validator slashing conditions. Audit reports will be published in full.
+        </p>
+        <div class="wp-audit-list">
+          <div class="wp-audit-row">
+            <div class="audit-firm" style="color:var(--text-muted)">Independent Firm</div>
+            <div class="audit-scope">Full protocol — HTLC contracts, validator network, consensus layer</div>
+            <div class="audit-status" style="background:rgba(245,158,11,.1);color:#f59e0b;border-color:rgba(245,158,11,.25)">Scheduled</div>
+          </div>
+          <div class="wp-audit-row" style="opacity:.6">
+            <div class="audit-firm" style="color:var(--text-dim)">Immunefi Bug Bounty</div>
+            <div class="audit-scope">Community white-hat program — critical, high, medium severity</div>
+            <div class="audit-status" style="background:rgba(255,255,255,.04);color:var(--text-dim);border-color:var(--border2)">At launch</div>
+          </div>
+        </div>
+        <p>
+          We are a pre-launch protocol and do not claim security track record we have not yet earned. Our commitment is full transparency: audit reports, contract addresses, and bug bounty scope will all be public before any mainnet transaction is processed.
+        </p>
+        <div class="wp-callout" style="margin-top:16px">
+          📂 Smart contracts are public: <a href="https://github.com/marcostrobo/zenthis-protocol" target="_blank" rel="noopener" style="color:var(--purple-l)">github.com/marcostrobo/zenthis-protocol</a> — 48 tests passing.
+        </div>
+
+        <div class="wp-callout" style="margin-top:12px;background:rgba(124,58,237,.06);border-left-color:var(--purple)">
+          🔬 <strong>Sepolia Testnet Deployments</strong><br>
+          <span style="font-size:.85rem;color:var(--text-muted)">Deployed May 2026 · Network: Ethereum Sepolia</span><br><br>
+          <span style="font-family:'Space Mono',monospace;font-size:.8rem">
+            ZENTHIS (ERC-20):<br>
+            <a href="https://sepolia.etherscan.io/address/0xb6F7e54736C5a354989280c32b797c104A3Bf2bb" target="_blank" rel="noopener" style="color:var(--purple-l)">0xb6F7e54736C5a354989280c32b797c104A3Bf2bb</a><br><br>
+            HTLCVault:<br>
+            <a href="https://sepolia.etherscan.io/address/0xB6E30987957ff7354373486594E4E78F67AA50B1" target="_blank" rel="noopener" style="color:var(--purple-l)">0xB6E30987957ff7354373486594E4E78F67AA50B1</a>
+          </span>
+        </div>
+
+        <h3 class="wp-h3" id="security-multisig">5.2 Upgrade Governance</h3>
+        <p>
+          Protocol contracts are currently upgradeable via a <strong>9-of-12 multisig</strong>, controlled by geographically distributed keyholders with no single point of compromise. Key properties:
+        </p>
+        <ul class="wp-list">
+          <li>48-hour timelock on all upgrade proposals — allows community review before execution</li>
+          <li>Emergency pause capability (requires 6/12 signers) for rapid response to incidents</li>
+          <li>Full transition to <strong>on-chain governance via ZENTHIS token</strong> in Phase 3 (2027)</li>
+        </ul>
+        <div class="wp-callout callout-warn">
+          <strong>Note:</strong> The temporary multisig arrangement is a pragmatic safety measure during the early protocol phase. It will be deprecated in favor of full decentralization on the published schedule. The multisig keyholders are publicly committed to this transition.
+        </div>
+      </section>
+
+      <hr class="wp-divider" />
+
+      <!-- 6. LP -->
+      <section id="lp">
+        <h2 class="wp-h2">6. Liquidity Provider Model</h2>
+        <p>
+          Zenthis Liquidity Vaults are fundamentally different from AMM pools. LPs do not provide two-sided liquidity against a pricing curve. Instead, they act as settlement counterparties in the atomic swap protocol, earning fees for facilitating cross-chain settlement.
+        </p>
+
+        <h3 class="wp-h3" id="lp-stable">6.1 Stable Mode</h3>
+        <p>
+          The Stable Vault accepts stablecoins only (USDC, USDT, DAI, FRAX). Because the vault holds assets of near-equivalent value, impermanent loss is virtually zero. LPs earn the base protocol fee share. Estimated APY: <strong>8–15%</strong> at target volume.
+        </p>
+
+        <h3 class="wp-h3" id="lp-dynamic">6.2 Dynamic Mode</h3>
+        <p>
+          The Dynamic Vault accepts volatile assets (ETH, WBTC, MATIC, SOL, etc.). Impermanent loss risk is mitigated via two mechanisms:
+        </p>
+        <ul class="wp-list">
+          <li><strong>Native volatility hedging:</strong> the vault automatically purchases on-chain options to delta-hedge LP positions against large price movements.</li>
+          <li><strong>Enhanced rewards:</strong> Dynamic Mode LPs receive a higher fee share to compensate for residual IL risk after hedging costs.</li>
+        </ul>
+        <p>Estimated APY: <strong>25–60%</strong> depending on asset volatility and protocol volume.</p>
+        <p>
+          Additionally, <strong>5% of all protocol fees</strong> are directed to a protocol-controlled insurance fund. This fund is governed by ZENTHIS holders and can be deployed to cover extraordinary LP losses.
+        </p>
+      </section>
+
+      <hr class="wp-divider" />
+
+      <!-- 7. ROADMAP -->
+      <section id="roadmap-wp">
+        <h2 class="wp-h2">7. Roadmap</h2>
+        <div class="wp-roadmap">
+          <div class="wp-rm-row completed">
+            <div class="wp-rm-period">Q1–Q2 2026</div>
+            <div class="wp-rm-content">
+              <strong>Foundation</strong> — Whitepaper v2.3 published. Protocol architecture fully specified. Testnet swap UI live (wallet connect, live prices, 6 chains). Whitelist system launched. Community building started.
+            </div>
+            <div class="wp-rm-status done">Done</div>
+          </div>
+          <div class="wp-rm-row active">
+            <div class="wp-rm-period">Q2 2026</div>
+            <div class="wp-rm-content">
+              <strong>TGE &amp; Phase 1 Launch</strong> — ZENTHIS IDO on June 15, 2026. 6 chains live. Dynamic Vaults. 3× early LP rewards.
+            </div>
+            <div class="wp-rm-status current">Now</div>
+          </div>
+          <div class="wp-rm-row">
+            <div class="wp-rm-period">Q3–Q4 2026</div>
+            <div class="wp-rm-content">
+              <strong>Phase 2</strong> — Solana, Bitcoin (Rootstock), Base, zkSync, Starknet. Governance v1. Mobile SDK.
+            </div>
+            <div class="wp-rm-status upcoming">Upcoming</div>
+          </div>
+          <div class="wp-rm-row">
+            <div class="wp-rm-period">2027</div>
+            <div class="wp-rm-content">
+              <strong>Phase 3</strong> — Cosmos IBC, Polkadot, full on-chain governance, institutional vaults.
+            </div>
+            <div class="wp-rm-status future">Planned</div>
+          </div>
+        </div>
+      </section>
+
+      <hr class="wp-divider" />
+
+      <!-- 8. TEAM -->
+      <section id="team-wp">
+        <h2 class="wp-h2">8. Team</h2>
+        <div class="wp-team">
+          <div class="wp-team-member">
+            <div class="wp-avatar">MS</div>
+            <div>
+              <div class="wp-member-name">MarcoStrobo <span class="wp-anon-tag">Pseudonymous</span></div>
+              <div class="wp-member-role">Founder &amp; Protocol Architect</div>
+              <p>DeFi builder operating under pseudonym. Designed the cross-chain atomic settlement layer, the unified virtual order book, and the validator slashing economics. Previously contributed to cross-chain messaging protocols and AMM research.</p>
+            </div>
+          </div>
+          <div class="wp-team-member">
+            <div class="wp-avatar wp-avatar-ai">AI</div>
+            <div>
+              <div class="wp-member-name">AI <span class="wp-ai-tag">Co-Builder</span></div>
+              <div class="wp-member-role">AI Co-Builder &amp; Development Partner</div>
+              <p>An AI system co-developing Zenthis alongside MarcoStrobo. Contributions span smart contract architecture, protocol documentation, front-end development, and this whitepaper. Represents a transparent human + AI collaboration model for open-source DeFi.</p>
+            </div>
+          </div>
+        </div>
+        <p>
+          Zenthis operates under the <strong>Zenthis Foundation</strong>, a non-profit entity registered in Switzerland, providing legal oversight and managing the ecosystem treasury under token governance.
+        </p>
+      </section>
+
+      <hr class="wp-divider" />
+
+      <!-- DISCLAIMER -->
+      <section id="disclaimer">
+        <h2 class="wp-h2">Disclaimer</h2>
+        <p class="wp-disclaimer">
+          This whitepaper is provided for informational purposes only and does not constitute financial, investment, legal, or tax advice. Participation in the ZENTHIS token sale involves significant risk, including the potential loss of all invested capital. Cryptocurrency assets are highly volatile and unregulated in many jurisdictions. This document may contain forward-looking statements that involve known and unknown risks and uncertainties. The Zenthis Foundation makes no representations or warranties, express or implied, regarding the accuracy or completeness of the information contained herein. This document does not constitute an offer or solicitation to buy or sell securities in any jurisdiction where such activity is prohibited. Prospective participants should seek independent professional advice before making any investment decision.
+        </p>
+        <p class="wp-disclaimer" style="margin-top:12px">
+          © 2026 Zenthis Foundation. Registered in Switzerland. All rights reserved.
+        </p>
+      </section>
+
+    </main>
+  </div>
+
+  <script src="js/whitepaper.js"></script>
+</body>
+</html>

@@ -1,39 +1,11 @@
 {
   "hosting": {
-    "public": ".",
+    "public": "web",
     "cleanUrls": true,
+    "trailingSlash": false,
     "ignore": [
       "firebase.json",
-      ".firebaserc",
-      ".gitignore",
-      ".git/**",
-      ".claude/**",
-      "node_modules/**",
-      "artifacts/**",
-      "cache/**",
-      "coverage/**",
-      "typechain-types/**",
-      "telegram_bot/**",
-      "contracts/**",
-      "scripts/**",
-      "test/**",
-      "social_media_assets/**",
-      "hardhat.config.js",
-      "package.json",
-      "package-lock.json",
-      "Procfile",
-      "render.yaml",
-      "*.env",
-      "*.env.*",
-      "**/*.py",
-      "**/*.txt",
-      "**/*.cfg",
-      "**/*.exe",
-      "**/*.pyd",
-      "**/*.dll",
-      "**/*.png",
-      "zenthis_logo_profile_*.png",
-      "zenthis_twitter_banner_*.png"
+      ".git/**"
     ]
   }
 }

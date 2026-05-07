@@ -1,36 +1,41 @@
-# Environment & secrets
+# ── Secrets ───────────────────────────────────────────────────────────────
 .env
 .env.*
 
-# Hardhat
+# ── Hardhat build output (generated, never commit) ────────────────────────
 artifacts/
 cache/
-node_modules/
 coverage/
 coverage.json
 typechain-types/
-*.env.*
 
-# Python
+# ── Node dependencies ──────────────────────────────────────────────────────
+node_modules/
+package-lock.json
+
+# ── Python ────────────────────────────────────────────────────────────────
 venv/
 __pycache__/
 *.pyc
 *.pyo
 
-# Firebase local cache
+# ── Firebase local cache ───────────────────────────────────────────────────
 .firebase/
 .firebaserc
 
-# Claude local config
-.claude/
+# ── Local tools (not part of the project) ─────────────────────────────────
+tools/
+deploy_zenthis.bat
+CLAUDE.md
 
-# Raw asset exports (use assets/ folder instead)
-zenthis_logo_profile_*.png
-zenthis_twitter_banner_*.png
-
-# Telegram bot (separate project, not part of web app)
+# ── Telegram bot (has secrets, manage separately) ─────────────────────────
 telegram_bot/
 
-# OS
+# ── Claude config ─────────────────────────────────────────────────────────
+.claude/
+
+# ── OS ────────────────────────────────────────────────────────────────────
 .DS_Store
 Thumbs.db
+Thumbs.db:encryptable
+desktop.ini
