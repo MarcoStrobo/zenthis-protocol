@@ -1,62 +1,108 @@
 # Zenthis Protocol
 
-**Unified cross-chain liquidity without bridges.**
+> Cross-chain atomic swaps with no bridges, no custodians, and no wrapped tokens.
 
-Zenthis enables atomic swaps between blockchains in 3–5 seconds — no bridges, no custodians, 0.10% flat fee.
-
-🌐 **Live site:** https://zenthisprotocol.xyz  
-📄 **Whitepaper:** https://zenthisprotocol.xyz/whitepaper.html  
-🎁 **Airdrop:** https://zenthisprotocol.xyz/airdrop.html  
-🐦 **Twitter:** [@zenthis_io](https://twitter.com/zenthis_io)
+[![License: BUSL-1.1](https://img.shields.io/badge/License-BUSL--1.1-blue.svg)](LICENSE)
+[![Solidity](https://img.shields.io/badge/Solidity-0.8.24-lightgrey)](https://soliditylang.org)
+[![Tests](https://img.shields.io/badge/Tests-119%20passing-brightgreen)](#testing)
 
 ---
 
-## What's in this repo
+## How It Works
 
-This repository contains the full source code of the Zenthis frontend:
+Zenthis uses **Hash Time-Lock Contracts (HTLCs)** to enable trustless cross-chain swaps.
 
-- `index.html` — Main landing page
-- `app.html` — Testnet swap demo (MetaMask, 6 chains, live prices)
-- `airdrop.html` — Airdrop & referral system (5M ZENTHIS pool)
-- `whitepaper.html` — Technical whitepaper v2.3
-- `css/` — Stylesheets
-- `js/` — Frontend logic (ethers.js v6, Firebase)
-- `firestore.rules` — Firestore security rules (data handling transparency)
+1. **Lock** — Initiator locks tokens on Chain A with a cryptographic hashlock + timelock
+2. **Match** — Counterparty locks equivalent tokens on Chain B using the same hash
+3. **Reveal** — Initiator reveals the preimage, both sides settle atomically
+4. **Timeout** — If either side fails, both locks auto-refund. Nobody loses anything.
 
-### Sepolia Testnet Contracts
-
-| Contract | Address |
-|----------|---------|
-| ZENTHIS (ERC-20) | [`0xb6F7e54736C5a354989280c32b797c104A3Bf2bb`](https://sepolia.etherscan.io/address/0xb6F7e54736C5a354989280c32b797c104A3Bf2bb) |
-| HTLCVault | [`0xB6E30987957ff7354373486594E4E78F67AA50B1`](https://sepolia.etherscan.io/address/0xB6E30987957ff7354373486594E4E78F67AA50B1) |
-| ZenthisVesting | [`0x96824ECC271D7D4DB464220A085110778341dBFb`](https://sepolia.etherscan.io/address/0x96824ECC271D7D4DB464220A085110778341dBFb) |
-
-103 unit tests passing. Security audit completed (2026-05) — all High and Medium findings resolved before mainnet.
+No bridge. No wrapped tokens. No custodian. Not even us.
 
 ---
 
-## IDO
+## Contracts
 
-- **Date:** June 15, 2026
-- **Price:** $0.10 USDC per ZENTHIS
-- **Total supply:** 100,000,000 ZENTHIS (fixed, no inflation)
-- **Hard cap:** $2,500,000
-- **FDV at TGE:** $10,000,000
+| Contract | Description |
+|----------|-------------|
+| `ZenthisToken.sol` | ERC-20 with staking, ETH fee distribution, ERC20Votes, ERC20Permit |
+| `ZenthisHTLC.sol` | Cross-chain atomic swap engine (ETH + ERC-20, protocol fees) |
+| `ZenthisVesting.sol` | Multi-schedule linear vesting with cliff and TGE unlock |
 
-Join the whitelist: https://zenthisprotocol.xyz/#buy
+**License:** [BUSL-1.1](LICENSE) — commercial use restricted until 2030-05-07, then GPL-2.0-or-later.
 
 ---
 
-## Official links
+## Tokenomics
 
-Always verify you are on the official domain before connecting your wallet or sending funds.
+| Allocation | Tokens | TGE Unlock | Cliff | Linear Vesting |
+|-----------|--------|-----------|-------|---------------|
+| Seed | 10 M | 0% | 6 mo | 24 months |
+| IDO (Public Sale) | 25 M | 20% | — | 18 months |
+| Liquidity & Reserves | 25 M | 14% | — | 48 months |
+| Team | 10 M | 0% | 12 mo | 36 months |
+| Treasury | 20 M | 15% | — | 48 months |
+| Airdrops | 10 M | 100% | — | — |
+| **Total** | **100 M** | | | |
 
-| Channel | URL |
-|---------|-----|
-| Website | https://zenthisprotocol.xyz |
-| Twitter | https://twitter.com/zenthis_io |
-| Telegram | https://t.me/zenthisprotocol |
-| Discord | https://discord.gg/AThqNfav |
-| GitHub | https://github.com/marcostrobo/zenthis-protocol |
+IDO price: **$0.10 USDC** | Hard cap: **$2,000,000**
 
-> ⚠️ Zenthis has no token live yet. Any token claiming to be ZENTHIS before June 15, 2026 is a scam.
+---
+
+## Development
+
+### Prerequisites
+
+```bash
+node >= 18
+npm install
+cp .env.example .env   # fill in your keys
+```
+
+### Testing
+
+```bash
+npx hardhat test
+# 119 tests passing
+```
+
+### Deploy (Sepolia testnet)
+
+```bash
+npx hardhat run scripts/deploy.js --network sepolia
+```
+
+### Deploy (Mainnet)
+
+```bash
+npx hardhat run scripts/deploy.js --network mainnet
+```
+
+---
+
+## Security
+
+- Contracts are deployed on **Sepolia testnet** — audit in progress before mainnet
+- 119 unit tests across all core contracts
+- ReentrancyGuard on all state-changing functions
+- Pausable (HTLC) for emergency response
+
+> ⚠️ **Unaudited.** Do not use in production until the audit is complete.
+
+---
+
+## Links
+
+- Website: [zenthisprotocol.xyz](https://zenthisprotocol.xyz)
+- Whitepaper: [zenthisprotocol.xyz/whitepaper](https://zenthisprotocol.xyz/whitepaper)
+- Testnet app: [zenthisprotocol.xyz/app](https://zenthisprotocol.xyz/app)
+- Airdrop / Whitelist: [zenthisprotocol.xyz/airdrop](https://zenthisprotocol.xyz/airdrop)
+- Twitter: [@zenthis_io](https://twitter.com/zenthis_io)
+
+---
+
+## License
+
+Copyright © 2026 Zenthis Protocol.  
+Licensed under the [Business Source License 1.1](LICENSE).  
+Commercial use restricted until **2030-05-07**, after which the license converts to GPL-2.0-or-later.

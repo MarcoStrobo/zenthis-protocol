@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.24;
 
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
@@ -14,7 +14,7 @@ import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
  * ┌──────────────────────┬─────────┬────────────┬────────┬────────────────────────┐
  * │ Allocation           │ Tokens  │ TGE Unlock │ Cliff  │ Linear Vesting         │
  * ├──────────────────────┼─────────┼────────────┼────────┼────────────────────────┤
- * │ Seed                 │  15 M   │     0 %    │  6 mo  │ 24 months              │
+ * │ Seed                 │  10 M   │     0 %    │  6 mo  │ 24 months              │
  * │ IDO                  │  25 M   │    20 %    │  0 mo  │ 18 months (on 80%)     │
  * │ Liquidity & Reserves │  25 M   │    14 %    │  0 mo  │ 48 months (on 86%)     │
  * │ Team                 │  10 M   │     0 %    │ 12 mo  │ 36 months              │

@@ -1,41 +1,67 @@
 # ── Secrets ───────────────────────────────────────────────────────────────
 .env
 .env.*
+.env.local
 
-# ── Hardhat build output (generated, never commit) ────────────────────────
+# ── Hardhat build output ───────────────────────────────────────────────────────
 artifacts/
 cache/
 coverage/
 coverage.json
 typechain-types/
 
-# ── Node dependencies ──────────────────────────────────────────────────────
+# ── Node dependencies ──────────────────────────────────────────────────────────
 node_modules/
 package-lock.json
 
-# ── Python ────────────────────────────────────────────────────────────────
+# ── Python ────────────────────────────────────────────────────────────────────
 venv/
 __pycache__/
 *.pyc
-*.pyo
 
-# ── Firebase local cache ───────────────────────────────────────────────────
+# ── Firebase ──────────────────────────────────────────────────────────────────
 .firebase/
 .firebaserc
 
-# ── Local tools (not part of the project) ─────────────────────────────────
+# ── Internal tools & scripts ──────────────────────────────────────────────────
 tools/
-deploy_zenthis.bat
+*.bat
 CLAUDE.md
 
-# ── Telegram bot (has secrets, manage separately) ─────────────────────────
+# ── Marketing / social media (internal use only) ──────────────────────────────
+social_media_posts.md
+social_media_assets/
+
+# ── Operational guides ────────────────────────────────────────────────────────
+PINKSALE_SETUP.md
+
+# ── Test output ───────────────────────────────────────────────────────────────
+test_results.txt
+*.log
+
+# ── Legacy contracts ──────────────────────────────────────────────────────────
+contracts/ZENTHIS.sol
+
+# ── Telegram bot (secrets inside) ─────────────────────────────────────────────
 telegram_bot/
 
-# ── Claude config ─────────────────────────────────────────────────────────
+# ── Web frontend (separate pipeline) ─────────────────────────────────────────
+web/
+
+# ── Image & media assets ──────────────────────────────────────────────────────
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.svg
+*.webp
+*.mp4
+*.mov
+
+# ── Claude config ─────────────────────────────────────────────────────────────
 .claude/
 
-# ── OS ────────────────────────────────────────────────────────────────────
+# ── OS ────────────────────────────────────────────────────────────────────────
 .DS_Store
 Thumbs.db
-Thumbs.db:encryptable
 desktop.ini

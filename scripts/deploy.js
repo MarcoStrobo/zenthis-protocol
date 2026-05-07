@@ -2,11 +2,12 @@
  * deploy.js — Zenthis Protocol full deployment
  * ─────────────────────────────────────────────────────────────────────────────
  *  Deploys:
- *    1. ZENTHIS token      (100 M minted to deployer)
- *    2. ZenthisVesting     (receives full 100 M supply)
- *    3. Creates all 6 vesting schedules (Seed/IDO/Liquidity/Team/Treasury/Airdrops)
- *    4. Saves addresses to deployments/<network>.json
- *    5. Auto-verifies on Etherscan (mainnet/sepolia)
+ *    1. ZenthisToken    (100 M minted to deployer)
+ *    2. ZenthisVesting  (receives full 100 M supply)
+ *    3. ZenthisHTLC     (cross-chain atomic swap engine)
+ *    4. Creates all 6 vesting schedules
+ *    5. Saves addresses to deployments/<network>.json
+ *    6. Auto-verifies on Etherscan (mainnet/sepolia)
  *
  *  Usage:
  *    npx hardhat run scripts/deploy.js --network sepolia    ← test first!
@@ -20,7 +21,7 @@
  *  Pre-flight checklist:
  *    □ npx hardhat test         → all tests pass
  *    □ Check gas price          → ethgasstation.info
- *    □ Deployer holds enough ETH (~0.05 ETH at 30 gwei)
+ *    □ Deployer holds enough ETH (~0.08 ETH at 30 gwei)
  *    □ All WALLET_* addresses confirmed correct
  *    □ TGE_TIMESTAMP is in the future
  * ─────────────────────────────────────────────────────────────────────────────
@@ -29,23 +30,31 @@
 const { ethers, network, run } = require("hardhat");
 const fs = require("fs");
 
-// ── Tokenomics table (must match ZenthisVesting constants + whitepaper) ───────
-// totalAmount = tokens subject to cliff+linear vesting
-// tgeAmount   = tokens released immediately at TGE
-// Values in millions for readability; T() converts to wei
+// ── Tokenomics (must match ZenthisVesting.sol NatSpec + whitepaper) ───────────
+//
+//   Allocation        Total    TGE unlock   Cliff   Linear vest
+//   ──────────────    ──────   ──────────   ─────   ───────────
+//   Seed              10 M        0 %        6 mo   24 months
+//   IDO               25 M       20 %        0 mo   18 months (on 80%)
+//   Liquidity         25 M       14 %        0 mo   48 months (on 86%)
+//   Team              10 M        0 %       12 mo   36 months
+//   Treasury          20 M       15 %        0 mo   48 months (on 85%)
+//   Airdrops          10 M      100 %         —         —
+//   ──────────────    ──────
+//   TOTAL            100 M ✓
 
 const M = (n) => ethers.parseEther((n * 1_000_000).toString());
 
 const SCHEDULES = [
-  // key         totalAmount  tgeAmount  cliffMonths  vestingMonths
-  { key: "SEED",      total: M(15),   tge: M(0),    cliff: 6n,  vest: 24n },
+  //  key           totalAmount   tgeAmount   cliffMonths  vestingMonths
+  { key: "SEED",      total: M(10),   tge: M(0),    cliff: 6n,  vest: 24n },
   { key: "IDO",       total: M(20),   tge: M(5),    cliff: 0n,  vest: 18n },
   { key: "LIQUIDITY", total: M(21.5), tge: M(3.5),  cliff: 0n,  vest: 48n },
-  { key: "TEAM",      total: M(20),   tge: M(0),    cliff: 12n, vest: 36n },
-  { key: "TREASURY",  total: M(8.5),  tge: M(1.5),  cliff: 0n,  vest: 48n },
-  { key: "AIRDROPS",  total: M(0),    tge: M(5),    cliff: 0n,  vest: 0n  },
+  { key: "TEAM",      total: M(10),   tge: M(0),    cliff: 12n, vest: 36n },
+  { key: "TREASURY",  total: M(17),   tge: M(3),    cliff: 0n,  vest: 48n },
+  { key: "AIRDROPS",  total: M(0),    tge: M(10),   cliff: 0n,  vest: 0n  },
 ];
-// Sum check: 15+25+25+20+10+5 = 100 M ✓
+// Sum: (10+0)+(20+5)+(21.5+3.5)+(10+0)+(17+3)+(0+10) = 100 M ✓
 
 async function main() {
   const [deployer] = await ethers.getSigners();
@@ -69,9 +78,8 @@ async function main() {
     AIRDROPS:  requireEnv("WALLET_AIRDROPS"),
   };
 
-  const TGE = BigInt(requireEnv("TGE_TIMESTAMP")); // 1750032000
+  const TGE = BigInt(requireEnv("TGE_TIMESTAMP"));
 
-  // For testnets: fall back to deployer if wallets not set
   const isTestnet = ["hardhat","localhost","sepolia","arbitrumSepolia"].includes(network.name);
   for (const [key, val] of Object.entries(wallets)) {
     if (!ethers.isAddress(val)) {
@@ -84,14 +92,14 @@ async function main() {
     }
   }
 
-  // ── [1/3] Deploy ZENTHIS token ────────────────────────────────────────────
-  console.log("📦 [1/3] Deploying ZENTHIS token...");
-  const TokenFactory = await ethers.getContractFactory("ZENTHIS");
+  // ── [1/3] Deploy ZenthisToken ─────────────────────────────────────────────
+  console.log("📦 [1/3] Deploying ZenthisToken...");
+  const TokenFactory = await ethers.getContractFactory("ZenthisToken");
   const token = await TokenFactory.deploy(deployer.address);
   await token.waitForDeployment();
   const tokenAddr = await token.getAddress();
-  console.log(`   ✓ ZENTHIS : ${tokenAddr}`);
-  console.log(`   ✓ Supply  : ${ethers.formatEther(await token.totalSupply())} ZENTHIS`);
+  console.log(`   ✓ ZenthisToken : ${tokenAddr}`);
+  console.log(`   ✓ Supply       : ${ethers.formatEther(await token.totalSupply())} ZENTHIS`);
 
   // ── [2/3] Deploy ZenthisVesting ───────────────────────────────────────────
   console.log("\n📦 [2/3] Deploying ZenthisVesting...");
@@ -101,49 +109,50 @@ async function main() {
   const vestingAddr = await vesting.getAddress();
   console.log(`   ✓ ZenthisVesting : ${vestingAddr}`);
 
-  // Transfer full supply to vesting contract
   console.log("\n   Transferring 100 M ZENTHIS → vesting contract...");
   const totalSupply = await token.totalSupply();
-  const txFund = await token.transfer(vestingAddr, totalSupply);
-  await txFund.wait();
+  await (await token.transfer(vestingAddr, totalSupply)).wait();
   console.log(`   ✓ Vesting balance : ${ethers.formatEther(await token.balanceOf(vestingAddr))} ZENTHIS`);
 
-  // ── [3/3] Create vesting schedules ───────────────────────────────────────
-  console.log("\n📋 [3/3] Creating vesting schedules (TGE:", new Date(Number(TGE) * 1000).toISOString(), ")");
+  // ── [3/3] Deploy ZenthisHTLC ──────────────────────────────────────────────
+  console.log("\n📦 [3/3] Deploying ZenthisHTLC...");
+  const HTLCFactory = await ethers.getContractFactory("ZenthisHTLC");
+  const htlc = await HTLCFactory.deploy();
+  await htlc.waitForDeployment();
+  const htlcAddr = await htlc.getAddress();
+  console.log(`   ✓ ZenthisHTLC : ${htlcAddr}`);
+
+  // ── [4/4] Create vesting schedules ───────────────────────────────────────
+  console.log(`\n📋 [4/4] Creating vesting schedules (TGE: ${new Date(Number(TGE) * 1000).toISOString()})`);
   console.log("");
 
   for (const s of SCHEDULES) {
-    const id  = await vesting[s.key]();
-    const tx  = await vesting.createSchedule(
-      id,
-      wallets[s.key],
-      s.total,
-      s.tge,
-      TGE,
-      s.cliff,
-      s.vest
+    const id = await vesting[s.key]();
+    const tx = await vesting.createSchedule(
+      id, wallets[s.key], s.total, s.tge, TGE, s.cliff, s.vest
     );
     await tx.wait();
     console.log(
       `   ✓ ${s.key.padEnd(10)}` +
-      `  vesting=${ethers.formatEther(s.total).padStart(14)} ` +
-      `  TGE=${ethers.formatEther(s.tge).padStart(12)} ` +
-      `  cliff=${String(s.cliff).padStart(2)}mo ` +
-      `  vest=${String(s.vest).padStart(2)}mo ` +
+      `  vest=${ethers.formatEther(s.total).padStart(14)}` +
+      `  TGE=${ethers.formatEther(s.tge).padStart(12)}` +
+      `  cliff=${String(s.cliff).padStart(2)}mo` +
+      `  vest=${String(s.vest).padStart(2)}mo` +
       `  → ${wallets[s.key]}`
     );
   }
 
   // ── Save deployment record ────────────────────────────────────────────────
   const deployment = {
-    network:     network.name,
-    chainId:     netInfo.chainId.toString(),
-    deployedAt:  new Date().toISOString(),
-    tge:         TGE.toString(),
-    deployer:    deployer.address,
+    network:    network.name,
+    chainId:    netInfo.chainId.toString(),
+    deployedAt: new Date().toISOString(),
+    tge:        TGE.toString(),
+    deployer:   deployer.address,
     contracts: {
-      ZENTHIS:         tokenAddr,
-      ZenthisVesting:  vestingAddr,
+      ZenthisToken:   tokenAddr,
+      ZenthisVesting: vestingAddr,
+      ZenthisHTLC:    htlcAddr,
     },
     wallets,
   };
@@ -157,8 +166,9 @@ async function main() {
   console.log("\n═══════════════════════════════════════════════════════");
   console.log("  DEPLOYMENT COMPLETE");
   console.log("═══════════════════════════════════════════════════════");
-  console.log(`  ZENTHIS        : ${tokenAddr}`);
+  console.log(`  ZenthisToken   : ${tokenAddr}`);
   console.log(`  ZenthisVesting : ${vestingAddr}`);
+  console.log(`  ZenthisHTLC    : ${htlcAddr}`);
   console.log("═══════════════════════════════════════════════════════");
 
   // ── Auto-verify on Etherscan ──────────────────────────────────────────────
@@ -167,8 +177,9 @@ async function main() {
     await new Promise(r => setTimeout(r, 30_000));
 
     for (const [name, addr, args] of [
-      ["ZENTHIS",        tokenAddr,   [deployer.address]],
+      ["ZenthisToken",   tokenAddr,   [deployer.address]],
       ["ZenthisVesting", vestingAddr, [tokenAddr, deployer.address]],
+      ["ZenthisHTLC",    htlcAddr,    []],
     ]) {
       try {
         await run("verify:verify", { address: addr, constructorArguments: args });
@@ -181,7 +192,7 @@ async function main() {
 
   console.log("\n  NEXT STEPS:");
   console.log("  1. Transfer WALLET_IDO tokens to PinkSale presale contract");
-  console.log("  2. Configure presale on pinksale.finance (see PINKSALE_SETUP.md)");
+  console.log("  2. Configure presale on pinksale.finance");
   console.log("  3. Transfer contract ownership to multi-sig");
   console.log("");
 }
