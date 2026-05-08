@@ -41,11 +41,8 @@ module.exports = {
     },
   },
   etherscan: {
-    apiKey: {
-      sepolia:         process.env.ETHERSCAN_API_KEY || "",
-      arbitrumSepolia: process.env.ARBISCAN_API_KEY  || "",
-      mainnet:         process.env.ETHERSCAN_API_KEY || "",
-    },
+    // Etherscan API v2 — single key covers all networks
+    apiKey: process.env.ETHERSCAN_API_KEY || "",
   },
   gasReporter: {
     enabled: process.env.REPORT_GAS === "true",

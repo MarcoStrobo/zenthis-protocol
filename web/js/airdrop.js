@@ -253,7 +253,7 @@ window.shareOnTwitter = function () {
   if (!userData?.refCode) return;
   const refLink = buildRefLink(userData.refCode);
   const text = encodeURIComponent(
-    `I just joined the @zenthis_io airdrop — 5,000,000 ZENTHIS up for grabs 🔥\n\n` +
+    `I just joined the @zenthis_io airdrop — 10,000,000 ZENTHIS up for grabs 🔥\n\n` +
     `IDO date TBA · No bridges · 0.10% fee\n\n` +
     `Join with my link → ${refLink}\n\n` +
     `#ZenthisIDO #DeFi #Airdrop`

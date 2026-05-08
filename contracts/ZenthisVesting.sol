@@ -11,16 +11,20 @@ import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
  * @notice Multi-schedule linear vesting contract for ZENTHIS token.
  *
  * Tokenomics (100 M total):
- * ┌──────────────────────┬─────────┬────────────┬────────┬────────────────────────┐
- * │ Allocation           │ Tokens  │ TGE Unlock │ Cliff  │ Linear Vesting         │
- * ├──────────────────────┼─────────┼────────────┼────────┼────────────────────────┤
- * │ Seed                 │  10 M   │     0 %    │  6 mo  │ 24 months              │
- * │ IDO                  │  25 M   │    20 %    │  0 mo  │ 18 months (on 80%)     │
- * │ Liquidity & Reserves │  25 M   │    14 %    │  0 mo  │ 48 months (on 86%)     │
- * │ Team                 │  10 M   │     0 %    │ 12 mo  │ 36 months              │
- * │ Treasury             │  20 M   │    15 %    │  0 mo  │ 48 months (on 85%)     │
- * │ Airdrops             │  10 M   │   100 %    │   —    │ —                      │
- * └──────────────────────┴─────────┴────────────┴────────┴────────────────────────┘
+ * ┌──────────────────────┬──────────┬────────────┬────────┬───────────────────────────────────────┐
+ * │ Allocation           │ Tokens   │ TGE Unlock │ Cliff  │ Linear Vesting                        │
+ * ├──────────────────────┼──────────┼────────────┼────────┼───────────────────────────────────────┤
+ * │ Seed                 │  10.0 M  │     0 %    │  6 mo  │ 24 months                             │
+ * │ IDO / Public Sale    │  25.0 M  │    10 %    │  0 mo  │ 18 months (on 90%)                    │
+ * │ Liquidity & Reserves │  25.0 M  │    14 %    │  0 mo  │ 48 months (on 86%) · LP lock 12 mo    │
+ * │ Team (Founder Equity)│  10.0 M  │     0 %    │ 12 mo  │ 36 months                             │
+ * │ Treasury             │  18.2 M  │    11 %    │  0 mo  │ 48 months (on 89%) · multi-sig 3/5    │
+ * │ Founder Operations   │   1.8 M  │     0 %    │  0 mo  │ 36 months (~50,000 ZENTHIS/month)     │
+ * │ Airdrops             │  10.0 M  │    50 %    │  0 mo  │ 6 months (on 50%)                     │
+ * └──────────────────────┴──────────┴────────────┴────────┴───────────────────────────────────────┘
+ *
+ * Day-1 circulating (sell pressure): 2.5M IDO + 2.0M Treasury + 5.0M Airdrop = 9.5M (9.5%)
+ * Liquidity TGE (3.5M) goes directly into LP pool — LP tokens locked 12 months via Team.Finance.
  *
  * Each schedule is identified by a bytes32 key (use the public constants).
  * Schedules are write-once: once created they cannot be modified or revoked.
@@ -50,12 +54,13 @@ contract ZenthisVesting is Ownable, ReentrancyGuard {
 
     // ─── Schedule ID constants ────────────────────────────────────────────────
 
-    bytes32 public constant SEED      = keccak256("SEED");
-    bytes32 public constant IDO       = keccak256("IDO");
-    bytes32 public constant LIQUIDITY = keccak256("LIQUIDITY");
-    bytes32 public constant TEAM      = keccak256("TEAM");
-    bytes32 public constant TREASURY  = keccak256("TREASURY");
-    bytes32 public constant AIRDROPS  = keccak256("AIRDROPS");
+    bytes32 public constant SEED         = keccak256("SEED");
+    bytes32 public constant IDO          = keccak256("IDO");
+    bytes32 public constant LIQUIDITY    = keccak256("LIQUIDITY");
+    bytes32 public constant TEAM         = keccak256("TEAM");
+    bytes32 public constant TREASURY     = keccak256("TREASURY");
+    bytes32 public constant FOUNDER_OPS  = keccak256("FOUNDER_OPS");
+    bytes32 public constant AIRDROPS     = keccak256("AIRDROPS");
 
     // ─── Duration constants (30-day months) ──────────────────────────────────
 

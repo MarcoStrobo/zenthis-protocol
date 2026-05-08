@@ -32,29 +32,34 @@ const fs = require("fs");
 
 // ── Tokenomics (must match ZenthisVesting.sol NatSpec + whitepaper) ───────────
 //
-//   Allocation        Total    TGE unlock   Cliff   Linear vest
-//   ──────────────    ──────   ──────────   ─────   ───────────
-//   Seed              10 M        0 %        6 mo   24 months
-//   IDO               25 M       20 %        0 mo   18 months (on 80%)
-//   Liquidity         25 M       14 %        0 mo   48 months (on 86%)
-//   Team              10 M        0 %       12 mo   36 months
-//   Treasury          20 M       15 %        0 mo   48 months (on 85%)
-//   Airdrops          10 M      100 %         —         —
-//   ──────────────    ──────
-//   TOTAL            100 M ✓
+//   Allocation        Total     TGE unlock   Cliff   Linear vest
+//   ──────────────    ───────   ──────────   ─────   ────────────────────────────────────────
+//   Seed               10.0 M      0 %        6 mo   24 months
+//   IDO / Public       25.0 M     10 %        0 mo   18 months (on 90%)  ← was 20%, reduced
+//   Liquidity          25.0 M     14 %        0 mo   48 months (on 86%)  LP tokens locked 12mo
+//   Team (Founder)     10.0 M      0 %       12 mo   36 months           equity, no early exit
+//   Treasury           18.2 M     11 %        0 mo   48 months (on 89%)  multi-sig 3/5
+//   Founder Ops         1.8 M      0 %        0 mo   36 months           ~50,000 ZENTHIS/month
+//   Airdrops           10.0 M     50 %        0 mo    6 months (on 50%)  ← was 100%, split
+//   ──────────────    ───────
+//   TOTAL             100.0 M ✓
+//
+//   Day-1 sell pressure: 2.5M (IDO TGE) + 2.0M (Treasury TGE) + 5.0M (Airdrop TGE) = 9.5M (9.5%)
+//   Previous design: 21.5M (21.5%) → -56% reduction in launch dump risk
 
 const M = (n) => ethers.parseEther((n * 1_000_000).toString());
 
 const SCHEDULES = [
-  //  key           totalAmount   tgeAmount   cliffMonths  vestingMonths
-  { key: "SEED",      total: M(10),   tge: M(0),    cliff: 6n,  vest: 24n },
-  { key: "IDO",       total: M(20),   tge: M(5),    cliff: 0n,  vest: 18n },
-  { key: "LIQUIDITY", total: M(21.5), tge: M(3.5),  cliff: 0n,  vest: 48n },
-  { key: "TEAM",      total: M(10),   tge: M(0),    cliff: 12n, vest: 36n },
-  { key: "TREASURY",  total: M(17),   tge: M(3),    cliff: 0n,  vest: 48n },
-  { key: "AIRDROPS",  total: M(0),    tge: M(10),   cliff: 0n,  vest: 0n  },
+  //  key              totalVest      tgeAmount    cliffMonths  vestingMonths
+  { key: "SEED",        total: M(10),    tge: M(0),    cliff: 6n,  vest: 24n },
+  { key: "IDO",         total: M(22.5),  tge: M(2.5),  cliff: 0n,  vest: 18n },  // 10% TGE (was 20%)
+  { key: "LIQUIDITY",   total: M(21.5),  tge: M(3.5),  cliff: 0n,  vest: 48n },  // LP tokens → lock 12mo on Team.Finance
+  { key: "TEAM",        total: M(10),    tge: M(0),    cliff: 12n, vest: 36n },  // Founder equity — no early exit
+  { key: "TREASURY",    total: M(16.2),  tge: M(2),    cliff: 0n,  vest: 48n },  // Multi-sig 3/5 required
+  { key: "FOUNDER_OPS", total: M(1.8),   tge: M(0),    cliff: 0n,  vest: 36n },  // ~50,000 ZENTHIS/month salary
+  { key: "AIRDROPS",    total: M(5),     tge: M(5),    cliff: 0n,  vest: 6n  },  // 50% TGE + 50% over 6 months
 ];
-// Sum: (10+0)+(20+5)+(21.5+3.5)+(10+0)+(17+3)+(0+10) = 100 M ✓
+// Sum: (10)+(22.5+2.5)+(21.5+3.5)+(10)+(16.2+2)+(1.8)+(5+5) = 100 M ✓
 
 async function main() {
   const [deployer] = await ethers.getSigners();
@@ -70,12 +75,13 @@ async function main() {
 
   // ── Load & validate env ───────────────────────────────────────────────────
   const wallets = {
-    SEED:      requireEnv("WALLET_SEED"),
-    IDO:       requireEnv("WALLET_IDO"),
-    LIQUIDITY: requireEnv("WALLET_LIQUIDITY"),
-    TEAM:      requireEnv("WALLET_TEAM"),
-    TREASURY:  requireEnv("WALLET_TREASURY"),
-    AIRDROPS:  requireEnv("WALLET_AIRDROPS"),
+    SEED:        requireEnv("WALLET_SEED"),
+    IDO:         requireEnv("WALLET_IDO"),
+    LIQUIDITY:   requireEnv("WALLET_LIQUIDITY"),
+    TEAM:        requireEnv("WALLET_TEAM"),
+    TREASURY:    requireEnv("WALLET_TREASURY"),
+    FOUNDER_OPS: requireEnv("WALLET_FOUNDER_OPS"),
+    AIRDROPS:    requireEnv("WALLET_AIRDROPS"),
   };
 
   const TGE = BigInt(requireEnv("TGE_TIMESTAMP"));
@@ -199,11 +205,11 @@ async function main() {
 
 function requireEnv(key) {
   const v = process.env[key];
-  if (!v) throw new Error(`Missing env var: ${key}\n  → copy .env.example → .env and fill in the value.`);
+  if (!v) throw new Error(`Missing env var: ${key}\n  copy .env.example to .env and fill in the value.`);
   return v;
 }
 
 main().catch((err) => {
-  console.error("\n❌ Deploy FAILED:", err.message);
+  console.error("\n Deploy FAILED:", err.message);
   process.exit(1);
 });

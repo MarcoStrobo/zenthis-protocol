@@ -175,11 +175,11 @@ if (heroStats) {
   const ctx = canvas.getContext('2d');
 
   const data = [
-    { pct: 40, color: '#7c3aed', label: 'Public Sale & Seed' },
+    { pct: 35, color: '#7c3aed', label: 'Public Sale & Seed' },
     { pct: 25, color: '#06b6d4', label: 'Liquidity Rewards' },
-    { pct: 20, color: '#10b981', label: 'Team & Advisors' },
-    { pct: 10, color: '#f59e0b', label: 'Treasury' },
-    { pct: 5,  color: '#ef4444', label: 'Airdrops' },
+    { pct: 10, color: '#10b981', label: 'Team & Dev' },
+    { pct: 20, color: '#f59e0b', label: 'Treasury & Founder Ops' },
+    { pct: 10, color: '#ef4444', label: 'Community Airdrop' },
   ];
 
   let hovered = -1;
@@ -502,7 +502,4 @@ document.querySelectorAll('a[href^="#"]').forEach(anchor => {
     const target = document.querySelector(this.getAttribute('href'));
     if (target) {
       e.preventDefault();
-      target.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }
-  });
-});
+      target.scrollIntoView({ behavior: 'smooth', block: 'start' })
