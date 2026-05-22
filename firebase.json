@@ -6,6 +6,25 @@
     "ignore": [
       "firebase.json",
       ".git/**"
+    ],
+    "rewrites": [
+      {
+        "source": "/webhook",
+        "function": "webhook"
+      },
+      {
+        "source": "/verifyTelegram",
+        "function": "verifytelegram"
+      }
     ]
+  },
+  "functions": {
+    "source": "functions"
+  },
+  "firestore": {
+    "rules": "firestore.rules"
+  },
+  "extensions": {
+    "firestore-send-email": "firebase/firestore-send-email@0.2.8"
   }
 }

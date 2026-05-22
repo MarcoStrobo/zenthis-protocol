@@ -3,11 +3,11 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Zenthis Testnet Airdrop — 10,000,000 ZENTHIS for Early Users</title>
-  <meta name="description" content="10,000,000 ZENTHIS reserved for early community members who test the Zenthis protocol on Sepolia testnet before IDO." />
+  <title>Zenthis Whitelist — Guaranteed IDO Allocation</title>
+  <meta name="description" content="First 500 get guaranteed IDO allocation at $0.10 + 2,000 $ZEN airdrop. No lottery." />
   <link rel="icon" type="image/png" href="assets/favicon.png" />
-  <meta property="og:title" content="Zenthis Testnet Airdrop — 10,000,000 ZENTHIS" />
-  <meta property="og:description" content="No points farming. No wallet tricks. Use Zenthis on Sepolia testnet and earn eligibility for the TGE airdrop." />
+  <meta property="og:title" content="Zenthis Whitelist — 10,000,000 ZENTHIS" />
+  <meta property="og:description" content="First 500 get guaranteed IDO allocation + 2,000 $ZEN airdrop. No lottery. No points farming." />
   <meta property="og:image" content="https://zenthisprotocol.xyz/assets/og-airdrop.png" />
   <meta property="og:image:width" content="1200" />
   <meta property="og:image:height" content="630" />
@@ -17,6 +17,8 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Space+Grotesk:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <!-- EmailJS fallback: confirmation emails -->
+  <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     :root {
@@ -33,7 +35,7 @@
     html { scroll-behavior: smooth; }
     body { background: var(--bg); color: var(--text); font-family: 'Inter', sans-serif; font-size: 16px; line-height: 1.6; }
 
-    /* ── Navbar ── */
+    /* Navbar */
     .navbar { position: sticky; top: 0; z-index: 100; background: rgba(7,7,15,0.92); backdrop-filter: blur(12px); border-bottom: 1px solid var(--border); }
     .nav-inner { max-width: 1100px; margin: 0 auto; padding: 0 24px; height: 64px; display: flex; align-items: center; justify-content: space-between; }
     .logo { display: flex; align-items: center; gap: 8px; text-decoration: none; color: var(--text); font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 1.1rem; }
@@ -46,565 +48,823 @@
     .btn-outline { border: 1px solid var(--border); color: var(--text); padding: 10px 22px; border-radius: 8px; text-decoration: none; font-weight: 500; font-size: 0.9rem; transition: border-color 0.15s; }
     .btn-outline:hover { border-color: var(--accent); color: var(--accent); }
 
-    /* ── Hero ── */
-    .hero { padding: 80px 24px 60px; text-align: center; position: relative; overflow: hidden; }
+    /* Hero */
+    .hero { padding: 64px 24px 48px; text-align: center; position: relative; overflow: hidden; }
     .hero::before { content: ''; position: absolute; inset: 0; background: radial-gradient(ellipse 60% 40% at 50% 0%, rgba(124,58,237,0.18) 0%, transparent 70%); pointer-events: none; }
     .hero-badge { display: inline-flex; align-items: center; gap: 8px; background: rgba(16,185,129,0.12); border: 1px solid rgba(16,185,129,0.3); color: var(--green); padding: 6px 16px; border-radius: 50px; font-size: 0.82rem; font-weight: 600; margin-bottom: 28px; }
     .badge-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green); animation: pulse 2s infinite; }
     @keyframes pulse { 0%,100%{opacity:1}50%{opacity:0.4} }
-    .hero h1 { font-family: 'Space Grotesk', sans-serif; font-size: clamp(2.2rem, 5vw, 3.4rem); font-weight: 800; line-height: 1.1; margin-bottom: 20px; }
+    .hero h1 { font-family: 'Space Grotesk', sans-serif; font-size: clamp(2.2rem, 5vw, 3.4rem); font-weight: 800; line-height: 1.1; margin-bottom: 16px; }
     .gradient-text { background: linear-gradient(135deg, var(--accent), var(--accent2)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
-    .hero-sub { max-width: 600px; margin: 0 auto 36px; color: var(--muted); font-size: 1.1rem; }
+    .hero-sub { max-width: 600px; margin: 0 auto 32px; color: var(--muted); font-size: 1.05rem; }
 
-    /* ── Pool banner ── */
-    .pool-banner { display: inline-flex; align-items: center; gap: 12px; background: rgba(124,58,237,0.1); border: 1px solid rgba(124,58,237,0.3); border-radius: 16px; padding: 18px 32px; font-size: 1rem; margin-bottom: 48px; }
-    .pool-number { font-family: 'Space Grotesk', sans-serif; font-size: 2rem; font-weight: 800; color: var(--accent); }
-    .pool-label { color: var(--muted); font-size: 0.9rem; }
+    /* Campaign live stats */
+    .campaign-strip { display: flex; flex-wrap: wrap; gap: 24px; justify-content: center; max-width: 700px; margin: 0 auto 40px; }
+    .cstat { text-align: center; min-width: 120px; }
+    .cstat-value { font-family: 'Space Grotesk', sans-serif; font-size: 1.8rem; font-weight: 800; }
+    .cstat-label { font-size: 0.82rem; color: var(--muted); }
+    .cstat-divider { width: 1px; background: rgba(255,255,255,0.1); align-self: stretch; }
 
-    /* ── Honest disclaimer box ── */
-    .honest-box { max-width: 700px; margin: 0 auto 64px; background: rgba(16,185,129,0.06); border: 1px solid rgba(16,185,129,0.25); border-radius: 14px; padding: 24px 28px; display: flex; gap: 16px; align-items: flex-start; text-align: left; }
+    /* Honest disclaimer box */
+    .honest-box { max-width: 700px; margin: 0 auto 48px; background: rgba(16,185,129,0.06); border: 1px solid rgba(16,185,129,0.25); border-radius: 14px; padding: 24px 28px; display: flex; gap: 16px; align-items: flex-start; text-align: left; }
     .honest-icon { font-size: 1.5rem; flex-shrink: 0; margin-top: 2px; }
     .honest-title { font-weight: 700; color: var(--green); margin-bottom: 6px; }
     .honest-text { color: var(--muted); font-size: 0.92rem; line-height: 1.6; }
 
-    /* ── Section ── */
-    .section { max-width: 1000px; margin: 0 auto; padding: 0 24px 80px; }
-    .section-tag { display: inline-block; color: var(--accent); font-size: 0.78rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; background: rgba(124,58,237,0.1); border: 1px solid rgba(124,58,237,0.25); border-radius: 4px; padding: 4px 10px; margin-bottom: 12px; }
-    .section-title { font-family: 'Space Grotesk', sans-serif; font-size: 1.9rem; font-weight: 700; margin-bottom: 12px; }
-    .section-sub { color: var(--muted); max-width: 580px; margin-bottom: 40px; }
-
-    /* ── Steps ── */
-    .steps { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 20px; }
-    .step-card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 28px 24px; position: relative; }
-    .step-num { width: 36px; height: 36px; border-radius: 50%; background: linear-gradient(135deg, var(--accent), var(--accent2)); color: #fff; font-weight: 700; font-size: 0.95rem; display: flex; align-items: center; justify-content: center; margin-bottom: 16px; }
-    .step-title { font-weight: 700; font-size: 1rem; margin-bottom: 8px; }
-    .step-text { color: var(--muted); font-size: 0.9rem; line-height: 1.55; }
-    .step-link { display: inline-block; margin-top: 12px; color: var(--accent); font-size: 0.88rem; text-decoration: none; font-weight: 600; }
-    .step-link:hover { text-decoration: underline; }
-    .step-tag { display: inline-block; margin-top: 10px; font-size: 0.78rem; font-family: 'JetBrains Mono', monospace; background: rgba(6,182,212,0.1); color: var(--accent2); border: 1px solid rgba(6,182,212,0.2); border-radius: 4px; padding: 3px 8px; }
-
-    /* ── Criteria table ── */
-    .criteria-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; }
-    .criteria-card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 22px 20px; display: flex; gap: 14px; align-items: flex-start; }
-    .criteria-icon { font-size: 1.4rem; flex-shrink: 0; }
-    .criteria-title { font-weight: 700; font-size: 0.95rem; margin-bottom: 4px; }
-    .criteria-desc { color: var(--muted); font-size: 0.87rem; }
-    .criteria-bonus { display: inline-block; margin-top: 6px; font-size: 0.78rem; font-weight: 700; color: var(--green); background: rgba(16,185,129,0.1); border: 1px solid rgba(16,185,129,0.2); border-radius: 4px; padding: 2px 8px; }
-
-    /* ── Registration form ── */
-    .reg-card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 36px 32px; max-width: 560px; }
-    .reg-title { font-family: 'Space Grotesk', sans-serif; font-size: 1.3rem; font-weight: 700; margin-bottom: 8px; }
-    .reg-sub { color: var(--muted); font-size: 0.9rem; margin-bottom: 24px; }
-    .form-group { margin-bottom: 20px; }
-    .form-label { display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 6px; color: var(--muted); }
-    .form-input { width: 100%; background: rgba(255,255,255,0.04); border: 1px solid var(--border); color: var(--text); border-radius: 10px; padding: 12px 14px; font-family: 'JetBrains Mono', monospace; font-size: 0.88rem; outline: none; transition: border-color 0.15s; }
+    /* Registration card (inline in hero) */
+    .reg-card { background: var(--surface); border: 1px solid rgba(124,58,237,0.3); border-radius: 16px; padding: 32px 28px; max-width: 480px; margin: 0 auto; text-align: left; }
+    .reg-card-header { margin-bottom: 20px; }
+    .reg-card-header h3 { font-family: 'Space Grotesk', sans-serif; font-size: 1.15rem; font-weight: 700; margin-bottom: 4px; }
+    .reg-card-header p { color: var(--muted); font-size: 0.85rem; }
+    .form-group { margin-bottom: 16px; }
+    .form-label { display: block; font-size: 0.82rem; font-weight: 600; margin-bottom: 5px; color: var(--muted); }
+    .form-input { width: 100%; background: rgba(255,255,255,0.04); border: 1px solid var(--border); color: var(--text); border-radius: 10px; padding: 11px 14px; font-family: 'JetBrains Mono', monospace; font-size: 0.88rem; outline: none; transition: border-color 0.15s; }
     .form-input:focus { border-color: var(--accent); }
     .form-input::placeholder { color: rgba(148,163,184,0.5); }
-    .form-hint { font-size: 0.8rem; color: var(--muted); margin-top: 5px; }
-    .btn-submit { width: 100%; background: var(--accent); color: #fff; border: none; border-radius: 10px; padding: 14px; font-size: 1rem; font-weight: 700; cursor: pointer; transition: opacity 0.15s; font-family: 'Inter', sans-serif; }
+    .form-hint { font-size: 0.76rem; color: var(--muted); margin-top: 4px; }
+    .form-row { display: flex; gap: 12px; }
+    .form-row .form-group { flex: 1; }
+    .btn-submit { width: 100%; background: var(--accent); color: #fff; border: none; border-radius: 10px; padding: 13px; font-size: 0.95rem; font-weight: 700; cursor: pointer; transition: opacity 0.15s; font-family: 'Inter', sans-serif; }
     .btn-submit:hover { opacity: 0.85; }
-    .form-disclaimer { font-size: 0.78rem; color: var(--muted); margin-top: 12px; text-align: center; }
-    .form-success { display: none; text-align: center; padding: 28px; }
-    .form-success-icon { font-size: 2.5rem; margin-bottom: 12px; }
-    .form-success h3 { font-weight: 700; margin-bottom: 8px; }
-    .form-success p { color: var(--muted); font-size: 0.9rem; }
+    .btn-submit:disabled { opacity: 0.5; cursor: not-allowed; }
+    .form-disclaimer { font-size: 0.75rem; color: var(--muted); margin-top: 10px; text-align: center; }
+    .reg-spots-badge { display: inline-block; background: rgba(245,158,11,0.12); border: 1px solid rgba(245,158,11,0.35); color: var(--yellow); padding: 5px 14px; border-radius: 20px; font-size: 0.78rem; font-weight: 600; margin-bottom: 16px; }
 
-    /* ── Timeline ── */
-    .timeline { display: flex; flex-direction: column; gap: 0; position: relative; padding-left: 32px; }
-    .timeline::before { content: ''; position: absolute; left: 11px; top: 12px; bottom: 12px; width: 2px; background: var(--border); }
-    .tl-item { position: relative; padding: 0 0 32px 24px; }
-    .tl-dot { position: absolute; left: -32px; top: 3px; width: 22px; height: 22px; border-radius: 50%; background: var(--surface); border: 2px solid var(--border); display: flex; align-items: center; justify-content: center; font-size: 0.65rem; font-weight: 700; }
-    .tl-dot.active { border-color: var(--green); color: var(--green); background: rgba(16,185,129,0.1); }
-    .tl-dot.upcoming { border-color: var(--accent); color: var(--accent); background: rgba(124,58,237,0.1); }
-    .tl-date { font-size: 0.78rem; font-family: 'JetBrains Mono', monospace; color: var(--muted); margin-bottom: 4px; }
-    .tl-title { font-weight: 700; margin-bottom: 4px; }
-    .tl-desc { color: var(--muted); font-size: 0.88rem; }
+    /* Dashboard (after registration) */
+    .dash-card { background: var(--surface); border: 1px solid rgba(16,185,129,0.25); border-radius: 16px; padding: 28px; max-width: 560px; margin: 0 auto 40px; text-align: left; display: none; }
+    .dash-header { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; }
+    .dash-check { width: 40px; height: 40px; border-radius: 50%; background: rgba(16,185,129,0.15); display: flex; align-items: center; justify-content: center; font-size: 1.2rem; color: var(--green); flex-shrink: 0; }
+    .dash-header h3 { font-family: 'Space Grotesk', sans-serif; font-size: 1.1rem; font-weight: 700; }
+    .dash-header p { font-size: 0.82rem; color: var(--muted); }
+    .dash-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin-bottom: 20px; }
+    .dash-stat { background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-radius: 10px; padding: 14px; text-align: center; }
+    .dash-stat-val { font-family: 'Space Grotesk', sans-serif; font-size: 1.4rem; font-weight: 800; color: var(--accent); }
+    .dash-stat-lbl { font-size: 0.75rem; color: var(--muted); margin-top: 2px; }
+    .dash-stat-val.green { color: var(--green); }
+    .dash-stat-val.yellow { color: var(--yellow); }
+    .dash-ref-box { background: rgba(0,0,0,0.25); border: 1px solid var(--border); border-radius: 10px; padding: 12px 16px; display: flex; align-items: center; gap: 10px; margin-bottom: 16px; }
+    .dash-ref-link { flex: 1; font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .dash-ref-copy { background: var(--accent); color: #fff; border: none; border-radius: 6px; padding: 8px 16px; font-size: 0.82rem; font-weight: 600; cursor: pointer; white-space: nowrap; }
+    .dash-ref-copy:hover { opacity: 0.85; }
+    .dash-share { display: flex; gap: 10px; flex-wrap: wrap; }
+    .dash-share-btn { display: inline-flex; align-items: center; gap: 6px; padding: 9px 16px; border-radius: 8px; font-size: 0.84rem; font-weight: 600; text-decoration: none; transition: opacity 0.15s; }
+    .dash-share-btn:hover { opacity: 0.8; }
+    .dash-share-x { background: rgba(29,161,242,0.1); border: 1px solid rgba(29,161,242,0.3); color: #1da1f2; }
+    .dash-share-tg { background: rgba(0,136,204,0.1); border: 1px solid rgba(0,136,204,0.3); color: #0088cc; }
+    .dash-tier { display: inline-block; font-size: 0.72rem; font-weight: 700; padding: 3px 10px; border-radius: 4px; margin-bottom: 4px; }
+    .dash-tier.early { background: rgba(16,185,129,0.12); color: var(--green); border: 1px solid rgba(16,185,129,0.25); }
+    .dash-tier.whale { background: rgba(245,158,11,0.12); color: var(--yellow); border: 1px solid rgba(245,158,11,0.25); }
 
-    /* ── FAQ ── */
-    .faq-list { display: flex; flex-direction: column; gap: 12px; max-width: 700px; }
+    /* Boost tasks */
+    .section { max-width: 900px; margin: 0 auto; padding: 0 24px 60px; }
+    .section-tag { display: inline-block; color: var(--accent); font-size: 0.76rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; background: rgba(124,58,237,0.1); border: 1px solid rgba(124,58,237,0.25); border-radius: 4px; padding: 4px 10px; margin-bottom: 12px; }
+    .section-title { font-family: 'Space Grotesk', sans-serif; font-size: 1.7rem; font-weight: 700; margin-bottom: 8px; }
+    .section-sub { color: var(--muted); max-width: 560px; margin-bottom: 32px; font-size: 0.95rem; }
+    .boost-list { display: flex; flex-direction: column; gap: 12px; max-width: 560px; }
+    .boost-item { display: flex; align-items: center; gap: 14px; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 18px 20px; cursor: pointer; transition: border-color 0.15s; text-decoration: none; color: var(--text); }
+    .boost-item:hover { border-color: var(--accent); }
+    .boost-item.done { border-color: rgba(16,185,129,0.4); background: rgba(16,185,129,0.04); cursor: default; }
+    .boost-icon { font-size: 1.3rem; flex-shrink: 0; width: 28px; text-align: center; }
+    .boost-info { flex: 1; }
+    .boost-name { font-weight: 600; font-size: 0.92rem; }
+    .boost-desc { font-size: 0.8rem; color: var(--muted); }
+    .boost-pts { font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 0.9rem; color: var(--accent); flex-shrink: 0; }
+    .boost-check { font-size: 0.9rem; color: var(--green); flex-shrink: 0; display: none; }
+    .boost-item.done .boost-check { display: block; }
+    .boost-item.done .boost-pts { color: var(--green); text-decoration: line-through; }
+
+    /* FAQ */
+    .faq-list { display: flex; flex-direction: column; gap: 10px; max-width: 700px; }
     .faq-item { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
-    .faq-q { padding: 18px 20px; font-weight: 600; cursor: pointer; display: flex; justify-content: space-between; align-items: center; user-select: none; }
+    .faq-q { padding: 16px 20px; font-weight: 600; cursor: pointer; display: flex; justify-content: space-between; align-items: center; user-select: none; font-size: 0.95rem; }
     .faq-q:hover { background: rgba(255,255,255,0.03); }
     .faq-arrow { color: var(--muted); transition: transform 0.2s; font-size: 0.8rem; }
-    .faq-a { padding: 0 20px 18px; color: var(--muted); font-size: 0.92rem; line-height: 1.6; }
+    .faq-a { padding: 0 20px 16px; color: var(--muted); font-size: 0.9rem; line-height: 1.6; display: none; }
 
-    /* ── Footer ── */
-    .footer { border-top: 1px solid var(--border); padding: 32px 24px; text-align: center; color: var(--muted); font-size: 0.85rem; }
+    /* Footer */
+    .footer { border-top: 1px solid var(--border); padding: 28px 24px; text-align: center; color: var(--muted); font-size: 0.85rem; }
     .footer a { color: var(--accent); text-decoration: none; }
     .footer a:hover { text-decoration: underline; }
 
+    /* Floating badge */
+    #refFloater { position: fixed; bottom: 28px; right: 28px; z-index: 999; display: flex; align-items: center; gap: 8px; background: linear-gradient(135deg, #f59e0b, #f97316); color: #000; font-weight: 800; font-size: 0.85rem; padding: 12px 20px; border-radius: 50px; text-decoration: none; box-shadow: 0 4px 24px rgba(245,158,11,0.45); opacity: 0; transform: translateY(20px); transition: opacity 0.3s, transform 0.3s; pointer-events: none; }
+    #refFloater.visible { opacity: 1; transform: translateY(0); pointer-events: auto; }
+
     @media(max-width:640px){
-      .hero h1 { font-size: 2rem; }
-      .pool-banner { flex-direction: column; gap: 6px; text-align: center; }
-      .reg-card { padding: 24px 20px; }
+      .hero h1 { font-size: 1.9rem; }
+      .reg-card { padding: 24px 18px; }
+      .dash-card { padding: 20px 16px; }
+      .form-row { flex-direction: column; gap: 0; }
+      .campaign-strip { gap: 16px; }
+      #refFloater { bottom: 16px; right: 16px; font-size: 0.78rem; padding: 10px 16px; }
     }
   </style>
 </head>
 <body>
 
-  <!-- ─── NAVBAR ─── -->
+  <!-- NAVBAR -->
   <nav class="navbar">
     <div class="nav-inner">
       <a class="logo" href="index.html">
-        <span class="logo-icon">⬡</span>
+        <span class="logo-icon">&#x2B21;</span>
         <span class="logo-text">Zenthis</span>
       </a>
       <div class="nav-links-right">
-        <a href="index.html" class="nav-back">← Back to site</a>
-        <a href="#referral" style="color:#f59e0b;text-decoration:none;font-weight:600;font-size:0.88rem;display:flex;align-items:center;gap:5px;padding:8px 14px;background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.3);border-radius:8px;transition:background 0.15s;" onmouseover="this.style.background='rgba(245,158,11,0.16)'" onmouseout="this.style.background='rgba(245,158,11,0.08)'">🏆 Earn ZENTHIS</a>
-        <a href="index.html#buy" class="btn-primary">Join IDO</a>
+        <a href="index.html" class="nav-back">&larr; Back to site</a>
+        <a href="#mainRegCard" class="btn-primary">Claim Spot</a>
       </div>
     </div>
   </nav>
 
-  <!-- ─── HERO ─── -->
+  <!-- HERO + REGISTRATION CARD -->
   <section class="hero">
     <div class="hero-badge">
       <span class="badge-dot"></span>
-      Testnet live on Sepolia · IDO date TBA
+      IDO launches when 500 WL reached &middot; Register now
     </div>
     <h1>
-      Earn <span class="gradient-text">10,000,000 ZENTHIS</span><br/>
-      by testing the real protocol.
+      Secure Your <span class="gradient-text">Guaranteed Allocation</span><br/>
+      Before It's Gone
     </h1>
     <p class="hero-sub">
-      No points farming. No social media tasks. Eligibility is earned by
-      using Zenthis on Sepolia testnet — actual cross-chain swaps, real product.
+      The whitelist is your ticket to buy $ZEN at <strong>$0.10</strong> before the public sale.
+      First 500 get <strong>priority IDO allocation + 2,000 $ZEN</strong> at TGE.
+      No raffles. No lottery. Just register.
     </p>
 
-    <div class="pool-banner" style="display:flex;flex-wrap:wrap;gap:24px 40px;justify-content:center;">
-      <div style="text-align:center;">
-        <div class="pool-number">10,000,000</div>
-        <div class="pool-label">ZENTHIS pool · 10% of supply</div>
+    <!-- Live counters -->
+    <div class="campaign-strip">
+      <div class="cstat">
+        <div class="cstat-value" id="statTotal" style="color:#a78bfa">--</div>
+        <div class="cstat-label">Whitelist spots filled</div>
       </div>
-      <div style="width:1px;background:rgba(255,255,255,0.1);align-self:stretch;"></div>
-      <div style="text-align:center;">
-        <div class="pool-number" style="color:#10b981;">$1,000,000</div>
-        <div class="pool-label">estimated value at IDO price</div>
+      <div class="cstat-divider"></div>
+      <div class="cstat">
+        <div class="cstat-value" style="color:#10b981;" id="statRemaining">500</div>
+        <div class="cstat-label">Spots remaining</div>
       </div>
-      <div style="width:1px;background:rgba(255,255,255,0.1);align-self:stretch;"></div>
-      <div style="text-align:center;">
-        <div class="pool-number" style="color:#f59e0b;">50,000</div>
-        <div class="pool-label">ZENTHIS for <a href="#referral" style="color:#f59e0b;">top referrer 🏆</a></div>
-      </div>
-    </div>
-
-    <div class="honest-box">
-      <div class="honest-icon">✅</div>
-      <div>
-        <div class="honest-title">Why we do it differently</div>
-        <div class="honest-text">
-          Most crypto airdrops reward wallet connections and social farming — a system that attracts bots,
-          Sybil attacks, and zero real users. Zenthis rewards people who actually test the protocol.
-          If you use Zenthis on Sepolia testnet before TGE, you are a real early user and you deserve a real allocation.
-        </div>
+      <div class="cstat-divider"></div>
+      <div class="cstat">
+        <div class="cstat-value" style="color:#f59e0b;">2,000</div>
+        <div class="cstat-label">$ZEN airdrop per wallet</div>
       </div>
     </div>
-  </section>
 
-
-  <!-- ─── REFERRAL REWARDS ─── -->
-  <section class="section" style="padding-bottom:0;padding-top:0;" id="referral">
-
-    <div style="background:linear-gradient(135deg,rgba(124,58,237,0.12),rgba(245,158,11,0.08));border:1px solid rgba(124,58,237,0.35);border-radius:20px;padding:48px 40px 40px;margin-bottom:80px;">
-
-      <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px;">
-        <span style="font-size:1.6rem;">🏆</span>
-        <span style="font-size:0.78rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:#f59e0b;background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.3);border-radius:4px;padding:4px 10px;">Referral Program</span>
+    <!-- Registration card -->
+    <div class="reg-card" id="mainRegCard">
+      <div class="reg-spots-badge" id="formSpotsBadge">
+        &#x26A0; Only <span id="formSpotsLeft">500</span> spots available
+      </div>
+      <div class="reg-card-header">
+        <h3>&#x1F3AB; Claim Your Whitelist Spot</h3>
+        <p>Enter your details below. 30 seconds, no wallet connect required.</p>
       </div>
 
-      <h2 style="font-family:'Space Grotesk',sans-serif;font-size:2rem;font-weight:800;margin-bottom:10px;">
-        Share Zenthis. <span style="background:linear-gradient(135deg,#f59e0b,#f97316);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">Earn ZENTHIS.</span>
-      </h2>
-      <p style="color:var(--muted);max-width:580px;margin-bottom:36px;font-size:1rem;">
-        Every person you refer who joins the whitelist earns you guaranteed ZENTHIS at TGE.
-        The more you refer, the more you earn — no cap.
-      </p>
-
-      <!-- Tier table -->
-      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin-bottom:36px;">
-
-        <div style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);border-radius:14px;padding:22px 20px;text-align:center;">
-          <div style="font-size:1.8rem;font-weight:800;color:#e2e8f0;font-family:'Space Grotesk',sans-serif;">500</div>
-          <div style="font-size:0.75rem;font-weight:700;color:#94a3b8;letter-spacing:0.08em;text-transform:uppercase;margin-bottom:10px;">ZENTHIS</div>
-          <div style="font-size:0.85rem;color:var(--muted);">Refer <strong style="color:#e2e8f0;">3</strong> people<br/>who join whitelist</div>
-          <div style="margin-top:10px;font-size:0.78rem;font-weight:700;color:#94a3b8;">~$50 at IDO</div>
-        </div>
-
-        <div style="background:rgba(124,58,237,0.08);border:1px solid rgba(124,58,237,0.3);border-radius:14px;padding:22px 20px;text-align:center;">
-          <div style="font-size:1.8rem;font-weight:800;color:var(--accent);font-family:'Space Grotesk',sans-serif;">2,500</div>
-          <div style="font-size:0.75rem;font-weight:700;color:#94a3b8;letter-spacing:0.08em;text-transform:uppercase;margin-bottom:10px;">ZENTHIS</div>
-          <div style="font-size:0.85rem;color:var(--muted);">Refer <strong style="color:#e2e8f0;">10</strong> people<br/>who join whitelist</div>
-          <div style="margin-top:10px;font-size:0.78rem;font-weight:700;color:var(--accent);">~$250 at IDO</div>
-        </div>
-
-        <div style="background:rgba(6,182,212,0.07);border:1px solid rgba(6,182,212,0.3);border-radius:14px;padding:22px 20px;text-align:center;">
-          <div style="font-size:1.8rem;font-weight:800;color:var(--accent2);font-family:'Space Grotesk',sans-serif;">6,000</div>
-          <div style="font-size:0.75rem;font-weight:700;color:#94a3b8;letter-spacing:0.08em;text-transform:uppercase;margin-bottom:10px;">ZENTHIS</div>
-          <div style="font-size:0.85rem;color:var(--muted);">Refer <strong style="color:#e2e8f0;">25</strong> people<br/>who join whitelist</div>
-          <div style="margin-top:10px;font-size:0.78rem;font-weight:700;color:var(--accent2);">~$600 at IDO</div>
-        </div>
-
-        <div style="background:linear-gradient(135deg,rgba(245,158,11,0.12),rgba(249,115,22,0.08));border:2px solid rgba(245,158,11,0.5);border-radius:14px;padding:22px 20px;text-align:center;position:relative;">
-          <div style="position:absolute;top:-10px;left:50%;transform:translateX(-50%);background:#f59e0b;color:#000;font-size:0.7rem;font-weight:800;padding:3px 12px;border-radius:20px;letter-spacing:0.05em;white-space:nowrap;">TOP 10 REFERRERS</div>
-          <div style="font-size:1.8rem;font-weight:800;color:#f59e0b;font-family:'Space Grotesk',sans-serif;">50,000</div>
-          <div style="font-size:0.75rem;font-weight:700;color:#94a3b8;letter-spacing:0.08em;text-transform:uppercase;margin-bottom:10px;">ZENTHIS + VIP 🏆</div>
-          <div style="font-size:0.85rem;color:var(--muted);">Top 10 referrers<br/>on the leaderboard</div>
-          <div style="margin-top:10px;font-size:0.78rem;font-weight:700;color:#f59e0b;">~$5,000 at IDO</div>
-        </div>
-
-      </div>
-
-      <!-- Referral link box -->
-      <div style="background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.1);border-radius:14px;padding:28px 28px;">
-        <div style="font-weight:700;font-size:1rem;margin-bottom:6px;">Get your referral link</div>
-        <p style="color:var(--muted);font-size:0.88rem;margin-bottom:20px;">Register first, then share your unique link. Every whitelist signup through your link is automatically tracked.</p>
-        <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center;">
-          <div id="refLinkBox" style="flex:1;min-width:220px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.12);border-radius:8px;padding:12px 16px;font-family:'JetBrains Mono',monospace;font-size:0.82rem;color:#94a3b8;">
-            Register below to get your link
-          </div>
-          <button onclick="copyRefLink()" id="copyBtn" style="background:var(--accent);color:#fff;border:none;border-radius:8px;padding:12px 22px;font-weight:700;font-size:0.9rem;cursor:pointer;white-space:nowrap;">Copy Link</button>
-        </div>
-        <div id="copyConfirm" style="display:none;margin-top:8px;font-size:0.82rem;color:var(--green);">✓ Copied to clipboard!</div>
-        <div style="margin-top:14px;display:flex;gap:16px;flex-wrap:wrap;">
-          <a href="https://twitter.com/intent/tweet?text=I+just+joined+the+%40zenthis_io+whitelist.+10%2C000%2C000+ZENTHIS+up+for+grabs+before+IDO.%0A%0A%E2%86%92+zenthisprotocol.xyz%2Fairdrop%0A%0A%23ZENTHIS+%23IDO+%23DeFi" target="_blank" rel="noopener"
-             style="display:inline-flex;align-items:center;gap:8px;padding:10px 18px;background:rgba(29,161,242,0.1);border:1px solid rgba(29,161,242,0.3);border-radius:8px;color:#1da1f2;font-weight:600;font-size:0.88rem;text-decoration:none;">
-            𝕏 Share on X/Twitter
-          </a>
-          <a href="https://t.me/share/url?url=https://zenthisprotocol.xyz/airdrop&text=10,000,000+ZENTHIS+airdrop+before+IDO+%E2%80%94+free+to+join" target="_blank" rel="noopener"
-             style="display:inline-flex;align-items:center;gap:8px;padding:10px 18px;background:rgba(0,136,204,0.1);border:1px solid rgba(0,136,204,0.3);border-radius:8px;color:#0088cc;font-weight:600;font-size:0.88rem;text-decoration:none;">
-            ✈ Share on Telegram
-          </a>
-        </div>
-      </div>
-
-    </div>
-  </section>
-
-  <!-- ─── HOW TO QUALIFY ─── -->
-  <section class="section">
-    <div class="section-tag">How to qualify</div>
-    <h2 class="section-title">3 steps to earn your allocation</h2>
-    <p class="section-sub">All you need is a wallet and some Sepolia test ETH (free). No real money involved.</p>
-
-    <div class="steps">
-
-      <div class="step-card">
-        <div class="step-num">1</div>
-        <div class="step-title">Get Sepolia test ETH</div>
-        <div class="step-text">
-          Sepolia is Ethereum's public testnet. Test ETH is free and has no real value.
-          Use any of the faucets below to get some:
-        </div>
-        <a href="https://sepoliafaucet.com" target="_blank" rel="noopener" class="step-link">sepoliafaucet.com ↗</a><br/>
-        <a href="https://faucet.quicknode.com/ethereum/sepolia" target="_blank" rel="noopener" class="step-link">QuickNode faucet ↗</a>
-        <div class="step-tag">Sepolia · Chain ID 11155111</div>
-      </div>
-
-      <div class="step-card">
-        <div class="step-num">2</div>
-        <div class="step-title">Execute at least one testnet swap</div>
-        <div class="step-text">
-          Go to the Zenthis testnet app and complete a cross-chain swap. Your wallet address
-          is automatically recorded on-chain. Minimum: 1 swap. More activity = higher allocation tier.
-        </div>
-        <a href="app.html" class="step-link">Launch testnet app →</a>
-        <div class="step-tag">app.zenthisprotocol.xyz · Sepolia</div>
-      </div>
-
-      <div class="step-card">
-        <div class="step-num">3</div>
-        <div class="step-title">Register your mainnet address</div>
-        <div class="step-text">
-          Submit the wallet address you will use to receive ZENTHIS on mainnet at TGE.
-          This can be the same as your testnet address or a different one.
-          Snapshot is taken at IDO close (June 10, 2026).
-        </div>
-        <a href="#register" class="step-link">Register below ↓</a>
-        <div class="step-tag">Deadline: June 10, 2026</div>
-      </div>
-
-    </div>
-  </section>
-
-  <!-- ─── ALLOCATION CRITERIA ─── -->
-  <section class="section" style="padding-top:0">
-    <div class="section-tag">Allocation tiers</div>
-    <h2 class="section-title">More usage = larger allocation</h2>
-    <p class="section-sub">The 10M ZENTHIS pool is distributed pro-rata based on on-chain testnet activity.</p>
-
-    <div class="criteria-grid">
-
-      <div class="criteria-card">
-        <div class="criteria-icon">🌱</div>
-        <div>
-          <div class="criteria-title">Tier 1 — Tester</div>
-          <div class="criteria-desc">Complete 1–4 testnet swaps across any supported chains.</div>
-          <div class="criteria-bonus">Base allocation</div>
-        </div>
-      </div>
-
-      <div class="criteria-card">
-        <div class="criteria-icon">⚡</div>
-        <div>
-          <div class="criteria-title">Tier 2 — Power User</div>
-          <div class="criteria-desc">Complete 5–19 swaps or add liquidity to a testnet pool.</div>
-          <div class="criteria-bonus">2× base allocation</div>
-        </div>
-      </div>
-
-      <div class="criteria-card">
-        <div class="criteria-icon">🔬</div>
-        <div>
-          <div class="criteria-title">Tier 3 — Protocol Explorer</div>
-          <div class="criteria-desc">Complete 20+ swaps, use multiple chains, and interact with the HTLC contracts directly.</div>
-          <div class="criteria-bonus">5× base allocation</div>
-        </div>
-      </div>
-
-      <div class="criteria-card">
-        <div class="criteria-icon">🐛</div>
-        <div>
-          <div class="criteria-title">Bug Reporter</div>
-          <div class="criteria-desc">Report a valid bug or security issue via GitHub Issues with reproducible steps.</div>
-          <div class="criteria-bonus">Up to 50,000 ZENTHIS bonus</div>
-        </div>
-      </div>
-
-      <div class="criteria-card">
-        <div class="criteria-icon">🏗️</div>
-        <div>
-          <div class="criteria-title">LP Provider</div>
-          <div class="criteria-desc">Provide testnet liquidity to any Zenthis pool for at least 7 days.</div>
-          <div class="criteria-bonus">3× base allocation</div>
-        </div>
-      </div>
-
-      <div class="criteria-card">
-        <div class="criteria-icon">📝</div>
-        <div>
-          <div class="criteria-title">Feedback Contributor</div>
-          <div class="criteria-desc">Submit structured feedback via Discord #testnet-feedback with UI/UX or technical observations.</div>
-          <div class="criteria-bonus">1.5× base allocation</div>
-        </div>
-      </div>
-
-    </div>
-  </section>
-
-  <!-- ─── REGISTER ─── -->
-  <section class="section" id="register" style="padding-top:0">
-    <div class="section-tag">Step 3</div>
-    <h2 class="section-title">Register your mainnet address</h2>
-    <p class="section-sub">Submit the Ethereum address where you want to receive your ZENTHIS allocation at TGE (TBA).</p>
-
-    <div class="reg-card">
       <div id="regForm">
-        <div class="reg-title">Airdrop Registration</div>
-        <div class="reg-sub">We only store your addresses. No email, no social login, no wallet signature required.</div>
-
-        <form onsubmit="submitRegistration(event)">
-          <div class="form-group">
-            <label class="form-label" for="testnetAddr">Sepolia testnet address (used to verify activity)</label>
-            <input class="form-input" type="text" id="testnetAddr"
-              placeholder="0x..." autocomplete="off" required
-              pattern="^0x[0-9a-fA-F]{40}$" title="Valid Ethereum address starting with 0x" />
-            <div class="form-hint">The address you used on the Zenthis Sepolia testnet app.</div>
+        <form id="mainRegForm">
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label" for="wlTwitter">X/Twitter handle *</label>
+              <input class="form-input" type="text" id="wlTwitter"
+                placeholder="@yourhandle" autocomplete="off" required />
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="wlEmail">Email address *</label>
+              <input class="form-input" type="email" id="wlEmail"
+                placeholder="you@email.com" autocomplete="off" required />
+            </div>
           </div>
-
           <div class="form-group">
-            <label class="form-label" for="mainnetAddr">Mainnet receiving address (where ZENTHIS will be sent)</label>
-            <input class="form-input" type="text" id="mainnetAddr"
-              placeholder="0x..." autocomplete="off" required
+            <label class="form-label" for="wlWallet">EVM wallet address (optional)</label>
+            <input class="form-input" type="text" id="wlWallet"
+              placeholder="0x..." autocomplete="off"
               pattern="^0x[0-9a-fA-F]{40}$" title="Valid Ethereum address starting with 0x" />
-            <div class="form-hint">Can be the same as your testnet address or a hardware wallet.</div>
+            <div class="form-hint">Where you'll receive your $ZEN at TGE. Can add later.</div>
           </div>
-
-          <button type="submit" class="btn-submit">Register for Airdrop</button>
+          <button type="submit" class="btn-submit" id="regSubmitBtn">Secure My Spot &#x2192;</button>
           <div class="form-disclaimer">
-            We verify testnet activity on-chain before the snapshot. Addresses with 0 testnet transactions are excluded automatically.
+            No KYC. No wallet signature. We only use this to notify you when the IDO launches.
           </div>
         </form>
       </div>
 
-      <div class="form-success" id="regSuccess">
-        <div class="form-success-icon">✅</div>
-        <h3>You're registered</h3>
-        <p>We'll verify your testnet activity before the snapshot on June 10, 2026.<br/>
-        Questions? Join <a href="https://t.me/zenthisprotocol" target="_blank" rel="noopener">Telegram</a> or
-        <a href="https://discord.gg/zenthis" target="_blank" rel="noopener">Discord</a>.</p>
+      <div class="form-success" id="regSuccess" style="display:none; text-align:center; padding: 16px 0;">
+        <div style="font-size:2.5rem;margin-bottom:8px;">&#x2705;</div>
+        <h3 style="font-weight:700;margin-bottom:6px;">You're on the whitelist!</h3>
+        <p style="color:var(--muted);font-size:0.9rem;">Check your dashboard below for your referral link and bonus tasks.</p>
+      </div>
+    </div>
+
+    <!-- Honest box -->
+    <div class="honest-box" style="margin-top:32px;">
+      <div class="honest-icon">&#x2705;</div>
+      <div>
+        <div class="honest-title">Why we do it differently</div>
+        <div class="honest-text">
+          Most crypto airdrops reward wallet connections and social farming — a system that attracts bots,
+          Sybil attacks, and zero real users. Zenthis rewards real early adopters with guaranteed allocation.
+          No points farming. No "maybe" airdrops. You register, you get in.
+        </div>
       </div>
     </div>
   </section>
 
-  <!-- ─── TIMELINE ─── -->
-  <section class="section" style="padding-top:0">
-    <div class="section-tag">Timeline</div>
-    <h2 class="section-title">Key dates</h2>
-    <p class="section-sub" style="margin-bottom:32px">Everything you need to know before TBA.</p>
+  <!-- DASHBOARD (shown after registration) -->
+  <div class="dash-card" id="dashCard">
+    <div class="dash-header">
+      <div class="dash-check">&#x2714;</div>
+      <div>
+        <h3>You're Whitelisted &#x1F389;</h3>
+        <p>Share your link. Earn bonuses. Get more $ZEN.</p>
+      </div>
+      <span class="dash-tier early" id="dashTierBadge" style="margin-left:auto;">Early Adopter</span>
+    </div>
 
-    <div class="timeline">
-      <div class="tl-item">
-        <div class="tl-dot active">✓</div>
-        <div class="tl-date">May 2026</div>
-        <div class="tl-title">Testnet live on Sepolia</div>
-        <div class="tl-desc">ZenthisHTLC contracts deployed on Sepolia. Testnet app available at app.zenthisprotocol.xyz. Start testing and accumulate activity.</div>
+    <div class="dash-stats">
+      <div class="dash-stat">
+        <div class="dash-stat-val" id="dashPoints">2,000</div>
+        <div class="dash-stat-lbl">Your $ZEN Points</div>
       </div>
-      <div class="tl-item">
-        <div class="tl-dot upcoming">◎</div>
-        <div class="tl-date">May 15, 2026</div>
-        <div class="tl-title">IDO presale opens on PinkSale</div>
-        <div class="tl-desc">Public token sale opens. 25M ZENTHIS at $0.10. Softcap $500K, hardcap $2.5M. Link published on zenthisprotocol.xyz.</div>
+      <div class="dash-stat">
+        <div class="dash-stat-val green" id="dashRefCount">0</div>
+        <div class="dash-stat-lbl">People referred</div>
       </div>
-      <div class="tl-item">
-        <div class="tl-dot upcoming">◎</div>
-        <div class="tl-date">June 10, 2026</div>
-        <div class="tl-title">Airdrop snapshot & registration closes</div>
-        <div class="tl-desc">On-chain activity snapshot taken. Registration for testnet airdrop closes. No late entries accepted.</div>
+      <div class="dash-stat">
+        <div class="dash-stat-val yellow" id="dashEarlyBird">Yes</div>
+        <div class="dash-stat-lbl">Early Bird</div>
       </div>
-      <div class="tl-item">
-        <div class="tl-dot upcoming">◎</div>
-        <div class="tl-date">TBA — TGE</div>
-        <div class="tl-title">Token Generation Event</div>
-        <div class="tl-desc">ZENTHIS distributed to IDO buyers and airdrop recipients. Uniswap V2 listing. Protocol goes live on mainnet.</div>
+      <div class="dash-stat">
+        <div class="dash-stat-val" style="font-size:0.85rem;" id="dashAlloc">Priority $50-$100</div>
+        <div class="dash-stat-lbl">Est. IDO allocation</div>
       </div>
+    </div>
+
+    <div class="dash-ref-box">
+      <span class="dash-ref-link" id="dashRefLink">Loading your link...</span>
+      <button class="dash-ref-copy" id="dashCopyBtn" onclick="dashCopyRef()">Copy</button>
+    </div>
+
+    <div class="dash-share">
+      <a class="dash-share-btn dash-share-x" id="dashShareX" href="#" target="_blank" rel="noopener" onclick="dashShareX(event)">
+        &#x1D54F; Share on X
+      </a>
+      <a class="dash-share-btn dash-share-tg" id="dashShareTg" href="#" target="_blank" rel="noopener" onclick="dashShareTg(event)">
+        &#x2708; Share on Telegram
+      </a>
+    </div>
+
+    <!-- Verification section -->
+    <div style="border-top:1px solid var(--border);margin-top:20px;padding-top:20px;">
+      <h4 style="font-family:'Space Grotesk',sans-serif;font-size:0.95rem;margin-bottom:4px;">&#x1F511; Verify your tasks</h4>
+      <p style="font-size:0.8rem;color:var(--muted);margin-bottom:16px;">Complete each step to earn bonus points. Real verification only.</p>
+
+      <!-- Telegram verification -->
+      <div id="tgVerifyBlock" style="margin-bottom:14px;">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+          <span style="font-weight:600;font-size:0.85rem;">&#x2708; Telegram</span>
+          <span id="tgStatus" style="font-size:0.75rem;color:var(--muted);">Not verified</span>
+          <span id="tgDone" style="display:none;color:var(--green);font-size:0.85rem;">&#x2713; Verified</span>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+          <span style="font-size:0.75rem;color:var(--muted);">1. Join</span>
+          <a href="https://t.me/zenthisprotocol" target="_blank" rel="noopener" class="dash-share-btn dash-share-tg" style="font-size:0.75rem;padding:6px 12px;">Open Telegram</a>
+          <span style="font-size:0.75rem;color:var(--muted);">2. Send</span>
+          <code style="font-size:0.75rem;background:rgba(255,255,255,0.05);padding:4px 8px;border-radius:4px;">/id</code>
+          <span style="font-size:0.75rem;color:var(--muted);">to @zenthis_bot</span>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:8px;align-items:center;">
+          <span style="font-size:0.75rem;color:var(--muted);">3. Paste your ID:</span>
+          <input class="form-input" type="text" id="tgUserId" placeholder="e.g. 123456789" style="width:160px;padding:7px 10px;font-size:0.8rem;border-radius:6px;" />
+          <button id="tgVerifyBtn" onclick="verifyTelegram()" class="dash-ref-copy" style="font-size:0.8rem;padding:7px 14px;">Verify</button>
+        </div>
+      </div>
+
+      <!-- Twitter verification -->
+      <div id="twVerifyBlock" style="margin-bottom:14px;">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+          <span style="font-weight:600;font-size:0.85rem;">&#x1D54F; X/Twitter</span>
+          <span id="twStatus" style="font-size:0.75rem;color:var(--muted);">Not verified</span>
+          <span id="twDone" style="display:none;color:var(--green);font-size:0.85rem;">&#x2713; Verified</span>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+          <span style="font-size:0.75rem;color:var(--muted);">1. Tweet</span>
+          <a id="twTweetLink" href="#" target="_blank" rel="noopener" class="dash-share-btn dash-share-x" style="font-size:0.75rem;padding:6px 12px;">Post on X</a>
+          <span style="font-size:0.75rem;color:var(--muted);">2. Paste tweet URL:</span>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:8px;align-items:center;">
+          <input class="form-input" type="text" id="twTweetUrl" placeholder="https://x.com/user/status/..." style="flex:1;padding:7px 10px;font-size:0.8rem;border-radius:6px;" />
+          <button id="twSaveBtn" onclick="saveTweetUrl()" class="dash-ref-copy" style="font-size:0.8rem;padding:7px 14px;">Save</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- BOOST TASKS -->
+  <section class="section" style="padding-top:20px;">
+    <div class="section-tag">Boost Your Allocation</div>
+    <h2 class="section-title">Complete tasks. Earn more $ZEN.</h2>
+    <p class="section-sub">Each task below adds bonus points to your allocation. Complete them after registering.</p>
+
+    <div class="boost-list">
+      <a class="boost-item" id="boostFollow" href="https://twitter.com/zenthis_io" target="_blank" rel="noopener">
+        <span class="boost-icon">&#x1D54F;</span>
+        <span class="boost-info">
+          <span class="boost-name">Follow @zenthis_io on X</span>
+          <span class="boost-desc">Stay updated on IDO launch and announcements</span>
+        </span>
+        <span class="boost-pts">+500 pts</span>
+        <span class="boost-check">&#x2713;</span>
+      </a>
+
+      <a class="boost-item" id="boostTweet" href="#" target="_blank" rel="noopener">
+        <span class="boost-icon">&#x1F4AC;</span>
+        <span class="boost-info">
+          <span class="boost-name">Tweet about the whitelist</span>
+          <span class="boost-desc">Post your referral link on X/Twitter — paste URL in dashboard</span>
+        </span>
+        <span class="boost-pts">+1,000 pts</span>
+        <span class="boost-check">&#x2713;</span>
+      </a>
+
+      <a class="boost-item" id="boostTelegram" href="https://t.me/zenthisprotocol" target="_blank" rel="noopener">
+        <span class="boost-icon">&#x2708;</span>
+        <span class="boost-info">
+          <span class="boost-name">Join the Telegram community</span>
+          <span class="boost-desc">Join the group — then verify with /id in dashboard above</span>
+        </span>
+        <span class="boost-pts">+500 pts</span>
+        <span class="boost-check">&#x2713;</span>
+      </a>
     </div>
   </section>
 
-  <!-- ─── FAQ ─── -->
-  <section class="section" style="padding-top:0">
+  <!-- FAQ -->
+  <section class="section" style="padding-bottom:40px;">
     <div class="section-tag">FAQ</div>
-    <h2 class="section-title">Questions</h2>
+    <h2 class="section-title">Quick answers</h2>
 
     <div class="faq-list">
-
       <div class="faq-item">
-        <div class="faq-q" onclick="toggleFaq(this)">Do I need to pay anything to participate? <span class="faq-arrow">▾</span></div>
-        <div class="faq-a" style="display:none">No. Testnet ETH is free from any Sepolia faucet. You only need gas to interact with the testnet, and Sepolia gas is free.</div>
+        <div class="faq-q" onclick="toggleFaq(this)">What is the Zenthis whitelist? <span class="faq-arrow">&#x25BE;</span></div>
+        <div class="faq-a">The whitelist guarantees you an allocation in the Zenthis IDO on PinkSale. Instead of competing in a public FCFS sale, whitelisted addresses get priority access to buy $ZEN at $0.10 before anyone else. First 500 registered get guaranteed allocation.</div>
       </div>
-
       <div class="faq-item">
-        <div class="faq-q" onclick="toggleFaq(this)">How is my testnet activity verified? <span class="faq-arrow">▾</span></div>
-        <div class="faq-a" style="display:none">The ZenthisHTLC contract on Sepolia emits events for every swap. We index these on-chain events before the snapshot. Your testnet address must have at least one confirmed transaction with the Zenthis contract.</div>
+        <div class="faq-q" onclick="toggleFaq(this)">Do I need to pay anything? <span class="faq-arrow">&#x25BE;</span></div>
+        <div class="faq-a">No. Registering for the whitelist is completely free. You only pay if you choose to participate in the IDO when it launches on PinkSale.</div>
       </div>
-
       <div class="faq-item">
-        <div class="faq-q" onclick="toggleFaq(this)">Can I use any wallet? <span class="faq-arrow">▾</span></div>
-        <div class="faq-a" style="display:none">Yes. Any EVM-compatible wallet works on Sepolia testnet: MetaMask, Rabby, Coinbase Wallet, hardware wallets via MetaMask, etc. For receiving the airdrop on mainnet, we recommend a hardware wallet for security.</div>
+        <div class="faq-q" onclick="toggleFaq(this)">When does the IDO launch? <span class="faq-arrow">&#x25BE;</span></div>
+        <div class="faq-a">The IDO launches on PinkSale once we reach 500 whitelist registrations. The faster the community grows, the sooner it launches. We'll email all registered users the moment the date is confirmed.</div>
       </div>
-
       <div class="faq-item">
-        <div class="faq-q" onclick="toggleFaq(this)">Is the airdrop contract audited? <span class="faq-arrow">▾</span></div>
-        <div class="faq-a" style="display:none">The ZENTHIS token and HTLC contracts are published on GitHub. An external audit is scheduled before mainnet deployment. The audit report will be published on zenthisprotocol.xyz before TGE.</div>
+        <div class="faq-q" onclick="toggleFaq(this)">Is the 2,000 $ZEN airdrop real? <span class="faq-arrow">&#x25BE;</span></div>
+        <div class="faq-a">Yes. Every whitelisted user receives 2,000 $ZEN at TGE with 100% unlock and no vesting. The airdrop pool is 10M ZENTHIS (10% of total supply), distributed equally among all whitelisted participants.</div>
       </div>
-
       <div class="faq-item">
-        <div class="faq-q" onclick="toggleFaq(this)">What if I registered but had no testnet transactions? <span class="faq-arrow">▾</span></div>
-        <div class="faq-a" style="display:none">Registrations without any on-chain testnet activity are excluded from the airdrop automatically. You must complete at least one swap on the Sepolia testnet app before June 10, 2026.</div>
+        <div class="faq-q" onclick="toggleFaq(this)">What is Zenthis Protocol? <span class="faq-arrow">&#x25BE;</span></div>
+        <div class="faq-a">Zenthis is a cross-chain DEX that uses HTLC (Hashed TimeLock Contracts) for atomic swaps — no bridges, no custodians, no wrapped tokens. Trade native assets directly across chains with full self-custody.</div>
       </div>
-
     </div>
   </section>
 
-  <!-- ─── FOOTER ─── -->
+  <!-- FOOTER -->
   <footer class="footer">
     <p style="margin-bottom:8px">
-      <a href="index.html">zenthisprotocol.xyz</a> ·
-      <a href="whitepaper.html">Whitepaper</a> ·
-      <a href="https://twitter.com/zenthis_io" target="_blank" rel="noopener">Twitter/X</a> ·
-      <a href="https://t.me/zenthisprotocol" target="_blank" rel="noopener">Telegram</a> ·
-      <a href="https://discord.gg/zenthis" target="_blank" rel="noopener">Discord</a>
+      <a href="index.html">zenthisprotocol.xyz</a> &middot;
+      <a href="whitepaper.html">Whitepaper</a> &middot;
+      <a href="https://twitter.com/zenthis_io" target="_blank" rel="noopener">X/Twitter</a> &middot;
+      <a href="https://t.me/zenthisprotocol" target="_blank" rel="noopener">Telegram</a> &middot;
+      <a href="https://discord.gg/e9AtG2dY" target="_blank" rel="noopener">Discord</a>
     </p>
-    <p>© 2026 Zenthis Protocol · zenthisprotocol.xyz · Not financial advice.</p>
+    <p>&copy; 2026 Zenthis Protocol &middot; Not financial advice.</p>
   </footer>
 
+  <!-- Floating share badge -->
+  <a href="#dashCard" id="refFloater">&#x1F3C6; Share &amp; Earn more $ZEN</a>
+
+  <!-- FAQ toggle -->
   <script>
     function toggleFaq(el) {
-      const answer = el.nextElementSibling;
-      const arrow  = el.querySelector('.faq-arrow');
-      const open   = answer.style.display !== 'none';
-      answer.style.display = open ? 'none' : 'block';
+      var a = el.nextElementSibling;
+      var arrow = el.querySelector('.faq-arrow');
+      var open = a.style.display !== 'none';
+      a.style.display = open ? 'none' : 'block';
       arrow.style.transform = open ? 'rotate(0deg)' : 'rotate(180deg)';
     }
-
-    function submitRegistration(e) {
-      e.preventDefault();
-      const testnet = document.getElementById('testnetAddr').value.trim();
-      const mainnet = document.getElementById('mainnetAddr').value.trim();
-      if (!/^0x[0-9a-fA-F]{40}$/.test(testnet) || !/^0x[0-9a-fA-F]{40}$/.test(mainnet)) {
-        alert('Please enter valid Ethereum addresses (0x followed by 40 hex characters).');
-        return;
-      }
-      // Store locally — backend integration to be added when deploying
-      updateRefLinkBox();
-      const reg = JSON.parse(localStorage.getItem('zenthis_registration') || '{}');
-      reg.testnet  = testnet;
-      reg.mainnet  = mainnet;
-      reg.ts       = Date.now();
-      localStorage.setItem('zenthis_registration', JSON.stringify(reg));
-      updateRefLinkBox();
-      document.getElementById('refLinkBox') && (document.getElementById('refLinkBox').textContent = 'zenthisprotocol.xyz/airdrop?ref=' + mainnet.slice(0,10) + '...');
-      document.getElementById('regForm').style.display    = 'none';
-      document.getElementById('regSuccess').style.display = 'block';
-    }
-
-    function copyRefLink() {
-      updateRefLinkBox();
-      const reg = JSON.parse(localStorage.getItem('zenthis_registration') || '{}');
-      const addr = reg.mainnet || '';
-      const link = addr
-        ? 'https://zenthisprotocol.xyz/airdrop?ref=' + addr.slice(0,10)
-        : 'https://zenthisprotocol.xyz/airdrop';
-      navigator.clipboard.writeText(link).then(() => {
-        document.getElementById('copyConfirm').style.display = 'block';
-        setTimeout(() => document.getElementById('copyConfirm').style.display = 'none', 2500);
-      });
-    }
-
-    function updateRefLinkBox() {
-      const reg = JSON.parse(localStorage.getItem('zenthis_registration') || '{}');
-      const box = document.getElementById('refLinkBox');
-      if (box && reg.mainnet) {
-        box.textContent = 'zenthisprotocol.xyz/airdrop?ref=' + reg.mainnet.slice(0,10) + '...';
-        box.style.color = '#e2e8f0';
-      }
-    }
-
-    // Pre-fill if already registered
-    window.addEventListener('DOMContentLoaded', () => {
-      updateRefLinkBox();
-      const reg = JSON.parse(localStorage.getItem('zenthis_registration') || '{}');
-      if (reg.testnet) {
-        document.getElementById('regForm') && (document.getElementById('regForm').style.display = 'none');
-        document.getElementById('regSuccess') && (document.getElementById('regSuccess').style.display = 'block');
-      }
-    });
   </script>
 
-  <!-- ── Sticky "Refer & Earn" floating badge ── -->
-  <a href="#referral" id="refFloater"
-     style="position:fixed;bottom:28px;right:28px;z-index:999;display:flex;align-items:center;gap:10px;
-            background:linear-gradient(135deg,#f59e0b,#f97316);color:#000;font-weight:800;font-size:0.9rem;
-            padding:14px 22px;border-radius:50px;text-decoration:none;box-shadow:0 4px 24px rgba(245,158,11,0.45);
-            animation:floatPulse 2.6s ease-in-out infinite;">
-    🏆 Refer &amp; Earn up to 50,000 ZENTHIS
-  </a>
-  <style>
-    @keyframes floatPulse {
-      0%,100% { box-shadow: 0 4px 24px rgba(245,158,11,0.45); transform: translateY(0); }
-      50%      { box-shadow: 0 8px 36px rgba(245,158,11,0.65); transform: translateY(-4px); }
+  <!-- Firebase module -->
+  <script type="module">
+    import { initializeApp } from 'https://www.gstatic.com/firebasejs/11.6.0/firebase-app.js';
+    import { getFirestore, doc, getDoc, setDoc, updateDoc, collection, query, where, getDocs, limit, runTransaction, increment, serverTimestamp } from 'https://www.gstatic.com/firebasejs/11.6.0/firebase-firestore.js';
+
+    var app = initializeApp({apiKey:"AIzaSyCdP7nxgSM-IBatzybe1K-XwOr2AcX4DxY",authDomain:"zenthis-app.firebaseapp.com",projectId:"zenthis-app",storageBucket:"zenthis-app.firebasestorage.app",messagingSenderId:"634595451666",appId:"1:634595451666:web:b83f7c9350c54b1a11c9cb"});
+    var db = getFirestore(app);
+
+    async function loadStats() {
+      try {
+        var s = await getDoc(doc(db, 'waitlist_meta', 'stats'));
+        var d = s.exists() ? s.data() : {};
+        var c = d.count || 0;
+        window._totalParticipants = c;
+        ['statTotal', 'heroWlCount', 'wlLiveCounter'].forEach(function(i) {
+          var e = document.getElementById(i); if (e) e.textContent = c;
+        });
+        var r = document.getElementById('statRemaining');
+        if (r) r.textContent = Math.max(0, 500 - c);
+        var f = document.getElementById('formSpotsLeft');
+        if (f) f.textContent = Math.max(0, 500 - c);
+        var b = document.getElementById('formSpotsBadge');
+        if (b && c >= 500) b.style.display = 'none';
+      } catch(_) {}
     }
-    /* Hide floater once user has scrolled to/past the referral section */
-  </style>
+
+    async function fbRegister(email, twitter, wallet) {
+      var k = email.toLowerCase().trim();
+      var r = doc(db, 'waitlist', k);
+      var sn = await getDoc(r);
+      if (sn.exists()) return { error: 'duplicate', data: sn.data() };
+      var rc = localStorage.getItem('zth_ref') || null;
+      var t = window._totalParticipants || 0;
+      var mc = k.replace(/[^a-z0-9]/g, '').slice(0, 8).toUpperCase();
+      var d = {
+        email: k,
+        twitter: twitter.trim().replace(/^@/, ''),
+        wallet: (wallet || '').toLowerCase().trim(),
+        refCode: mc,
+        referredBy: rc || null,
+        earlyBird: t < 500,
+        telegramId: '',
+        telegramVerified: false,
+        tweetUrl: '',
+        tweetVerified: false,
+        refCount: 0,
+        basePoints: 2000,
+        registeredAt: serverTimestamp()
+      };
+      // Fields for firestore-send-email extension
+      d.to = k;
+      d.message = {
+        subject: 'You are on the Zenthis Whitelist',
+        html: '<div style="font-family:Arial,sans-serif;max-width:500px;margin:0 auto;padding:20px">' +
+          '<h1 style="color:#7c3aed">Welcome to Zenthis</h1>' +
+          '<p>Hi <strong>@' + (twitter || '').replace(/^@/, '') + '</strong>,</p>' +
+          '<p>Your spot on the whitelist is <strong>confirmed</strong>. Here is your referral link to share:</p>' +
+          '<p style="background:#f4f4f4;padding:12px;border-radius:6px;font-family:monospace;word-break:break-all">zenthisprotocol.xyz/airdrop?ref=' + mc + '</p>' +
+          '<p><strong>What you get:</strong></p>' +
+          '<ul><li>Guaranteed IDO allocation at $0.10</li><li>2,000 $ZEN airdrop at TGE (100% unlocked)</li><li>No vesting, no KYC</li></ul>' +
+          '<p>The IDO launches when we reach 500 whitelist signups. Share your link to speed it up!</p>' +
+          '<p style="margin-top:24px;color:#888;font-size:12px">Zenthis Protocol &middot; Not financial advice.</p>' +
+          '</div>'
+      };
+      d.from = 'Zenthis <noreply@zenthisprotocol.xyz>';
+      d.replyTo = 'zenthisio@proton.me';
+      await setDoc(r, d);
+      // Write to mail collection to trigger the SendGrid extension
+      try { await setDoc(doc(db, 'mail', k), { to: d.to, from: d.from, message: d.message, replyTo: d.replyTo }); } catch(e) { console.error('mail write error:', e); }
+      if (rc) {
+        try {
+          var q = query(collection(db, 'waitlist'), where('refCode', '==', rc), limit(1));
+          var rs = await getDocs(q);
+          if (!rs.empty) await updateDoc(rs.docs[0].ref, { refCount: increment(1) });
+        } catch(_) {}
+      }
+      try {
+        var sr = doc(db, 'waitlist_meta', 'stats');
+        await runTransaction(db, async function(tx) {
+          var ss = await tx.get(sr);
+          ss.exists() ? tx.update(sr, { count: increment(1) }) : tx.set(sr, { count: 1 });
+        });
+        window._totalParticipants = (window._totalParticipants || 0) + 1;
+      } catch(_) {}
+      return d;
+    }
+
+    async function fbLoadUser(email) {
+      try {
+        var s = await getDoc(doc(db, 'waitlist', email.toLowerCase().trim()));
+        return s.exists() ? s.data() : null;
+      } catch(_) { return null; }
+    }
+
+    async function fbVerifyTelegram(email, telegramId) {
+      try {
+        var d = doc(db, 'waitlist', email.toLowerCase().trim());
+        var sn = await getDoc(d);
+        if (!sn.exists()) return { error: 'not_found' };
+        // Call Firebase Function to verify membership
+        var resp = await fetch('https://zenthisprotocol.xyz/verifyTelegram', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: email.toLowerCase().trim(), telegram_id: telegramId })
+        });
+        var result = await resp.json();
+        if (result.verified) {
+          await updateDoc(d, { telegramId: telegramId, telegramVerified: true });
+        }
+        return result;
+      } catch(_) { return { error: 'network' }; }
+    }
+
+    async function fbSaveTweetUrl(email, tweetUrl) {
+      try {
+        var d = doc(db, 'waitlist', email.toLowerCase().trim());
+        var sn = await getDoc(d);
+        if (!sn.exists()) return { error: 'not_found' };
+        await updateDoc(d, { tweetUrl: tweetUrl, tweetVerified: false });
+        return { saved: true };
+      } catch(_) { return { error: 'save_failed' }; }
+    }
+
+    window._fbRegister = function(e, t, w) { return fbRegister(e, t, w); };
+    window._fbLoadUser = function(e) { return fbLoadUser(e); };
+    window._fbVerifyTelegram = function(e, tid) { return fbVerifyTelegram(e, tid); };
+    window._fbSaveTweetUrl = function(e, tu) { return fbSaveTweetUrl(e, tu); };
+    loadStats();
+  </script>
+
+  <!-- App logic -->
   <script>
-    (function(){
-      var fl = document.getElementById('refFloater');
-      var sec = document.getElementById('referral');
-      window.addEventListener('scroll', function(){
-        if(!fl || !sec) return;
-        var r = sec.getBoundingClientRect();
-        fl.style.display = r.top < window.innerHeight ? 'none' : 'flex';
-      }, {passive:true});
+    // ========== EMAILJS CONFIRMATION ==========
+    // 1. Sign up FREE: https://emailjs.com
+    // 2. Add your Gmail as Email Service → get SERVICE ID
+    // 3. Create template with: to_email, to_name, ref_link, twitter, wallet, spots_left
+    // 4. Fill in your keys below:
+    var _EMAILJS_KEY = 'YOUR_PUBLIC_KEY';    // ← Replace with your Public Key
+    var _EMAILJS_SVC = 'YOUR_SERVICE_ID';   // ← Replace with your Service ID
+    var _EMAILJS_TPL = 'YOUR_TEMPLATE_ID';  // ← Replace with your Template ID
+    if (_EMAILJS_KEY !== 'YOUR_PUBLIC_KEY') emailjs.init(_EMAILJS_KEY);
+
+    function sendConfirmationEmail(userData, refLink) {
+      if (_EMAILJS_KEY === 'YOUR_PUBLIC_KEY') { console.log('EmailJS not configured — skipping email'); return; }
+      var spots = Math.max(0, 500 - (window._totalParticipants || 0));
+      emailjs.send(_EMAILJS_SVC, _EMAILJS_TPL, {
+        to_email: userData.email,
+        to_name: '@' + userData.twitter,
+        ref_link: refLink,
+        twitter: '@' + userData.twitter,
+        wallet: userData.wallet || 'Not provided',
+        spots_left: spots + ' spots remaining',
+        airdrop_amount: '2,000 $ZEN',
+        ido_price: '$0.10'
+      }).then(function() {
+        console.log('Confirmation email sent to ' + userData.email);
+      }).catch(function(err) {
+        console.warn('EmailJS error:', err);
+      });
+    }
+    // ========== END EMAILJS ==========
+
+    async function submitRegistration(e) {
+      e.preventDefault();
+      var tw = document.getElementById('wlTwitter').value.trim();
+      var em = document.getElementById('wlEmail').value.trim();
+      var wa = document.getElementById('wlWallet').value.trim();
+
+      if (!tw || !em) { alert('Twitter handle and email are required.'); return; }
+      if (!/^@?[A-Za-z0-9_]{1,15}$/.test(tw.replace(/^@/, ''))) { alert('Please enter a valid X/Twitter handle.'); return; }
+      if (!/\S+@\S+\.\S+/.test(em)) { alert('Please enter a valid email address.'); return; }
+
+      var btn = document.getElementById('regSubmitBtn');
+      btn.textContent = 'Registering...';
+      btn.disabled = true;
+
+      var ud = null;
+      var fbError = null;
+      if (typeof window._fbRegister === 'function') {
+        try { ud = await window._fbRegister(em, tw, wa); } catch(e) { fbError = e; console.error('Firebase error:', e); }
+      }
+      if (fbError || !ud) {
+        alert('Registration failed. Error: ' + (fbError ? fbError.message : 'Could not connect to Firebase. Check your connection and try again.'));
+        btn.textContent = 'Secure My Spot →';
+        btn.disabled = false;
+        return;
+      }
+      if (ud.error === 'duplicate') {
+        alert('This email is already registered on the whitelist. You\'re already in! If you lost your dashboard, enter your email below to restore it.');
+        btn.textContent = 'Secure My Spot →';
+        btn.disabled = false;
+        // Show restore field
+        var existing = document.getElementById('regRestore');
+        if (!existing) {
+          var restore = document.createElement('div');
+          restore.id = 'regRestore';
+          restore.style.cssText = 'margin-top:12px;padding:10px;background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.3);border-radius:8px;text-align:center;';
+          restore.innerHTML = '<button onclick="restoreDashboard(document.getElementById(\'wlEmail\').value.trim())" style="background:var(--yellow);color:#000;border:none;padding:8px 16px;border-radius:6px;font-weight:700;cursor:pointer;">Restore My Dashboard</button>';
+          document.getElementById('regForm').appendChild(restore);
+        }
+        return;
+      }
+
+      window._userData = ud;
+      localStorage.setItem('zenthis_registration', JSON.stringify({
+        email: ud.email, twitter: ud.twitter, wallet: ud.wallet || '',
+        refCode: ud.refCode, ts: Date.now()
+      }));
+
+      document.getElementById('regForm').style.display = 'none';
+      document.getElementById('regSuccess').style.display = 'block';
+      if (typeof window.renderDashboard === 'function') window.renderDashboard(ud);
+      sendConfirmationEmail(ud, 'zenthisprotocol.xyz/airdrop?ref=' + (ud.refCode || ''));
+    }
+
+    window.renderDashboard = function(ud) {
+      if (!ud) return;
+      var rc = ud.refCode || '';
+      var rl = 'zenthisprotocol.xyz/airdrop?ref=' + rc;
+      var rs = ud.refCount || 0;
+      var tgv = ud.telegramVerified || false;
+      var twv = ud.tweetVerified || false;
+      var tot = 2000 + (rs * 1000) + (tgv ? 500 : 0) + (twv ? 1000 : 0);
+      window._currentRefLink = rl;
+      window._currentRefCode = rc;
+
+      var bd = document.getElementById('dashTierBadge');
+      if (bd) {
+        var tn = 'Early Adopter';
+        if (rs >= 25) { tn = 'Whale'; bd.className = 'dash-tier whale'; }
+        else if (rs >= 10) tn = 'Gold';
+        else if (rs >= 3) tn = 'Silver';
+        else bd.className = 'dash-tier early';
+        bd.textContent = tn;
+      }
+
+      var el = document.getElementById('dashPoints'); if (el) el.textContent = tot;
+      el = document.getElementById('dashRefLink'); if (el) el.textContent = rl;
+      el = document.getElementById('dashRefCount'); if (el) el.textContent = rs;
+      el = document.getElementById('dashEarlyBird'); if (el) el.textContent = ud.earlyBird ? 'Yes' : 'No';
+      el = document.getElementById('dashAlloc'); if (el) el.textContent = 'Priority $50-$100 min';
+
+      // Restore verification state
+      if (tgv) setTgVerified();
+      if (twv) setTwVerified();
+      if (ud.tweetUrl) {
+        var tu = document.getElementById('twTweetUrl');
+        if (tu) tu.value = ud.tweetUrl;
+      }
+
+      var card = document.getElementById('dashCard');
+      if (card) card.style.display = 'block';
+
+      updateShareButtons(rl);
+    };
+
+    // Restore dashboard for returning users
+    window.restoreDashboard = async function(email) {
+      var ud = null;
+      if (typeof window._fbLoadUser === 'function') {
+        try { ud = await window._fbLoadUser(email); } catch(_) {}
+      }
+      if (ud) {
+        window._userData = ud;
+        localStorage.setItem('zenthis_registration', JSON.stringify({
+          email: ud.email, twitter: ud.twitter, wallet: ud.wallet || '',
+          refCode: ud.refCode, ts: Date.now()
+        }));
+        document.getElementById('regForm').style.display = 'none';
+        document.getElementById('regSuccess').style.display = 'block';
+        window.renderDashboard(ud);
+      } else {
+        alert('Email not found. Please register first.');
+      }
+    };
+
+    // Telegram verification
+    window.verifyTelegram = async function() {
+      var tid = document.getElementById('tgUserId').value.trim();
+      if (!tid || !/^\d{5,15}$/.test(tid)) { alert('Enter your numeric Telegram user ID (get it by sending /id to @zenthis_bot).'); return; }
+      var em = window._userData ? window._userData.email : null;
+      if (!em) { alert('Session lost. Please restore your dashboard.'); return; }
+      var btn = document.getElementById('tgVerifyBtn');
+      btn.textContent = 'Checking...'; btn.disabled = true;
+      var result = null;
+      if (typeof window._fbVerifyTelegram === 'function') {
+        try { result = await window._fbVerifyTelegram(em, tid); } catch(_) {}
+      }
+      btn.textContent = 'Verify'; btn.disabled = false;
+      if (result && result.verified) {
+        window._userData.telegramVerified = true;
+        window._userData.telegramId = tid;
+        localStorage.setItem('zenthis_registration', JSON.stringify({
+          email: window._userData.email, twitter: window._userData.twitter, wallet: window._userData.wallet || '',
+          refCode: window._userData.refCode, ts: Date.now()
+        }));
+        setTgVerified();
+        recalcPoints();
+      } else {
+        alert('Verification failed. Make sure you have joined https://t.me/zenthisprotocol and sent /id to @zenthis_bot.');
+      }
+    };
+
+    // Save tweet URL
+    window.saveTweetUrl = async function() {
+      var tu = document.getElementById('twTweetUrl').value.trim();
+      if (!tu || !tu.match(/https:\/\/(twitter\.com|x\.com)\/\w+\/status\/\d+/i)) {
+        alert('Paste a valid tweet URL (https://x.com/user/status/123456...)');
+        return;
+      }
+      var em = window._userData ? window._userData.email : null;
+      if (!em) { alert('Session lost. Please restore your dashboard.'); return; }
+      var btn = document.getElementById('twSaveBtn');
+      btn.textContent = 'Saving...'; btn.disabled = true;
+      if (typeof window._fbSaveTweetUrl === 'function') {
+        try { await window._fbSaveTweetUrl(em, tu); } catch(_) {}
+      }
+      window._userData.tweetUrl = tu;
+      btn.textContent = 'Saved ✓'; btn.style.background = 'var(--green)';
+      setTwVerified();
+      recalcPoints();
+    };
+
+    function setTgVerified() {
+      var ts = document.getElementById('tgStatus');
+      if (ts) { ts.textContent = 'Verified'; ts.style.color = 'var(--green)'; }
+      var td = document.getElementById('tgDone'); if (td) td.style.display = 'inline';
+      var btn = document.getElementById('tgVerifyBtn'); if (btn) { btn.style.display = 'none'; }
+      var inp = document.getElementById('tgUserId'); if (inp) { inp.style.display = 'none'; }
+      markBoostDone('boostTelegram');
+    }
+
+    function setTwVerified() {
+      var ts = document.getElementById('twStatus');
+      if (ts) { ts.textContent = 'Tweet saved — pending review'; ts.style.color = 'var(--yellow)'; }
+      var td = document.getElementById('twDone'); if (td) td.style.display = 'inline';
+      markBoostDone('boostTweet');
+    }
+
+    function recalcPoints() {
+      var ud = window._userData;
+      if (!ud) return;
+      var tgv = ud.telegramVerified || false;
+      var twv = ud.tweetVerified || ud.tweetUrl || false;
+      var tot = 2000 + ((ud.refCount || 0) * 1000) + (tgv ? 500 : 0) + (twv ? 1000 : 0);
+      var el = document.getElementById('dashPoints'); if (el) el.textContent = tot;
+    }
+
+    function markBoostDone(id) {
+      var row = document.getElementById(id);
+      if (!row || row.classList.contains('done')) return;
+      row.classList.add('done');
+    }
+
+    function updateShareButtons(rl) {
+      var x = document.getElementById('dashShareX');
+      if (x) x.href = 'https://twitter.com/intent/tweet?text=' + encodeURIComponent(
+        'I just secured guaranteed allocation in the @zenthis_io IDO whitelist!\n\nPriority allocation + 2,000 $ZEN airdrop. First 500 only.\n\nJoin: ' + rl + '\n\n#Zenthis #IDO #DeFi'
+      );
+      var tg = document.getElementById('dashShareTg');
+      if (tg) tg.href = 'https://t.me/share/url?url=' + encodeURIComponent(rl) + '&text=' + encodeURIComponent('Zenthis IDO guaranteed allocation + airdrop! Join now.');
+    }
+
+    window.dashCopyRef = function() {
+      var l = window._currentRefLink;
+      if (!l) return;
+      navigator.clipboard.writeText(l).then(function() {
+        var b = document.getElementById('dashCopyBtn');
+        b.textContent = 'Copied!';
+        setTimeout(function() { b.textContent = 'Copy'; }, 2200);
+      });
+    };
+
+    window.dashShareX = function(e) { /* handled via href */ };
+    window.dashShareTg = function(e) { /* handled via href */ };
+    window.markBoostDone = markBoostDone;
+
+    // Bind form
+    document.getElementById('mainRegForm').addEventListener('submit', submitRegistration);
+
+    // Restore session
+    (function() {
+      var s = localStorage.getItem('zenthis_registration');
+      if (!s) return;
+      try {
+        var d = JSON.parse(s);
+        if (d.email) {
+          document.getElementById('regForm').style.display = 'none';
+          document.getElementById('regSuccess').style.display = 'block';
+          // Fetch full data from Firestore to get verification state
+          if (typeof window._fbLoadUser === 'function') {
+            window._fbLoadUser(d.email).then(function(ud) {
+              if (ud) { window._userData = ud; window.renderDashboard(ud); }
+              else { window.renderDashboard(d); }
+            }).catch(function() { window.renderDashboard(d); });
+          } else if (typeof window.renderDashboard === 'function') {
+            window.renderDashboard(d);
+          }
+        }
+      } catch(_) {}
+    })();
+
+    // Floating badge visibility
+    (function() {
+      var f = document.getElementById('refFloater');
+      if (!f) return;
+      var t;
+      window.addEventListener('scroll', function() {
+        f.classList.add('visible');
+        clearTimeout(t);
+        t = setTimeout(function() { f.classList.remove('visible'); }, 3000);
+      }, { passive: true });
     })();
   </script>
 
