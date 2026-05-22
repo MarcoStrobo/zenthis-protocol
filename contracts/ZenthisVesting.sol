@@ -1,86 +1,46 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
-/**
- * @title  ZenthisVesting
- * @notice Multi-schedule linear vesting contract for ZENTHIS token.
- *
- * Tokenomics (100 M total):
- * ┌──────────────────────┬──────────┬────────────┬────────┬───────────────────────────────────────┐
- * │ Allocation           │ Tokens   │ TGE Unlock │ Cliff  │ Linear Vesting                        │
- * ├──────────────────────┼──────────┼────────────┼────────┼───────────────────────────────────────┤
- * │ Seed                 │  10.0 M  │     0 %    │  6 mo  │ 24 months                             │
- * │ IDO / Public Sale    │  25.0 M  │    10 %    │  0 mo  │ 18 months (on 90%)                    │
- * │ Liquidity & Reserves │  25.0 M  │    14 %    │  0 mo  │ 48 months (on 86%) · LP lock 12 mo    │
- * │ Team (Founder Equity)│  10.0 M  │     0 %    │ 12 mo  │ 36 months                             │
- * │ Treasury             │  18.2 M  │    11 %    │  0 mo  │ 48 months (on 89%) · multi-sig 3/5    │
- * │ Founder Operations   │   1.8 M  │     0 %    │  0 mo  │ 36 months (~50,000 ZENTHIS/month)     │
- * │ Airdrops             │  10.0 M  │    50 %    │  0 mo  │ 6 months (on 50%)                     │
- * └──────────────────────┴──────────┴────────────┴────────┴───────────────────────────────────────┘
- *
- * Day-1 circulating (sell pressure): 2.5M IDO + 2.0M Treasury + 5.0M Airdrop = 9.5M (9.5%)
- * Liquidity TGE (3.5M) goes directly into LP pool — LP tokens locked 12 months via Team.Finance.
- *
- * Each schedule is identified by a bytes32 key (use the public constants).
- * Schedules are write-once: once created they cannot be modified or revoked.
- */
+/// @title ZenthisVesting — Multi-schedule linear vesting with cliffs
 contract ZenthisVesting is Ownable, ReentrancyGuard {
     using SafeERC20 for IERC20;
 
-    // ─── Types ────────────────────────────────────────────────────────────────
-
-    struct Schedule {
-        address beneficiary;
-        uint256 totalAmount;      // Tokens subject to linear vesting (excl. tgeAmount)
-        uint256 tgeAmount;        // Released immediately at startTime
-        uint64  startTime;        // Unix timestamp of TGE / vesting start
-        uint64  cliffDuration;    // Seconds before linear vesting begins
-        uint64  vestingDuration;  // Seconds of linear vesting (after cliff)
-        uint256 released;         // Cumulative tokens already claimed
-        bool    initialized;
-    }
-
-    // ─── State ────────────────────────────────────────────────────────────────
-
     IERC20 public immutable token;
-
-    mapping(bytes32 => Schedule) private _schedules;
-    bytes32[] private _scheduleIds;
-
-    // ─── Schedule ID constants ────────────────────────────────────────────────
-
-    bytes32 public constant SEED         = keccak256("SEED");
-    bytes32 public constant IDO          = keccak256("IDO");
-    bytes32 public constant LIQUIDITY    = keccak256("LIQUIDITY");
-    bytes32 public constant TEAM         = keccak256("TEAM");
-    bytes32 public constant TREASURY     = keccak256("TREASURY");
-    bytes32 public constant FOUNDER_OPS  = keccak256("FOUNDER_OPS");
-    bytes32 public constant AIRDROPS     = keccak256("AIRDROPS");
-
-    // ─── Duration constants (30-day months) ──────────────────────────────────
 
     uint64 public constant MONTH = 30 days;
 
-    // ─── Errors ───────────────────────────────────────────────────────────────
+    enum Status { EMPTY, INITIALIZED }
 
-    error ZeroAddress();
-    error ZeroAllocation();
-    error ZeroVestingDuration();
-    error ScheduleAlreadyExists(bytes32 id);
-    error ScheduleNotFound(bytes32 id);
-    error NotBeneficiary(bytes32 id);
-    error NothingToRelease(bytes32 id);
-    error StartTimeInPast();
+    struct Schedule {
+        address beneficiary;
+        uint256 totalAmount;
+        uint256 tgeAmount;
+        uint64  startTime;
+        uint64  cliffDuration;
+        uint64  vestingDuration;
+        uint256 released;
+        Status  status;
+    }
 
-    // ─── Events ───────────────────────────────────────────────────────────────
+    mapping(bytes32 => Schedule) private schedules;
+    bytes32[] private scheduleIds;
 
+    // ── Named schedule identifiers ─────────────────────────────────────────────
+    bytes32 public constant SEED        = keccak256("SEED");
+    bytes32 public constant IDO         = keccak256("IDO");
+    bytes32 public constant LIQUIDITY   = keccak256("LIQUIDITY");
+    bytes32 public constant TEAM        = keccak256("TEAM");
+    bytes32 public constant TREASURY    = keccak256("TREASURY");
+    bytes32 public constant FOUNDER_OPS = keccak256("FOUNDER_OPS");
+    bytes32 public constant AIRDROPS    = keccak256("AIRDROPS");
+
+    // ── Events ─────────────────────────────────────────────────────────────────
     event ScheduleCreated(
-        bytes32 indexed id,
+        bytes32 indexed scheduleId,
         address indexed beneficiary,
         uint256 totalAmount,
         uint256 tgeAmount,
@@ -88,55 +48,45 @@ contract ZenthisVesting is Ownable, ReentrancyGuard {
         uint64  cliffDuration,
         uint64  vestingDuration
     );
+    event TokensReleased(bytes32 indexed scheduleId, address indexed beneficiary, uint256 amount);
+    event ScheduleCancelled(bytes32 indexed scheduleId, uint256 recoveredAmount);
 
-    event TokensReleased(
-        bytes32 indexed id,
-        address indexed beneficiary,
-        uint256 amount
-    );
+    // ── Errors ─────────────────────────────────────────────────────────────────
+    error ZeroAddress();
+    error ZeroAllocation();
+    error ZeroVestingDuration();
+    error StartTimeInPast();
+    error ScheduleAlreadyExists();
+    error ScheduleNotFound();
+    error NotBeneficiary();
+    error NothingToRelease();
 
-    // ─── Constructor ──────────────────────────────────────────────────────────
-
-    constructor(address tokenAddress, address initialOwner) Ownable(initialOwner) {
-        if (tokenAddress == address(0)) revert ZeroAddress();
-        token = IERC20(tokenAddress);
+    // ── Constructor ────────────────────────────────────────────────────────────
+    constructor(address _token, address _owner) Ownable(_owner) {
+        if (_token == address(0)) revert ZeroAddress();
+        token = IERC20(_token);
     }
 
-    // ─── Admin: create schedule ───────────────────────────────────────────────
-
-    /**
-     * @notice Register a new vesting schedule. Write-once; cannot be changed.
-     *
-     * @param id              Unique schedule identifier (use the public constants).
-     * @param beneficiary     Address that may call release().
-     * @param totalAmount     Tokens subject to cliff+linear vesting (excl. tgeAmount).
-     * @param tgeAmount       Tokens released the moment startTime is reached.
-     * @param startTime       Unix timestamp of TGE.
-     * @param cliffMonths     Months of cliff (no vesting, TGE unlock still applies).
-     * @param vestingMonths   Months of linear vesting after the cliff.
-     *
-     * @dev The caller must have already transferred (totalAmount + tgeAmount)
-     *      tokens to this contract before (or shortly after) calling this function.
-     */
+    // ── Owner: create schedule ─────────────────────────────────────────────────
     function createSchedule(
-        bytes32 id,
-        address beneficiary,
-        uint256 totalAmount,
-        uint256 tgeAmount,
-        uint64  startTime,
-        uint64  cliffMonths,
-        uint64  vestingMonths
+        bytes32  scheduleId,
+        address  beneficiary,
+        uint256  totalAmount,
+        uint256  tgeAmount,
+        uint64   startTime,
+        uint64   cliffMonths,
+        uint64   vestingMonths
     ) external onlyOwner {
-        if (_schedules[id].initialized)           revert ScheduleAlreadyExists(id);
-        if (beneficiary == address(0))             revert ZeroAddress();
-        if (totalAmount == 0 && tgeAmount == 0)    revert ZeroAllocation();
+        if (schedules[scheduleId].status != Status.EMPTY) revert ScheduleAlreadyExists();
+        if (beneficiary == address(0)) revert ZeroAddress();
+        if (totalAmount == 0 && tgeAmount == 0) revert ZeroAllocation();
         if (totalAmount > 0 && vestingMonths == 0) revert ZeroVestingDuration();
-        if (startTime < block.timestamp)           revert StartTimeInPast();
+        if (startTime < block.timestamp) revert StartTimeInPast();
 
-        uint64 cliffDuration   = cliffMonths   * MONTH;
+        uint64 cliffDuration = cliffMonths * MONTH;
         uint64 vestingDuration = vestingMonths * MONTH;
 
-        _schedules[id] = Schedule({
+        schedules[scheduleId] = Schedule({
             beneficiary:     beneficiary,
             totalAmount:     totalAmount,
             tgeAmount:       tgeAmount,
@@ -144,69 +94,68 @@ contract ZenthisVesting is Ownable, ReentrancyGuard {
             cliffDuration:   cliffDuration,
             vestingDuration: vestingDuration,
             released:        0,
-            initialized:     true
+            status:          Status.INITIALIZED
         });
-        _scheduleIds.push(id);
 
-        emit ScheduleCreated(
-            id, beneficiary, totalAmount, tgeAmount,
-            startTime, cliffDuration, vestingDuration
-        );
+        scheduleIds.push(scheduleId);
+        emit ScheduleCreated(scheduleId, beneficiary, totalAmount, tgeAmount, startTime, cliffDuration, vestingDuration);
     }
 
-    // ─── Beneficiary: claim ───────────────────────────────────────────────────
+    // ── Release ─────────────────────────────────────────────────────────────────
+    function release(bytes32 scheduleId) external nonReentrant {
+        Schedule storage s = schedules[scheduleId];
+        if (s.status != Status.INITIALIZED) revert ScheduleNotFound();
+        if (msg.sender != s.beneficiary) revert NotBeneficiary();
 
-    /**
-     * @notice Transfer all currently releasable tokens to the beneficiary.
-     * @param id  Schedule identifier.
-     */
-    function release(bytes32 id) external nonReentrant {
-        Schedule storage s = _schedules[id];
-        if (!s.initialized)              revert ScheduleNotFound(id);
-        if (msg.sender != s.beneficiary) revert NotBeneficiary(id);
+        uint256 amount = releasableAmount(scheduleId);
+        if (amount == 0) revert NothingToRelease();
 
-        uint256 releasable = _releasableOf(s);
-        if (releasable == 0)             revert NothingToRelease(id);
-
-        s.released += releasable;
-        token.safeTransfer(s.beneficiary, releasable);
-
-        emit TokensReleased(id, s.beneficiary, releasable);
+        s.released += amount;
+        token.safeTransfer(msg.sender, amount);
+        emit TokensReleased(scheduleId, msg.sender, amount);
     }
 
-    // ─── View functions ───────────────────────────────────────────────────────
+    // ── Rescue ──────────────────────────────────────────────────────────────────
 
-    /// @notice All tokens vested so far (cumulative, including already released).
-    function vestedAmount(bytes32 id) external view returns (uint256) {
-        Schedule storage s = _schedules[id];
-        if (!s.initialized) return 0;
-        return _vestedAt(s, uint64(block.timestamp));
+    /// @notice Owner-only: cancel a schedule & recover tokens (only before startTime).
+    /// Once a schedule has started, tokens are irrevocably committed.
+    function cancelSchedule(bytes32 scheduleId) external onlyOwner {
+        Schedule storage s = schedules[scheduleId];
+        if (s.status != Status.INITIALIZED) revert ScheduleNotFound();
+        if (block.timestamp >= s.startTime) revert("Vesting: schedule already active");
+
+        uint256 total = s.totalAmount + s.tgeAmount;
+        s.released = total;
+        token.safeTransfer(owner(), total);
+        emit ScheduleCancelled(scheduleId, total);
     }
 
-    /// @notice Tokens that can be claimed right now.
-    function releasableAmount(bytes32 id) external view returns (uint256) {
-        Schedule storage s = _schedules[id];
-        if (!s.initialized) return 0;
-        return _releasableOf(s);
+    // ── Views ───────────────────────────────────────────────────────────────────
+    function vestedAmount(bytes32 scheduleId) public view returns (uint256) {
+        Schedule storage s = schedules[scheduleId];
+        if (s.status != Status.INITIALIZED) return 0;
+        return _vestedAmount(s);
     }
 
-    /// @notice Full schedule data for a given ID.
-    function getSchedule(bytes32 id) external view returns (Schedule memory) {
-        return _schedules[id];
+    function releasableAmount(bytes32 scheduleId) public view returns (uint256) {
+        Schedule storage s = schedules[scheduleId];
+        if (s.status != Status.INITIALIZED) return 0;
+        uint256 vested = _vestedAmount(s);
+        if (vested <= s.released) return 0;
+        return vested - s.released;
     }
 
-    /// @notice All registered schedule IDs.
+    function getSchedule(bytes32 scheduleId) external view returns (Schedule memory) {
+        return schedules[scheduleId];
+    }
+
     function getScheduleIds() external view returns (bytes32[] memory) {
-        return _scheduleIds;
+        return scheduleIds;
     }
 
-    // ─── Internal ─────────────────────────────────────────────────────────────
-
-    function _releasableOf(Schedule storage s) internal view returns (uint256) {
-        return _vestedAt(s, uint64(block.timestamp)) - s.released;
-    }
-
-    function _vestedAt(Schedule storage s, uint64 ts) internal view returns (uint256) {
+    // ── Internal ────────────────────────────────────────────────────────────────
+    function _vestedAmount(Schedule storage s) private view returns (uint256) {
+        uint64 ts = uint64(block.timestamp);
         if (ts < s.startTime) return 0;
 
         uint256 vested = s.tgeAmount;
