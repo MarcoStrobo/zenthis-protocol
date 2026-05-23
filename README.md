@@ -1,108 +1,78 @@
-# Zenthis Protocol
-
-> Cross-chain atomic swaps with no bridges, no custodians, and no wrapped tokens.
+# Zenthis Protocol — SolvX Core Infrastructure
 
 [![License: BUSL-1.1](https://img.shields.io/badge/License-BUSL--1.1-blue.svg)](LICENSE)
 [![Solidity](https://img.shields.io/badge/Solidity-0.8.24-lightgrey)](https://soliditylang.org)
-[![Tests](https://img.shields.io/badge/Tests-119%20passing-brightgreen)](#testing)
+[![Tests](https://img.shields.io/badge/Tests-187%20passing-brightgreen)](https://github.com/suko/Solvx/actions)
+[![Audit](https://img.shields.io/badge/Audit-A---success)](./audit/SECURITY_AUDIT.md)
+[![Whitepaper](https://img.shields.io/badge/Whitepaper-v1.0-informational)](./docs/WHITEPAPER.md)
+
+**Zenthis** is the native token and economic backbone of the SolvX ecosystem — a decentralized protocol suite combining **staking rewards**, **cross-chain atomic swaps**, and **programmatic token vesting**.
 
 ---
 
-## How It Works
+## Architecture
 
-Zenthis uses **Hash Time-Lock Contracts (HTLCs)** to enable trustless cross-chain swaps.
-
-1. **Lock** — Initiator locks tokens on Chain A with a cryptographic hashlock + timelock
-2. **Match** — Counterparty locks equivalent tokens on Chain B using the same hash
-3. **Reveal** — Initiator reveals the preimage, both sides settle atomically
-4. **Timeout** — If either side fails, both locks auto-refund. Nobody loses anything.
-
-No bridge. No wrapped tokens. No custodian. Not even us.
+| Contract | Role |
+|----------|------|
+| `ZenthisToken` | ERC-20 token (100M supply) with staking, ETH fee distribution, burn, governance |
+| `ZenthisHTLC` | Hash Time-Locked Contracts for trustless cross-chain swaps (Bitcoin-compatible SHA-256) |
+| `ZenthisVesting` | 7-schedule linear vesting with cliffs, TGE unlocks, and cancel/rescue logic |
 
 ---
 
-## Contracts
-
-| Contract | Description |
-|----------|-------------|
-| `ZenthisToken.sol` | ERC-20 with staking, ETH fee distribution, ERC20Votes, ERC20Permit |
-| `ZenthisHTLC.sol` | Cross-chain atomic swap engine (ETH + ERC-20, protocol fees) |
-| `ZenthisVesting.sol` | Multi-schedule linear vesting with cliff and TGE unlock |
-
-**License:** [BUSL-1.1](LICENSE) — commercial use restricted until 2030-05-07, then GPL-2.0-or-later.
-
----
-
-## Tokenomics
-
-| Allocation | Tokens | TGE Unlock | Cliff | Linear Vesting |
-|-----------|--------|-----------|-------|---------------|
-| Seed | 10 M | 0% | 6 mo | 24 months |
-| IDO (Public Sale) | 25 M | 20% | — | 18 months |
-| Liquidity & Reserves | 25 M | 14% | — | 48 months |
-| Team | 10 M | 0% | 12 mo | 36 months |
-| Treasury | 20 M | 15% | — | 48 months |
-| Airdrops | 10 M | 100% | — | — |
-| **Total** | **100 M** | | | |
-
-IDO price: **$0.10 USDC** | Hard cap: **$2,000,000**
-
----
-
-## Development
+## Quick Start
 
 ### Prerequisites
 
 ```bash
 node >= 18
 npm install
-cp .env.example .env   # fill in your keys
 ```
 
-### Testing
+### Compile
+
+```bash
+npx hardhat compile
+```
+
+### Test
 
 ```bash
 npx hardhat test
-# 119 tests passing
+# 187 tests passing (153 unit + 34 integration)
 ```
 
 ### Deploy (Sepolia testnet)
 
 ```bash
+cp .env.example .env   # fill in your keys
 npx hardhat run scripts/deploy.js --network sepolia
-```
-
-### Deploy (Mainnet)
-
-```bash
-npx hardhat run scripts/deploy.js --network mainnet
 ```
 
 ---
 
 ## Security
 
-- Contracts are deployed on **Sepolia testnet** — audit in progress before mainnet
-- 119 unit tests across all core contracts
+- ✅ **Internal audit** — Rating A-. [Full report](./audit/SECURITY_AUDIT.md)
+- ✅ **187 tests** (153 unit + 34 integration) — 100% passing
+- ✅ **Sepolia verified** — All 3 contracts on Etherscan
 - ReentrancyGuard on all state-changing functions
 - Pausable (HTLC) for emergency response
+- All OWASP Smart Contract Top 10 categories covered
 
-> ⚠️ **Unaudited.** Do not use in production until the audit is complete.
+> ⚠️ External audit pending. Do not deploy to mainnet until the external audit is complete.
 
 ---
 
-## Links
+## Docs
 
-- Website: [zenthisprotocol.xyz](https://zenthisprotocol.xyz)
-- Whitepaper: [zenthisprotocol.xyz/whitepaper](https://zenthisprotocol.xyz/whitepaper)
-- Testnet app: [zenthisprotocol.xyz/app](https://zenthisprotocol.xyz/app)
-- Airdrop / Whitelist: [zenthisprotocol.xyz/airdrop](https://zenthisprotocol.xyz/airdrop)
-- Twitter: [@zenthis_io](https://twitter.com/zenthis_io)
+| Document | Description |
+|----------|-------------|
+| [Whitepaper](./docs/WHITEPAPER.md) | Technical protocol specification (v1.0) |
+| [Audit Report](./audit/SECURITY_AUDIT.md) | Internal security audit (May 2026) |
 
 ---
 
 ## License
 
-Copyright © 2026 Zenthis Protocol.  
-Licensed under the [Business Source License 1.1](LICENSE).  
-Commercial use restricted until **2030-05-07**, after which the license converts to GPL-2.0-or-later.
+Business Source License 1.1 — See [LICENSE](LICENSE).
