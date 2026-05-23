@@ -70,6 +70,7 @@ npx hardhat run scripts/deploy.js --network sepolia
 |----------|-------------|
 | [Whitepaper](./docs/WHITEPAPER.md) | Technical protocol specification (v1.0) |
 | [Audit Report](./audit/SECURITY_AUDIT.md) | Internal security audit (May 2026) |
+| [Roadmap](./ROADMAP.md) | Development progress & milestones |
 
 ---
 
