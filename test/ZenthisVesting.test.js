@@ -507,4 +507,41 @@ describe("ZenthisVesting", function () {
       ).to.be.revertedWithCustomError(vesting, "InsufficientContractBalance");
     });
   });
+
+  // ── rescueERC20 ──────────────────────────────────────────────────────────────
+
+  describe("rescueERC20", () => {
+    it("allows owner to recover non-vesting ERC-20 tokens", async () => {
+      // Deploy dummy token and send 5000 to vesting contract
+      const Token = await ethers.getContractFactory("ZenthisToken");
+      const dummy = await Token.deploy(owner.address);
+      await dummy.connect(owner).transfer(await vesting.getAddress(), e18(5000));
+
+      await expect(
+        vesting.connect(owner).rescueERC20(await dummy.getAddress(), owner.address)
+      ).to.changeTokenBalance(dummy, owner, e18(5000));
+    });
+
+    it("reverts when trying to rescue the vesting token itself", async () => {
+      await expect(
+        vesting.connect(owner).rescueERC20(await token.getAddress(), owner.address)
+      ).to.be.revertedWithCustomError(vesting, "CannotRescueVestingToken");
+    });
+
+    it("reverts on zero recipient", async () => {
+      const Token = await ethers.getContractFactory("ZenthisToken");
+      const dummy = await Token.deploy(owner.address);
+      await expect(
+        vesting.connect(owner).rescueERC20(await dummy.getAddress(), ethers.ZeroAddress)
+      ).to.be.revertedWithCustomError(vesting, "ZeroAddress");
+    });
+
+    it("reverts if non-owner calls rescueERC20", async () => {
+      const Token = await ethers.getContractFactory("ZenthisToken");
+      const dummy = await Token.deploy(owner.address);
+      await expect(
+        vesting.connect(attacker).rescueERC20(await dummy.getAddress(), owner.address)
+      ).to.be.revertedWithCustomError(vesting, "OwnableUnauthorizedAccount");
+    });
+  });
 });

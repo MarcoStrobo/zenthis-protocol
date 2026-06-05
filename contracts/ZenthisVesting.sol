@@ -70,6 +70,7 @@ contract ZenthisVesting is Ownable, ReentrancyGuard {
     error NothingToRelease();
     error ScheduleActive();
     error InsufficientContractBalance();
+    error CannotRescueVestingToken();
 
     // ── Constructor ────────────────────────────────────────────────────────────
     constructor(address _token, address _owner) Ownable(_owner) {
@@ -132,6 +133,18 @@ contract ZenthisVesting is Ownable, ReentrancyGuard {
         s.released += amount;
         token.safeTransfer(msg.sender, amount);
         emit TokensReleased(scheduleId, msg.sender, amount);
+    }
+
+    // ── Rescue ───────────────────────────────────────────────────────────────────
+
+    /// @notice Recover ERC-20 tokens accidentally sent to this contract.
+    /// @dev ZTS itself cannot be rescued — it is the vesting asset.
+    function rescueERC20(IERC20 tokenAddr, address to) external onlyOwner {
+        if (to == address(0)) revert ZeroAddress();
+        if (address(tokenAddr) == address(token)) revert CannotRescueVestingToken();
+        uint256 balance = tokenAddr.balanceOf(address(this));
+        if (balance == 0) revert NothingToRelease();
+        tokenAddr.safeTransfer(to, balance);
     }
 
     // ── Cancel ──────────────────────────────────────────────────────────────────
