@@ -57,6 +57,14 @@ contract ZenthisToken is ERC20, ERC20Permit, ERC20Votes, Ownable, ReentrancyGuar
         return super.nonces(owner_);
     }
 
+    /// @notice Returns the voting power of an account, including staked tokens.
+    /// @dev ERC20Votes normally only counts the token balance of the account.
+    ///      Since staked tokens are held by this contract, they would otherwise
+    ///      be excluded from voting. This override sums them back in.
+    function getVotes(address account) public view override returns (uint256) {
+        return super.getVotes(account) + stakedBalance[account];
+    }
+
     // ── Staking internals ──────────────────────────────────────────────────────
 
     /// @notice Read the current reward-per-stored-token accumulator.
@@ -88,15 +96,12 @@ contract ZenthisToken is ERC20, ERC20Permit, ERC20Votes, Ownable, ReentrancyGuar
     // ── Staking actions ────────────────────────────────────────────────────────
 
     /// @notice Stake ZTS tokens to earn protocol-fee rewards and governance voting power.
-    /// @dev Auto-delegates voting power to the staker on first stake (ERC20Votes).
+    /// @dev Overrides ERC20Votes.getVotes to include staked tokens in the staker's voting power.
     function stake(uint256 amount) external nonReentrant updateReward(msg.sender) {
         if (amount == 0) revert ZeroAmount();
         totalStaked += amount;
         stakedBalance[msg.sender] += amount;
         _transfer(msg.sender, address(this), amount);
-        // Auto-delegate voting power so staked tokens participate in governance.
-        // This is a no-op if already delegated (OpenZeppelin skips no-op delegates).
-        _delegate(msg.sender, msg.sender);
         emit Staked(msg.sender, amount);
     }
 

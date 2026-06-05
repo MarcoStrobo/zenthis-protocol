@@ -162,5 +162,28 @@ describe("ZenthisToken", function () {
       const votes = await token.getVotes(treasury.address);
       expect(votes).to.equal(MAX_SUPPLY);
     });
+
+    it("staked tokens count toward voting power", async () => {
+      // Fund alice from treasury
+      await token.connect(treasury).transfer(alice.address, STAKE_AMT);
+      await token.connect(alice).approve(await token.getAddress(), STAKE_AMT);
+
+      // Delegate first (required for checkpoints)
+      await token.connect(alice).delegate(alice.address);
+
+      // Before staking: voting power = token balance
+      const preStakeVotes = await token.getVotes(alice.address);
+      expect(preStakeVotes).to.equal(STAKE_AMT);
+
+      // Stake all tokens
+      await token.connect(alice).stake(STAKE_AMT);
+
+      // After staking: voting power should still equal the staked amount
+      const postStakeVotes = await token.getVotes(alice.address);
+      expect(postStakeVotes).to.equal(STAKE_AMT);
+
+      // Alice's balance is now 0, but voting power should still be STAKE_AMT
+      expect(await token.balanceOf(alice.address)).to.equal(0n);
+    });
   });
 });
