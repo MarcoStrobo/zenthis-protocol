@@ -102,7 +102,7 @@ All findings from the 2026-05-21 internal audit were reviewed for completeness o
 
 | ID | Finding | Status | Verification |
 |----|---------|--------|--------------|
-| C-01 | Dead code in `_rewardPerToken()` | **Fixed** | Function now returns single value `rewardPerTokenStored` |
+| C-01 | Dead code in `_rewardPerToken()` | **Fixed** | Function removed — modifier reads `rewardPerTokenStored` directly |
 | M-02 | No rescue in vesting | **Fixed** | `cancelSchedule()` added (owner-only, before startTime) |
 | M-03 | ETH trapped in token contract | **Fixed** | `withdrawStuckETH()` added (see **⚠️ High-01**) |
 
@@ -112,9 +112,25 @@ All findings from the 2026-05-21 internal audit were reviewed for completeness o
 |----|---------|--------|--------------|
 | M-01 | Centralized fee distribution | **Mitigated** | Owner role → Gnosis Safe 2/2 multisig created (`0xf9C31...`) |
 
-### ✅ Low / Info — All documented (5)
+### ✅ Fixed (3)
 
-Findings L-01 through L-04 and INFO-01 through INFO-05 remain as documented design decisions with no code changes required.
+| ID | Finding | Status | Verification |
+|----|---------|--------|--------------|
+| L-04 | Event ordering in `setFeeBps` | **Fixed** | State updated before event emission |
+| I-01 | Dead work in `_rewardPerToken()` / modifier | **Fixed** | Function removed; no dead SLOADs |
+| I-04 | Staked tokens lack voting power | **Fixed** | `getVotes()` override sums `stakedBalance[account]` |
+
+### ⚠️ Documented Design Decisions (3)
+
+| ID | Finding | Rationale |
+|----|---------|----------|
+| L-01 | Centralization risk | Mitigated by Gnosis Safe 2/2 multisig |
+| L-02 | Staking dust accumulation | Negligible in practice (< 1 wei per deposit) |
+| L-03 | 30-day month drift (~1.4%) | DeFi convention; documented in whitepaper §4.5 |
+
+### ⚪ Informational (4)
+
+INFO-02 (unused import), INFO-03 (max timelock cap), INFO-05 (code quality) — no code changes required, documented in full report below.
 
 ---
 
@@ -410,7 +426,7 @@ The 2-day maximum lockup is short enough that it cannot be exploited for long-te
 | SC-02 | Integer Overflow | ✅ **Safe** | Solidity 0.8.26 built-in checked arithmetic. The only division is in fee calculation (`/ 10_000`) which is safe. |
 | SC-03 | Timestamp Dependence | ✅ **Safe** | Timestamps used only for `>=` bounds checks (timelock expiry, vesting start) — never for exact equality. |
 | SC-04 | Access Control | ⚠️ **Mitigated** | OpenZeppelin `Ownable` across all contracts. Owner powers mitigated by Gnosis Safe multisig deployment. |
-| SC-05 | Front-Running | ⚠️ **Low risk** | HTLC swap ID collision (M-01) is the only exposure. |
+| SC-05 | Front-Running | ✅ **Fixed** | swapId now derived from params + nonce; MEV cannot pre-occupy IDs. |
 | SC-06 | Denial of Service | ✅ **Safe** | No unbounded loops. `scheduleIds` grows with admin actions (O(n) for `getScheduleIds()` — acceptable). |
 | SC-07 | Logic Errors | ⚠️ **One finding** | `withdrawStuckETH()` does not deduct staker reward debt (High-01). |
 | SC-08 | Insecure Randomness | ✅ **N/A** | No randomness-dependent logic. |
