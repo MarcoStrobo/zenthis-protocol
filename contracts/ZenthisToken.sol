@@ -27,7 +27,8 @@ contract ZenthisToken is ERC20, ERC20Permit, ERC20Votes, Ownable, ReentrancyGuar
     event Staked(address indexed user, uint256 amount);
     event Unstaked(address indexed user, uint256 amount);
     event RewardClaimed(address indexed user, uint256 amount);
-    event FeesDeposited(uint256 amount);
+    event FeesDeposited(uint256 amount, uint256 rewardPerToken);
+    event StuckETHWithdrawn(address indexed to, uint256 amount);
 
     // ── Errors ─────────────────────────────────────────────────────────────────
     error ZeroAddress();
@@ -35,6 +36,8 @@ contract ZenthisToken is ERC20, ERC20Permit, ERC20Votes, Ownable, ReentrancyGuar
     error InsufficientStakedBalance();
     error TransferFailed();
     error NoStuckETH();
+    error NoStakers();
+    error CannotRescueStakingToken();
 
     // ── Constructor ────────────────────────────────────────────────────────────
     /// @param treasury One-time recipient of the entire genesis supply
@@ -61,13 +64,8 @@ contract ZenthisToken is ERC20, ERC20Permit, ERC20Votes, Ownable, ReentrancyGuar
         return super.nonces(owner_);
     }
 
-    /// @notice Returns the voting power of an account, including staked tokens.
-    /// @dev ERC20Votes normally only counts the token balance of the account.
-    ///      Since staked tokens are held by this contract, they would otherwise
-    ///      be excluded from voting. This override sums them back in.
-    function getVotes(address account) public view override returns (uint256) {
-        return super.getVotes(account) + stakedBalance[account];
-    }
+    /// @notice Staked tokens count toward both getVotes and getPastVotes through
+    ///         direct checkpoint manipulation in stake()/unstake() — no override needed.
 
     // ── Staking internals ──────────────────────────────────────────────────────
 
@@ -100,12 +98,17 @@ contract ZenthisToken is ERC20, ERC20Permit, ERC20Votes, Ownable, ReentrancyGuar
     // ── Staking actions ────────────────────────────────────────────────────────
 
     /// @notice Stake ZTS tokens to earn protocol-fee rewards and governance voting power.
-    /// @dev Overrides ERC20Votes.getVotes to include staked tokens in the staker's voting power.
+    /// @dev Preserves voting power for staked tokens through OZ's native checkpoint system,
+    ///      so both getVotes() and getPastVotes() reflect staked amounts without override.
     function stake(uint256 amount) external nonReentrant updateReward(msg.sender) {
         if (amount == 0) revert ZeroAmount();
         totalStaked += amount;
         stakedBalance[msg.sender] += amount;
         _transfer(msg.sender, address(this), amount);
+        // Restore voting power: _transferVotingUnits (called inside _transfer/_update)
+        // subtracts amount from the user's delegate. We add it back so staked tokens
+        // are counted in the delegate's checkpoint, fixing both getVotes and getPastVotes.
+        _transferVotingUnits(address(this), msg.sender, amount);
         emit Staked(msg.sender, amount);
     }
 
@@ -116,6 +119,9 @@ contract ZenthisToken is ERC20, ERC20Permit, ERC20Votes, Ownable, ReentrancyGuar
         totalStaked -= amount;
         stakedBalance[msg.sender] -= amount;
         _transfer(address(this), msg.sender, amount);
+        // Remove the voting power that was restored on stake. The parent _transferVotingUnits
+        // adds amount to the user's delegate, so we subtract it back for net zero change.
+        _transferVotingUnits(msg.sender, address(this), amount);
         emit Unstaked(msg.sender, amount);
     }
 
@@ -131,14 +137,14 @@ contract ZenthisToken is ERC20, ERC20Permit, ERC20Votes, Ownable, ReentrancyGuar
 
     // ── Admin ──────────────────────────────────────────────────────────────────
 
-    /// @notice Distribute protocol fees (ETH) to stakers. Called by owner.
+    /// @notice Distribute protocol fees (ETH) to stakers.
+    /// @dev Reverts if there are no stakers — prevents ETH from being permanently locked.
     function depositFees() external payable onlyOwner {
         if (msg.value == 0) revert ZeroAmount();
-        if (totalStaked > 0) {
-            rewardPerTokenStored += (msg.value * REWARD_PRECISION) / totalStaked;
-        }
+        if (totalStaked == 0) revert NoStakers();
+        rewardPerTokenStored += (msg.value * REWARD_PRECISION) / totalStaked;
         totalFeesDeposited += msg.value;
-        emit FeesDeposited(msg.value);
+        emit FeesDeposited(msg.value, rewardPerTokenStored);
     }
 
     // ── Burn ────────────────────────────────────────────────────────────────────
@@ -151,32 +157,32 @@ contract ZenthisToken is ERC20, ERC20Permit, ERC20Votes, Ownable, ReentrancyGuar
     }
 
     // ── Receive ─────────────────────────────────────────────────────────────────
+    /// @notice Direct ETH sends are rejected to prevent balance/totalFeesDeposited divergence.
+    /// @dev ETH must go through depositFees() to be tracked correctly.
     receive() external payable {
-        // Accept ETH for protocol fee distribution
+        revert ZeroAmount(); // ETH not accepted directly; use depositFees()
     }
 
-    /// @notice Owner-only: recover ERC-20 tokens accidentally sent to this contract.
-    /// @dev ZTS itself cannot be rescued here — it is the staking asset and is managed internally.
+    /// @notice Recover ERC-20 tokens accidentally sent to this contract.
     /// @param tokenAddr The address of the ERC-20 token to recover.
     /// @param to        The recipient of the recovered tokens.
-    /// @notice Owner-only: recover ERC-20 tokens accidentally sent to this contract.
-    /// @dev ZTS itself cannot be rescued — it is the staking asset and is managed internally.
     function rescueERC20(IERC20 tokenAddr, address to) external onlyOwner {
         if (to == address(0)) revert ZeroAddress();
-        if (address(tokenAddr) == address(this)) revert ZeroAmount();
+        if (address(tokenAddr) == address(this)) revert CannotRescueStakingToken();
         uint256 balance = tokenAddr.balanceOf(address(this));
         if (balance == 0) revert ZeroAmount();
         if (!tokenAddr.transfer(to, balance)) revert TransferFailed();
     }
 
-    /// @notice Owner-only: withdraw ETH mistakenly sent to this contract.
-    /// @dev Only ETH exceeding total deposited fees is withdrawable.
-    ///      Staker rewards are protected — they always take priority over stuck ETH.
+    /// @notice Withdraw ETH mistakenly sent before receive() was locked.
+    /// @dev Only withdraws the excess over totalFeesDeposited.
+    ///      Staker rewards always take priority.
     function withdrawStuckETH() external onlyOwner {
         uint256 balance = address(this).balance;
         if (balance <= totalFeesDeposited) revert NoStuckETH();
         uint256 amount = balance - totalFeesDeposited;
         (bool ok, ) = msg.sender.call{value: amount}("");
         if (!ok) revert TransferFailed();
+        emit StuckETHWithdrawn(msg.sender, amount);
     }
 }

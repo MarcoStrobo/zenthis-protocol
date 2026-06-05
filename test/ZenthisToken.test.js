@@ -185,7 +185,7 @@ describe("ZenthisToken", function () {
     it("reverts when trying to rescue ZTS itself", async () => {
       await expect(
         token.connect(owner).rescueERC20(await token.getAddress(), owner.address)
-      ).to.be.revertedWithCustomError(token, "ZeroAmount");
+      ).to.be.revertedWithCustomError(token, "CannotRescueStakingToken");
     });
 
     it("reverts when no tokens to rescue", async () => {
