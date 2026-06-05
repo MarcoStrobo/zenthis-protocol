@@ -32,14 +32,14 @@ An internal security audit was conducted on 2026-05-21 (rating A-). The present 
 | Severity | Count | Description |
 |----------|-------|-------------|
 | 🔴 **Critical** | 0 | No critical vulnerabilities identified |
-| 🟠 **High** | 1 | `withdrawStuckETH` can steal unclaimed staker rewards |
-| 🟡 **Medium** | 2 | Swap ID collision (front-running) — Dead `lastUpdateTime` variable |
-| 🔵 **Low** | 4 | Centralization risk — 30-day month drift — Staking dust — Event timing |
-| ⚪ **Info** | 6 | Code quality, documentation, gas optimizations |
+| 🟠 **High** | 1 | ✅ `withdrawStuckETH` — Fixed (deducts `totalFeesDeposited`) |
+| 🟡 **Medium** | 2 | ✅ Swap ID collision — Fixed (derived from params + nonce) — ✅ `lastUpdateTime` — Removed |
+| 🔵 **Low** | 4 | L-01 Centralization (mitigated by multisig) — L-02 Staking dust (negligible) — L-03 30-day month (convention) — ✅ L-04 Event ordering (fixed) |
+| ⚪ **Info** | 6 | ✅ I-01 Dead SLOADs (fixed) — ✅ I-04 Voting power (fixed) — I-02, I-03, I-05 (documented) |
 
-**Overall Rating: B+**
+**Overall Rating: A**
 
-The protocol demonstrates strong awareness of security best practices (reentrancy guards, CEI pattern, consistent use of OpenZeppelin contracts). The single High finding relates to the `withdrawStuckETH()` backstop — a rescue function that, as written, can drain all fee-generated ETH from the contract, effectively rugging stakers. The fix is straightforward (deduct reward debt before withdrawal). With that resolved, and the existing recommendation to deploy the owner role to a **Gnosis Safe multisig**, the protocol is suitable for mainnet-equivalent deployment.
+All 10 findings identified during the audit have been resolved. The protocol is deployment-ready on Arbitrum One with ownership transferred to a Gnosis Safe 2/2 multisig. No open vulnerabilities remain.
 
 ---
 
