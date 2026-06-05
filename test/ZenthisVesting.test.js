@@ -412,4 +412,99 @@ describe("ZenthisVesting", function () {
       expect(teamSchedule.released).to.equal(0n);
     });
   });
+
+  // ── cancelSchedule ────────────────────────────────────────────────────────
+
+  describe("cancelSchedule", () => {
+    it("reverts if called after startTime", async () => {
+      await fund(e18(10_000_000));
+      await vesting.connect(owner).createSchedule(
+        T.TEAM, alice.address, e18(10_000_000), 0n, tge, 12n, 36n
+      );
+      await time.increaseTo(tge);
+      await expect(
+        vesting.connect(owner).cancelSchedule(T.TEAM)
+      ).to.be.revertedWithCustomError(vesting, "ScheduleActive");
+    });
+
+    it("cancels and recovers tokens before startTime", async () => {
+      await fund(e18(10_000_000));
+      await vesting.connect(owner).createSchedule(
+        T.TEAM, alice.address, e18(10_000_000), 0n, tge, 12n, 36n
+      );
+      // Cancel before TGE
+      await expect(
+        vesting.connect(owner).cancelSchedule(T.TEAM)
+      ).to.changeTokenBalance(token, owner, e18(10_000_000));
+      // Schedule status is now CANCELLED
+      const s = await vesting.getSchedule(T.TEAM);
+      expect(s.status).to.equal(2n); // Status.CANCELLED
+    });
+
+    it("reduces totalAllocated on cancel", async () => {
+      await fund(e18(10_000_000));
+      await vesting.connect(owner).createSchedule(
+        T.TEAM, alice.address, e18(10_000_000), 0n, tge, 12n, 36n
+      );
+      expect(await vesting.totalAllocated()).to.equal(e18(10_000_000));
+      await vesting.connect(owner).cancelSchedule(T.TEAM);
+      expect(await vesting.totalAllocated()).to.equal(0n);
+    });
+
+    it("removes scheduleId from list on cancel", async () => {
+      await fund(e18(10_000_000));
+      await vesting.connect(owner).createSchedule(
+        T.SEED, alice.address, e18(10_000_000), 0n, tge, 6n, 24n
+      );
+      expect((await vesting.getScheduleIds()).length).to.equal(1n);
+      await vesting.connect(owner).cancelSchedule(T.SEED);
+      const ids = await vesting.getScheduleIds();
+      expect(ids.length).to.equal(0n);
+      expect(ids).not.to.include(T.SEED);
+    });
+
+    it("reverts on unknown schedule", async () => {
+      const unknown = ethers.keccak256(ethers.toUtf8Bytes("NONE"));
+      await expect(
+        vesting.connect(owner).cancelSchedule(unknown)
+      ).to.be.revertedWithCustomError(vesting, "ScheduleNotFound");
+    });
+
+    it("reverts if non-owner tries to cancel", async () => {
+      await fund(e18(10_000_000));
+      await vesting.connect(owner).createSchedule(
+        T.TEAM, alice.address, e18(10_000_000), 0n, tge, 12n, 36n
+      );
+      await expect(
+        vesting.connect(attacker).cancelSchedule(T.TEAM)
+      ).to.be.revertedWithCustomError(vesting, "OwnableUnauthorizedAccount");
+    });
+  });
+
+  // ── Balance validation ─────────────────────────────────────────────────────
+
+  describe("createSchedule — balance checks", () => {
+    it("reverts if contract lacks sufficient balance", async () => {
+      // Don't fund the contract — balance is 0
+      await expect(
+        vesting.connect(owner).createSchedule(
+          T.TEAM, alice.address, e18(10_000_000), 0n, tge, 12n, 36n
+        )
+      ).to.be.revertedWithCustomError(vesting, "InsufficientContractBalance");
+    });
+
+    it("rejects over-allocation beyond contract balance", async () => {
+      await fund(e18(5_000_000)); // only 5M tokens
+      // First schedule uses 5M — fine
+      await vesting.connect(owner).createSchedule(
+        T.SEED, alice.address, e18(5_000_000), 0n, tge, 6n, 24n
+      );
+      // Second schedule needs 10M — insufficient
+      await expect(
+        vesting.connect(owner).createSchedule(
+          T.TEAM, bob.address, e18(10_000_000), 0n, tge, 12n, 36n
+        )
+      ).to.be.revertedWithCustomError(vesting, "InsufficientContractBalance");
+    });
+  });
 });

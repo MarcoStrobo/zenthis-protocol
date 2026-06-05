@@ -6,6 +6,10 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
 /// @title ZenthisVesting — Multi-schedule linear vesting with cliffs
+/// @dev Schedule lifecycle:
+///      1. Owner creates schedule via createSchedule() [EMPTY → INITIALIZED]
+///      2. Beneficiary releases vested tokens via release()
+///      3. Owner cancels before startTime via cancelSchedule() [INITIALIZED → CANCELLED]
 contract ZenthisVesting is Ownable, ReentrancyGuard {
     using SafeERC20 for IERC20;
 
@@ -13,7 +17,11 @@ contract ZenthisVesting is Ownable, ReentrancyGuard {
 
     uint64 public constant MONTH = 30 days;
 
-    enum Status { EMPTY, INITIALIZED }
+    /// @notice Track total tokens committed across all schedules.
+    /// @dev Used to prevent creating schedules that exceed the contract's balance.
+    uint256 public totalAllocated;
+
+    enum Status { EMPTY, INITIALIZED, CANCELLED }
 
     struct Schedule {
         address beneficiary;
@@ -60,6 +68,8 @@ contract ZenthisVesting is Ownable, ReentrancyGuard {
     error ScheduleNotFound();
     error NotBeneficiary();
     error NothingToRelease();
+    error ScheduleActive();
+    error InsufficientContractBalance();
 
     // ── Constructor ────────────────────────────────────────────────────────────
     constructor(address _token, address _owner) Ownable(_owner) {
@@ -68,6 +78,8 @@ contract ZenthisVesting is Ownable, ReentrancyGuard {
     }
 
     // ── Owner: create schedule ─────────────────────────────────────────────────
+    /// @notice Create a vesting schedule.
+    /// @dev Requires the contract to hold enough tokens to cover the allocation.
     function createSchedule(
         bytes32  scheduleId,
         address  beneficiary,
@@ -81,10 +93,17 @@ contract ZenthisVesting is Ownable, ReentrancyGuard {
         if (beneficiary == address(0)) revert ZeroAddress();
         if (totalAmount == 0 && tgeAmount == 0) revert ZeroAllocation();
         if (totalAmount > 0 && vestingMonths == 0) revert ZeroVestingDuration();
-        if (startTime < block.timestamp) revert StartTimeInPast();
+        if (startTime <= block.timestamp) revert StartTimeInPast();
 
         uint64 cliffDuration = cliffMonths * MONTH;
         uint64 vestingDuration = vestingMonths * MONTH;
+
+        // Ensure the contract has sufficient balance to back this new schedule.
+        uint256 allocation = totalAmount + tgeAmount;
+        if (token.balanceOf(address(this)) < totalAllocated + allocation) {
+            revert InsufficientContractBalance();
+        }
+        totalAllocated += allocation;
 
         schedules[scheduleId] = Schedule({
             beneficiary:     beneficiary,
@@ -115,17 +134,31 @@ contract ZenthisVesting is Ownable, ReentrancyGuard {
         emit TokensReleased(scheduleId, msg.sender, amount);
     }
 
-    // ── Rescue ──────────────────────────────────────────────────────────────────
+    // ── Cancel ──────────────────────────────────────────────────────────────────
 
-    /// @notice Owner-only: cancel a schedule & recover tokens (only before startTime).
-    /// Once a schedule has started, tokens are irrevocably committed.
+    /// @notice Cancel a schedule & recover tokens (only before startTime).
+    /// @dev Sets status to CANCELLED and removes the ID from scheduleIds.
     function cancelSchedule(bytes32 scheduleId) external onlyOwner {
         Schedule storage s = schedules[scheduleId];
         if (s.status != Status.INITIALIZED) revert ScheduleNotFound();
-        if (block.timestamp >= s.startTime) revert("Vesting: schedule already active");
+        if (block.timestamp >= s.startTime) revert ScheduleActive();
 
         uint256 total = s.totalAmount + s.tgeAmount;
+        totalAllocated -= total;
+
         s.released = total;
+        s.status = Status.CANCELLED;
+
+        // Remove scheduleId from the scheduleIds array via swap-and-pop.
+        uint256 len = scheduleIds.length;
+        for (uint256 i = 0; i < len; i++) {
+            if (scheduleIds[i] == scheduleId) {
+                scheduleIds[i] = scheduleIds[len - 1];
+                scheduleIds.pop();
+                break;
+            }
+        }
+
         token.safeTransfer(owner(), total);
         emit ScheduleCancelled(scheduleId, total);
     }
