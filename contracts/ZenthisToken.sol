@@ -7,10 +7,12 @@ import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Votes.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
+
 /// @title Zenthis Token (native asset of the SolvX ecosystem)
 /// @notice 100 % minted at genesis; no minting afterwards
 contract ZenthisToken is ERC20, ERC20Permit, ERC20Votes, Ownable, ReentrancyGuard {
-    uint256 public constant MAX_SUPPLY = 100_000_000 * 1e18;   // 100,000,000 ZENTHIS
+    uint256 public constant MAX_SUPPLY      = 100_000_000 * 1e18;   // 100,000,000 ZENTHIS
+    uint256 public constant REWARD_PRECISION = 1e18;
 
     // ── Staking ────────────────────────────────────────────────────────────────
     uint256 public totalStaked;
@@ -31,6 +33,8 @@ contract ZenthisToken is ERC20, ERC20Permit, ERC20Votes, Ownable, ReentrancyGuar
     error ZeroAddress();
     error ZeroAmount();
     error InsufficientStakedBalance();
+    error TransferFailed();
+    error NoStuckETH();
 
     // ── Constructor ────────────────────────────────────────────────────────────
     /// @param treasury One-time recipient of the entire genesis supply
@@ -79,7 +83,7 @@ contract ZenthisToken is ERC20, ERC20Permit, ERC20Votes, Ownable, ReentrancyGuar
         uint256 userStaked = stakedBalance[account];
         if (userStaked == 0) return rewards[account];
         uint256 delta = rewardPerTokenStored - userRewardPerTokenPaid[account];
-        return rewards[account] + (userStaked * delta) / 1e18;
+        return rewards[account] + (userStaked * delta) / REWARD_PRECISION;
     }
 
     /// @notice Update reward state for an account before state mutation.
@@ -121,7 +125,7 @@ contract ZenthisToken is ERC20, ERC20Permit, ERC20Votes, Ownable, ReentrancyGuar
         if (reward == 0) revert ZeroAmount();
         rewards[msg.sender] = 0;
         (bool ok, ) = msg.sender.call{value: reward}("");
-        require(ok, "ZENTHIS: claim transfer failed");
+        if (!ok) revert TransferFailed();
         emit RewardClaimed(msg.sender, reward);
     }
 
@@ -131,7 +135,7 @@ contract ZenthisToken is ERC20, ERC20Permit, ERC20Votes, Ownable, ReentrancyGuar
     function depositFees() external payable onlyOwner {
         if (msg.value == 0) revert ZeroAmount();
         if (totalStaked > 0) {
-            rewardPerTokenStored += (msg.value * 1e18) / totalStaked;
+            rewardPerTokenStored += (msg.value * REWARD_PRECISION) / totalStaked;
         }
         totalFeesDeposited += msg.value;
         emit FeesDeposited(msg.value);
@@ -151,14 +155,28 @@ contract ZenthisToken is ERC20, ERC20Permit, ERC20Votes, Ownable, ReentrancyGuar
         // Accept ETH for protocol fee distribution
     }
 
+    /// @notice Owner-only: recover ERC-20 tokens accidentally sent to this contract.
+    /// @dev ZTS itself cannot be rescued here — it is the staking asset and is managed internally.
+    /// @param tokenAddr The address of the ERC-20 token to recover.
+    /// @param to        The recipient of the recovered tokens.
+    /// @notice Owner-only: recover ERC-20 tokens accidentally sent to this contract.
+    /// @dev ZTS itself cannot be rescued — it is the staking asset and is managed internally.
+    function rescueERC20(IERC20 tokenAddr, address to) external onlyOwner {
+        if (to == address(0)) revert ZeroAddress();
+        if (address(tokenAddr) == address(this)) revert ZeroAmount();
+        uint256 balance = tokenAddr.balanceOf(address(this));
+        if (balance == 0) revert ZeroAmount();
+        if (!tokenAddr.transfer(to, balance)) revert TransferFailed();
+    }
+
     /// @notice Owner-only: withdraw ETH mistakenly sent to this contract.
     /// @dev Only ETH exceeding total deposited fees is withdrawable.
     ///      Staker rewards are protected — they always take priority over stuck ETH.
     function withdrawStuckETH() external onlyOwner {
         uint256 balance = address(this).balance;
-        require(balance > totalFeesDeposited, "ZENTHIS: no stuck ETH");
+        if (balance <= totalFeesDeposited) revert NoStuckETH();
         uint256 amount = balance - totalFeesDeposited;
         (bool ok, ) = msg.sender.call{value: amount}("");
-        require(ok, "ZENTHIS: ETH withdrawal failed");
+        if (!ok) revert TransferFailed();
     }
 }

@@ -160,6 +160,48 @@ describe("ZenthisToken", function () {
     });
   });
 
+  // ── Rescue ────────────────────────────────────────────────────────────────
+
+  describe("RescueERC20", () => {
+    it("allows owner to recover stuck ERC-20 tokens", async () => {
+      // Deploy a dummy token and send it to the contract
+      const Dummy = await ethers.getContractFactory("ZenthisToken");
+      const dummy = await Dummy.deploy(owner.address);
+      const DUMMY_AMT = ethers.parseEther("5000");
+      await dummy.connect(owner).transfer(await token.getAddress(), DUMMY_AMT);
+
+      await expect(
+        token.connect(owner).rescueERC20(await dummy.getAddress(), owner.address)
+      ).to.changeTokenBalance(dummy, owner, DUMMY_AMT);
+    });
+
+    it("reverts on zero recipient", async () => {
+      const dummy = await (await ethers.getContractFactory("ZenthisToken")).deploy(owner.address);
+      await expect(
+        token.connect(owner).rescueERC20(await dummy.getAddress(), ethers.ZeroAddress)
+      ).to.be.revertedWithCustomError(token, "ZeroAddress");
+    });
+
+    it("reverts when trying to rescue ZTS itself", async () => {
+      await expect(
+        token.connect(owner).rescueERC20(await token.getAddress(), owner.address)
+      ).to.be.revertedWithCustomError(token, "ZeroAmount");
+    });
+
+    it("reverts when no tokens to rescue", async () => {
+      const dummy = await (await ethers.getContractFactory("ZenthisToken")).deploy(owner.address);
+      await expect(
+        token.connect(owner).rescueERC20(await dummy.getAddress(), owner.address)
+      ).to.be.revertedWithCustomError(token, "ZeroAmount");
+    });
+
+    it("reverts if non-owner calls rescueERC20", async () => {
+      await expect(
+        token.connect(attacker).rescueERC20(owner.address, owner.address)
+      ).to.be.revertedWithCustomError(token, "OwnableUnauthorizedAccount");
+    });
+  });
+
   // ── Governance ─────────────────────────────────────────────────────────────
 
   describe("Governance (ERC20Votes)", () => {
