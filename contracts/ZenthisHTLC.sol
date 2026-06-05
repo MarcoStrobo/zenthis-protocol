@@ -43,6 +43,17 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
  * Hashlock: sha256(abi.encodePacked(preimage))
  * Timelock: absolute Unix timestamp; must be > MIN_TIMELOCK from now
  *           and < MAX_TIMELOCK from now.
+ *
+ * Notes:
+ *   - Do NOT reuse the same hashlock across multiple active swaps (M-03).
+ *     If the preimage for one swap is revealed, all swaps sharing that
+ *     hashlock become redeemable. Each swap should use a unique secret.
+ *   - refund() is permissionless after expiry so funds are never stuck
+ *     if the initiator goes offline (L-02).
+ *   - ETH sent via selfdestruct to this contract bypasses receive() and
+ *     does not update accounting. That ETH is treated as stuck and is
+ *     recoverable via withdrawStuckETH on the token contract. On the
+ *     HTLC itself it has no effect (no storage changes).
  */
 contract ZenthisHTLC is Ownable, Pausable, ReentrancyGuard {
     using SafeERC20 for IERC20;
@@ -219,7 +230,6 @@ contract ZenthisHTLC is Ownable, Pausable, ReentrancyGuard {
         Swap storage s = _swaps[swapId];
         require(s.status == Status.ACTIVE,     "HTLC: swap not active");
         require(block.timestamp >= s.timelock, "HTLC: timelock not expired");
-        require(msg.sender == s.initiator,     "HTLC: only initiator can refund");
 
         s.status = Status.REFUNDED;
 
@@ -237,6 +247,12 @@ contract ZenthisHTLC is Ownable, Pausable, ReentrancyGuard {
 
     function getSwap(bytes32 swapId) external view returns (Swap memory) {
         return _swaps[swapId];
+    }
+
+    /// @notice Returns the current nonce for a given account.
+    /// @dev Used by off-chain clients to pre-compute swapId before submitting a transaction.
+    function getNonce(address account) external view returns (uint256) {
+        return _nonces[account];
     }
 
     function isActive(bytes32 swapId) external view returns (bool) {

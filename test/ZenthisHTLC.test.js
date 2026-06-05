@@ -240,6 +240,13 @@ describe("ZenthisHTLC", function () {
         htlc.connect(attacker).redeem(swapId, preimage)
       ).to.changeEtherBalance(recipient, ONE_ETH);
     });
+
+    it("reverts after timelock expiry", async () => {
+      await time.increaseTo(timelock);
+      await expect(
+        htlc.connect(recipient).redeem(swapId, preimage)
+      ).to.be.revertedWith("HTLC: swap expired");
+    });
   });
 
   // ── refund ─────────────────────────────────────────────────────────────────
@@ -278,11 +285,12 @@ describe("ZenthisHTLC", function () {
       ).to.be.revertedWith("HTLC: timelock not expired");
     });
 
-    it("reverts if called by non-initiator", async () => {
+    it("allows anyone to refund after timelock", async () => {
       await time.increaseTo(timelock + 1);
+      // Funds go to initiator regardless of who calls refund
       await expect(
         htlc.connect(attacker).refund(swapId)
-      ).to.be.revertedWith("HTLC: only initiator can refund");
+      ).to.changeEtherBalance(initiator, ONE_ETH);
     });
 
     it("reverts on double-refund", async () => {
@@ -502,11 +510,11 @@ describe("ZenthisHTLC", function () {
       ).to.be.revertedWith("HTLC: timelock not expired");
     });
 
-    it("reverts if non-initiator tries to refund", async () => {
+    it("allows anyone to refund after timelock", async () => {
       await time.increaseTo(timelock + 1);
       await expect(
         htlc.connect(attacker).refund(swapId)
-      ).to.be.revertedWith("HTLC: only initiator can refund");
+      ).to.changeTokenBalance(token, initiator, TOKEN_AMOUNT);
     });
   });
 
