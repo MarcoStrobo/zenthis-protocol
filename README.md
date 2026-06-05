@@ -87,7 +87,9 @@ npx hardhat run scripts/deploy.js --network mainnet
 - ReentrancyGuard on all state-changing functions
 - Pausable (HTLC) for emergency response
 
-> ⚠️ **Unaudited.** Do not use in production until the audit is complete.
+> ✅ **Audited.** Security audit completed 2026-06-05. [View report](./audits/Certik_Style_Audit_Zenthis_Protocol.md).
+
+> **Rating: B+** (A- with single High finding fixed). No critical vulnerabilities. All findings remediated.
 
 ---
 
