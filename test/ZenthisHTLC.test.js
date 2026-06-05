@@ -24,12 +24,32 @@ function makeHashlockSha256(preimage) {
   return soliditySha256(preimage);
 }
 
+// Helper: call newSwap and extract swapId from the emitted event
+async function createSwap(htlc, signer, recipient, hashlock, timelock, value) {
+  const tx = await htlc.connect(signer).newSwap(recipient, hashlock, timelock, { value });
+  const receipt = await tx.wait();
+  const event = receipt.logs.find(
+    (l) => htlc.interface.parseLog(l)?.name === "SwapCreated"
+  );
+  return htlc.interface.parseLog(event).args.swapId;
+}
+
+// Helper: call newSwapToken and extract swapId from the emitted event
+async function createSwapToken(htlc, signer, recipient, tokenAddr, amount, hashlock, timelock) {
+  const tx = await htlc.connect(signer).newSwapToken(recipient, tokenAddr, amount, hashlock, timelock);
+  const receipt = await tx.wait();
+  const event = receipt.logs.find(
+    (l) => htlc.interface.parseLog(l)?.name === "SwapCreated"
+  );
+  return htlc.interface.parseLog(event).args.swapId;
+}
+
 // ─── Tests ──────────────────────────────────────────────────────────────────
 
 describe("ZenthisHTLC", function () {
   let htlc;
   let owner, initiator, recipient, attacker;
-  let swapId, preimage, hashlock, timelock;
+  let preimage, hashlock, timelock;
 
   const ONE_ETH = ethers.parseEther("1.0");
   const HALF_ETH = ethers.parseEther("0.5");
@@ -41,7 +61,6 @@ describe("ZenthisHTLC", function () {
     htlc = await HTLC.deploy();
 
     // Fresh swap params for each test
-    swapId   = ethers.randomBytes(32);
     preimage = makePreimage();
     hashlock = makeHashlockSha256(preimage);
     timelock = (await time.latest()) + 3600; // 1 hour from now
@@ -69,29 +88,27 @@ describe("ZenthisHTLC", function () {
 
   describe("newSwap (ETH)", () => {
     it("creates a swap and emits SwapCreated", async () => {
-      await expect(
-        htlc.connect(initiator).newSwap(
-          swapId, recipient.address, hashlock, timelock,
-          { value: ONE_ETH }
-        )
-      )
-        .to.emit(htlc, "SwapCreated")
-        .withArgs(
-          swapId,
-          initiator.address,
-          recipient.address,
-          ethers.ZeroAddress,
-          ONE_ETH,
-          hashlock,
-          timelock
-        );
+      const tx = await htlc.connect(initiator).newSwap(
+        recipient.address, hashlock, timelock,
+        { value: ONE_ETH }
+      );
+      const receipt = await tx.wait();
+      const event = receipt.logs.find(
+        (l) => htlc.interface.parseLog(l)?.name === "SwapCreated"
+      );
+      const args = htlc.interface.parseLog(event).args;
+
+      expect(event).to.not.be.undefined;
+      expect(args.initiator).to.equal(initiator.address);
+      expect(args.recipient).to.equal(recipient.address);
+      expect(args.token).to.equal(ethers.ZeroAddress);
+      expect(args.amount).to.equal(ONE_ETH);
+      expect(args.hashlock).to.equal(hashlock);
+      expect(args.timelock).to.equal(timelock);
     });
 
     it("stores correct swap data", async () => {
-      await htlc.connect(initiator).newSwap(
-        swapId, recipient.address, hashlock, timelock,
-        { value: ONE_ETH }
-      );
+      const swapId = await createSwap(htlc, initiator, recipient.address, hashlock, timelock, ONE_ETH);
 
       const swap = await htlc.getSwap(swapId);
       expect(swap.initiator).to.equal(initiator.address);
@@ -103,10 +120,7 @@ describe("ZenthisHTLC", function () {
     });
 
     it("marks swap as active", async () => {
-      await htlc.connect(initiator).newSwap(
-        swapId, recipient.address, hashlock, timelock,
-        { value: ONE_ETH }
-      );
+      const swapId = await createSwap(htlc, initiator, recipient.address, hashlock, timelock, ONE_ETH);
       expect(await htlc.isActive(swapId)).to.be.true;
     });
 
@@ -114,7 +128,7 @@ describe("ZenthisHTLC", function () {
       const htlcAddress = await htlc.getAddress();
       await expect(
         htlc.connect(initiator).newSwap(
-          swapId, recipient.address, hashlock, timelock,
+          recipient.address, hashlock, timelock,
           { value: ONE_ETH }
         )
       ).to.changeEtherBalance(htlc, ONE_ETH);
@@ -123,7 +137,7 @@ describe("ZenthisHTLC", function () {
     it("reverts on zero value", async () => {
       await expect(
         htlc.connect(initiator).newSwap(
-          swapId, recipient.address, hashlock, timelock,
+          recipient.address, hashlock, timelock,
           { value: 0 }
         )
       ).to.be.revertedWith("HTLC: amount must be > 0");
@@ -132,7 +146,7 @@ describe("ZenthisHTLC", function () {
     it("reverts on zero recipient", async () => {
       await expect(
         htlc.connect(initiator).newSwap(
-          swapId, ethers.ZeroAddress, hashlock, timelock,
+          ethers.ZeroAddress, hashlock, timelock,
           { value: ONE_ETH }
         )
       ).to.be.revertedWith("HTLC: invalid recipient");
@@ -141,30 +155,28 @@ describe("ZenthisHTLC", function () {
     it("reverts on self-swap", async () => {
       await expect(
         htlc.connect(initiator).newSwap(
-          swapId, initiator.address, hashlock, timelock,
+          initiator.address, hashlock, timelock,
           { value: ONE_ETH }
         )
       ).to.be.revertedWith("HTLC: self-swap not allowed");
     });
 
-    it("reverts on duplicate swap ID", async () => {
-      await htlc.connect(initiator).newSwap(
-        swapId, recipient.address, hashlock, timelock,
-        { value: HALF_ETH }
-      );
-      await expect(
-        htlc.connect(initiator).newSwap(
-          swapId, recipient.address, hashlock, timelock,
-          { value: HALF_ETH }
-        )
-      ).to.be.revertedWith("HTLC: swap ID already used");
+    it("ensures swap IDs are unique per initiator", async () => {
+      // With deterministic swapId derivation, same params + same nonce is impossible
+      // because the nonce increments atomically. Creating two swaps with identical
+      // params should succeed with different IDs.
+      const swapId1 = await createSwap(htlc, initiator, recipient.address, hashlock, timelock, HALF_ETH);
+      const swapId2 = await createSwap(htlc, initiator, recipient.address, hashlock, timelock, HALF_ETH);
+      expect(swapId1).to.not.equal(swapId2);
+      expect(await htlc.isActive(swapId1)).to.be.true;
+      expect(await htlc.isActive(swapId2)).to.be.true;
     });
 
     it("reverts when timelock is too short", async () => {
       const shortTimelock = (await time.latest()) + 60; // 1 minute
       await expect(
         htlc.connect(initiator).newSwap(
-          swapId, recipient.address, hashlock, shortTimelock,
+          recipient.address, hashlock, shortTimelock,
           { value: ONE_ETH }
         )
       ).to.be.revertedWith("HTLC: timelock too short");
@@ -174,7 +186,7 @@ describe("ZenthisHTLC", function () {
       const longTimelock = (await time.latest()) + 3 * 24 * 3600; // 3 days
       await expect(
         htlc.connect(initiator).newSwap(
-          swapId, recipient.address, hashlock, longTimelock,
+          recipient.address, hashlock, longTimelock,
           { value: ONE_ETH }
         )
       ).to.be.revertedWith("HTLC: timelock too long");
@@ -184,11 +196,10 @@ describe("ZenthisHTLC", function () {
   // ── redeem ─────────────────────────────────────────────────────────────────
 
   describe("redeem", () => {
+    let swapId;
+
     beforeEach(async () => {
-      await htlc.connect(initiator).newSwap(
-        swapId, recipient.address, hashlock, timelock,
-        { value: ONE_ETH }
-      );
+      swapId = await createSwap(htlc, initiator, recipient.address, hashlock, timelock, ONE_ETH);
     });
 
     it("transfers ETH to recipient and emits SwapRedeemed", async () => {
@@ -234,11 +245,10 @@ describe("ZenthisHTLC", function () {
   // ── refund ─────────────────────────────────────────────────────────────────
 
   describe("refund", () => {
+    let swapId;
+
     beforeEach(async () => {
-      await htlc.connect(initiator).newSwap(
-        swapId, recipient.address, hashlock, timelock,
-        { value: ONE_ETH }
-      );
+      swapId = await createSwap(htlc, initiator, recipient.address, hashlock, timelock, ONE_ETH);
     });
 
     it("refunds ETH to initiator after timelock and emits SwapRefunded", async () => {
@@ -299,7 +309,7 @@ describe("ZenthisHTLC", function () {
       await htlc.connect(owner).pause();
       await expect(
         htlc.connect(initiator).newSwap(
-          swapId, recipient.address, hashlock, timelock,
+          recipient.address, hashlock, timelock,
           { value: ONE_ETH }
         )
       ).to.be.revertedWithCustomError(htlc, "EnforcedPause");
@@ -342,27 +352,26 @@ describe("ZenthisHTLC", function () {
     });
 
     it("creates an ERC-20 swap and emits SwapCreated", async () => {
-      await expect(
-        htlc.connect(initiator).newSwapToken(
-          swapId, recipient.address, await token.getAddress(), TOKEN_AMOUNT, hashlock, timelock
-        )
-      )
-        .to.emit(htlc, "SwapCreated")
-        .withArgs(
-          swapId,
-          initiator.address,
-          recipient.address,
-          await token.getAddress(),
-          TOKEN_AMOUNT,
-          hashlock,
-          timelock
-        );
+      const tx = await htlc.connect(initiator).newSwapToken(
+        recipient.address, await token.getAddress(), TOKEN_AMOUNT, hashlock, timelock
+      );
+      const receipt = await tx.wait();
+      const event = receipt.logs.find(
+        (l) => htlc.interface.parseLog(l)?.name === "SwapCreated"
+      );
+      const args = htlc.interface.parseLog(event).args;
+
+      expect(event).to.not.be.undefined;
+      expect(args.initiator).to.equal(initiator.address);
+      expect(args.recipient).to.equal(recipient.address);
+      expect(args.token).to.equal(await token.getAddress());
+      expect(args.amount).to.equal(TOKEN_AMOUNT);
+      expect(args.hashlock).to.equal(hashlock);
+      expect(args.timelock).to.equal(timelock);
     });
 
     it("stores correct token swap data", async () => {
-      await htlc.connect(initiator).newSwapToken(
-        swapId, recipient.address, await token.getAddress(), TOKEN_AMOUNT, hashlock, timelock
-      );
+      const swapId = await createSwapToken(htlc, initiator, recipient.address, await token.getAddress(), TOKEN_AMOUNT, hashlock, timelock);
       const swap = await htlc.getSwap(swapId);
       expect(swap.initiator).to.equal(initiator.address);
       expect(swap.recipient).to.equal(recipient.address);
@@ -374,7 +383,7 @@ describe("ZenthisHTLC", function () {
     it("pulls tokens from initiator into contract", async () => {
       await expect(
         htlc.connect(initiator).newSwapToken(
-          swapId, recipient.address, await token.getAddress(), TOKEN_AMOUNT, hashlock, timelock
+          recipient.address, await token.getAddress(), TOKEN_AMOUNT, hashlock, timelock
         )
       ).to.changeTokenBalance(token, htlc, TOKEN_AMOUNT);
     });
@@ -382,7 +391,7 @@ describe("ZenthisHTLC", function () {
     it("reverts on zero amount", async () => {
       await expect(
         htlc.connect(initiator).newSwapToken(
-          swapId, recipient.address, await token.getAddress(), 0, hashlock, timelock
+          recipient.address, await token.getAddress(), 0, hashlock, timelock
         )
       ).to.be.revertedWith("HTLC: amount must be > 0");
     });
@@ -390,7 +399,7 @@ describe("ZenthisHTLC", function () {
     it("reverts on zero token address", async () => {
       await expect(
         htlc.connect(initiator).newSwapToken(
-          swapId, recipient.address, ethers.ZeroAddress, TOKEN_AMOUNT, hashlock, timelock
+          recipient.address, ethers.ZeroAddress, TOKEN_AMOUNT, hashlock, timelock
         )
       ).to.be.revertedWith("HTLC: invalid token");
     });
@@ -398,37 +407,21 @@ describe("ZenthisHTLC", function () {
     it("reverts on self-swap", async () => {
       await expect(
         htlc.connect(initiator).newSwapToken(
-          swapId, initiator.address, await token.getAddress(), TOKEN_AMOUNT, hashlock, timelock
+          initiator.address, await token.getAddress(), TOKEN_AMOUNT, hashlock, timelock
         )
       ).to.be.revertedWith("HTLC: self-swap not allowed");
-    });
-
-    it("reverts on duplicate swap ID", async () => {
-      await htlc.connect(initiator).newSwapToken(
-        swapId, recipient.address, await token.getAddress(), TOKEN_AMOUNT, hashlock, timelock
-      );
-      // Need fresh approval for second swap
-      const swapId2 = ethers.randomBytes(32);
-      await token.connect(initiator).approve(await htlc.getAddress(), TOKEN_AMOUNT);
-      await expect(
-        htlc.connect(initiator).newSwapToken(
-          swapId, recipient.address, await token.getAddress(), TOKEN_AMOUNT, hashlock, timelock
-        )
-      ).to.be.revertedWith("HTLC: swap ID already used");
     });
   });
 
   describe("redeem (ERC-20)", () => {
-    let token;
+    let token, swapId;
     const TOKEN_AMOUNT = ethers.parseEther("1000");
 
     beforeEach(async () => {
       const Token = await ethers.getContractFactory("ZenthisToken");
       token = await Token.deploy(initiator.address);
       await token.connect(initiator).approve(await htlc.getAddress(), TOKEN_AMOUNT);
-      await htlc.connect(initiator).newSwapToken(
-        swapId, recipient.address, await token.getAddress(), TOKEN_AMOUNT, hashlock, timelock
-      );
+      swapId = await createSwapToken(htlc, initiator, recipient.address, await token.getAddress(), TOKEN_AMOUNT, hashlock, timelock);
     });
 
     it("transfers tokens to recipient on redeem", async () => {
@@ -465,16 +458,14 @@ describe("ZenthisHTLC", function () {
   });
 
   describe("refund (ERC-20)", () => {
-    let token;
+    let token, swapId;
     const TOKEN_AMOUNT = ethers.parseEther("1000");
 
     beforeEach(async () => {
       const Token = await ethers.getContractFactory("ZenthisToken");
       token = await Token.deploy(initiator.address);
       await token.connect(initiator).approve(await htlc.getAddress(), TOKEN_AMOUNT);
-      await htlc.connect(initiator).newSwapToken(
-        swapId, recipient.address, await token.getAddress(), TOKEN_AMOUNT, hashlock, timelock
-      );
+      swapId = await createSwapToken(htlc, initiator, recipient.address, await token.getAddress(), TOKEN_AMOUNT, hashlock, timelock);
     });
 
     it("refunds tokens to initiator after timelock", async () => {
@@ -545,25 +536,19 @@ describe("ZenthisHTLC", function () {
       });
 
       it("deducts fee from locked ETH amount", async () => {
-        await htlc.connect(initiator).newSwap(
-          swapId, recipient.address, hashlock, timelock, { value: ONE_ETH }
-        );
+        const swapId = await createSwap(htlc, initiator, recipient.address, hashlock, timelock, ONE_ETH);
         const swap = await htlc.getSwap(swapId);
         // net = 1 ETH - 1% = 0.99 ETH
         expect(swap.amount).to.equal(ethers.parseEther("0.99"));
       });
 
       it("accumulates ETH fees in collectedEthFees", async () => {
-        await htlc.connect(initiator).newSwap(
-          swapId, recipient.address, hashlock, timelock, { value: ONE_ETH }
-        );
+        await createSwap(htlc, initiator, recipient.address, hashlock, timelock, ONE_ETH);
         expect(await htlc.collectedEthFees()).to.equal(ethers.parseEther("0.01"));
       });
 
       it("owner can withdraw ETH fees", async () => {
-        await htlc.connect(initiator).newSwap(
-          swapId, recipient.address, hashlock, timelock, { value: ONE_ETH }
-        );
+        const swapId = await createSwap(htlc, initiator, recipient.address, hashlock, timelock, ONE_ETH);
         const feeAmount = await htlc.collectedEthFees();
         await expect(
           htlc.connect(owner).withdrawEthFees(owner.address)
@@ -580,18 +565,14 @@ describe("ZenthisHTLC", function () {
       });
 
       it("reverts withdrawEthFees if non-owner", async () => {
-        await htlc.connect(initiator).newSwap(
-          swapId, recipient.address, hashlock, timelock, { value: ONE_ETH }
-        );
+        await createSwap(htlc, initiator, recipient.address, hashlock, timelock, ONE_ETH);
         await expect(
           htlc.connect(attacker).withdrawEthFees(attacker.address)
         ).to.be.revertedWithCustomError(htlc, "OwnableUnauthorizedAccount");
       });
 
       it("recipient receives net amount (not gross) on redeem", async () => {
-        await htlc.connect(initiator).newSwap(
-          swapId, recipient.address, hashlock, timelock, { value: ONE_ETH }
-        );
+        const swapId = await createSwap(htlc, initiator, recipient.address, hashlock, timelock, ONE_ETH);
         await expect(
           htlc.connect(recipient).redeem(swapId, preimage)
         ).to.changeEtherBalance(recipient, ethers.parseEther("0.99"));
@@ -610,26 +591,20 @@ describe("ZenthisHTLC", function () {
       });
 
       it("deducts fee from locked token amount", async () => {
-        await htlc.connect(initiator).newSwapToken(
-          swapId, recipient.address, await token.getAddress(), TOKEN_AMOUNT, hashlock, timelock
-        );
+        const swapId = await createSwapToken(htlc, initiator, recipient.address, await token.getAddress(), TOKEN_AMOUNT, hashlock, timelock);
         const swap = await htlc.getSwap(swapId);
         // net = 1000 - 1% = 990
         expect(swap.amount).to.equal(ethers.parseEther("990"));
       });
 
       it("accumulates token fees in collectedTokenFees", async () => {
-        await htlc.connect(initiator).newSwapToken(
-          swapId, recipient.address, await token.getAddress(), TOKEN_AMOUNT, hashlock, timelock
-        );
+        await createSwapToken(htlc, initiator, recipient.address, await token.getAddress(), TOKEN_AMOUNT, hashlock, timelock);
         expect(await htlc.collectedTokenFees(await token.getAddress()))
           .to.equal(ethers.parseEther("10"));
       });
 
       it("owner can withdraw ERC-20 fees", async () => {
-        await htlc.connect(initiator).newSwapToken(
-          swapId, recipient.address, await token.getAddress(), TOKEN_AMOUNT, hashlock, timelock
-        );
+        const swapId = await createSwapToken(htlc, initiator, recipient.address, await token.getAddress(), TOKEN_AMOUNT, hashlock, timelock);
         const tokenAddr = await token.getAddress();
         const feeAmount = await htlc.collectedTokenFees(tokenAddr);
         await expect(
@@ -647,18 +622,14 @@ describe("ZenthisHTLC", function () {
       });
 
       it("reverts withdrawTokenFees if non-owner", async () => {
-        await htlc.connect(initiator).newSwapToken(
-          swapId, recipient.address, await token.getAddress(), TOKEN_AMOUNT, hashlock, timelock
-        );
+        await createSwapToken(htlc, initiator, recipient.address, await token.getAddress(), TOKEN_AMOUNT, hashlock, timelock);
         await expect(
           htlc.connect(attacker).withdrawTokenFees(await token.getAddress(), attacker.address)
         ).to.be.revertedWithCustomError(htlc, "OwnableUnauthorizedAccount");
       });
 
       it("recipient receives net token amount on redeem", async () => {
-        await htlc.connect(initiator).newSwapToken(
-          swapId, recipient.address, await token.getAddress(), TOKEN_AMOUNT, hashlock, timelock
-        );
+        const swapId = await createSwapToken(htlc, initiator, recipient.address, await token.getAddress(), TOKEN_AMOUNT, hashlock, timelock);
         await expect(
           htlc.connect(recipient).redeem(swapId, preimage)
         ).to.changeTokenBalance(token, recipient, ethers.parseEther("990"));
@@ -668,9 +639,7 @@ describe("ZenthisHTLC", function () {
     describe("zero fee (default)", () => {
       it("no fee deducted when feeBps is 0", async () => {
         // feeBps defaults to 0
-        await htlc.connect(initiator).newSwap(
-          swapId, recipient.address, hashlock, timelock, { value: ONE_ETH }
-        );
+        const swapId = await createSwap(htlc, initiator, recipient.address, hashlock, timelock, ONE_ETH);
         const swap = await htlc.getSwap(swapId);
         expect(swap.amount).to.equal(ONE_ETH);
         expect(await htlc.collectedEthFees()).to.equal(0n);

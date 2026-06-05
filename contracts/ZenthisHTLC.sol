@@ -12,7 +12,8 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
  * @notice Hash Time-Lock Contract for cross-chain atomic swaps (ETH and ERC-20).
  *
  * Flow (ETH):
- *   1. Initiator calls newSwap()      — locks ETH, sets hashlock (sha256) + timelock
+ *   1. Initiator calls newSwap()      — locks ETH, sets hashlock (sha256) + timelock.
+ *      swapId is computed deterministically from initiator + params + chain + nonce.
  *   2. Recipient (or anyone with preimage) calls redeem() before timelock
  *   3. If unredeemed, initiator calls refund() after timelock
  *
@@ -20,6 +21,13 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
  *   1. Initiator approves this contract, calls newSwapToken()
  *   2. Recipient calls redeem() — tokens go to recipient
  *   3. Initiator calls refund() after timelock — tokens return to initiator
+ *
+ * Security:
+ *   - swapId is NOT user-supplied: it is derived from msg.sender, recipient,
+ *     hashlock, timelock, chainid and a per-initiator nonce. This eliminates
+ *     the swap-ID front-running vector (M-01 / SWC-114).
+ *   - Fee deduction: _calcFee() before state mutation (Checks-Effects-Interactions).
+ *   - ReentrancyGuard on all external state-changing functions.
  *
  * Protocol fee (optional):
  *   feeBps — basis points deducted from the locked amount on swap creation
@@ -54,6 +62,7 @@ contract ZenthisHTLC is Ownable, Pausable, ReentrancyGuard {
 
     // -- Storage
     mapping(bytes32 => Swap) private _swaps;
+    mapping(address => uint256) private _nonces; // per-initiator nonce for swapId derivation
 
     uint256 public feeBps;
     uint256 public collectedEthFees;
@@ -82,14 +91,25 @@ contract ZenthisHTLC is Ownable, Pausable, ReentrancyGuard {
 
     // -- Internal helpers
 
+    /// @notice Compute a deterministic, collision-resistant swap ID.
+    /// @dev The nonce is per-initiator, preventing front-runners from occupying the ID.
+    function _nextSwapId(
+        address recipient,
+        bytes32 hashlock,
+        uint256 timelock
+    ) internal returns (bytes32) {
+        uint256 nonce = _nonces[msg.sender]++;
+        return keccak256(abi.encodePacked(
+            msg.sender, recipient, hashlock, timelock, block.chainid, nonce
+        ));
+    }
+
     function _validateSwapParams(
-        bytes32 swapId,
         address recipient,
         uint256 timelock
     ) internal view {
         require(recipient != address(0),               "HTLC: invalid recipient");
         require(recipient != msg.sender,               "HTLC: self-swap not allowed");
-        require(_swaps[swapId].status == Status.EMPTY, "HTLC: swap ID already used");
         require(timelock >= block.timestamp + MIN_TIMELOCK_DELTA, "HTLC: timelock too short");
         require(timelock <= block.timestamp + MAX_TIMELOCK_DELTA, "HTLC: timelock too long");
     }
@@ -101,17 +121,20 @@ contract ZenthisHTLC is Ownable, Pausable, ReentrancyGuard {
 
     // -- newSwap (ETH)
 
+    /// @notice Create an atomic swap, locking ETH. swapId is derived from params + nonce.
+    /// @return swapId The deterministic identifier for this swap.
     function newSwap(
-        bytes32 swapId,
         address recipient,
         bytes32 hashlock,
         uint256 timelock
-    ) external payable whenNotPaused nonReentrant {
+    ) external payable whenNotPaused nonReentrant returns (bytes32 swapId) {
         require(msg.value > 0, "HTLC: amount must be > 0");
-        _validateSwapParams(swapId, recipient, timelock);
+        _validateSwapParams(recipient, timelock);
 
         (uint256 fee, uint256 net) = _calcFee(msg.value);
         if (fee > 0) collectedEthFees += fee;
+
+        swapId = _nextSwapId(recipient, hashlock, timelock);
 
         _swaps[swapId] = Swap({
             initiator: msg.sender,
@@ -128,22 +151,25 @@ contract ZenthisHTLC is Ownable, Pausable, ReentrancyGuard {
 
     // -- newSwapToken (ERC-20)
 
+    /// @notice Create an atomic swap, locking ERC-20 tokens. swapId is derived from params + nonce.
+    /// @return swapId The deterministic identifier for this swap.
     function newSwapToken(
-        bytes32 swapId,
         address recipient,
         address tokenAddr,
         uint256 amount,
         bytes32 hashlock,
         uint256 timelock
-    ) external whenNotPaused nonReentrant {
+    ) external whenNotPaused nonReentrant returns (bytes32 swapId) {
         require(amount > 0,               "HTLC: amount must be > 0");
         require(tokenAddr != address(0),  "HTLC: invalid token");
-        _validateSwapParams(swapId, recipient, timelock);
+        _validateSwapParams(recipient, timelock);
 
         (uint256 fee, uint256 net) = _calcFee(amount);
 
         IERC20(tokenAddr).safeTransferFrom(msg.sender, address(this), amount);
         if (fee > 0) collectedTokenFees[tokenAddr] += fee;
+
+        swapId = _nextSwapId(recipient, hashlock, timelock);
 
         _swaps[swapId] = Swap({
             initiator: msg.sender,

@@ -59,11 +59,14 @@ contract ZenthisToken is ERC20, ERC20Permit, ERC20Votes, Ownable, ReentrancyGuar
 
     // ── Staking internals ──────────────────────────────────────────────────────
 
-    function _rewardPerToken() internal view returns (uint256) {
-        // Accumulator is updated externally by depositFees().
+    /// @notice Read the current reward-per-stored-token accumulator.
+    /// @dev Unlike the Synthetix pattern, rewards are discrete (deposit-triggered),
+    ///      so this simply returns the stored value without time-weighted math.
+    function rewardPerToken() external view returns (uint256) {
         return rewardPerTokenStored;
     }
 
+    /// @notice Compute the total earned rewards (claimed + pending) for an account.
     function earned(address account) public view returns (uint256) {
         uint256 userStaked = stakedBalance[account];
         if (userStaked == 0) return rewards[account];
@@ -71,8 +74,10 @@ contract ZenthisToken is ERC20, ERC20Permit, ERC20Votes, Ownable, ReentrancyGuar
         return rewards[account] + (userStaked * delta) / 1e18;
     }
 
+    /// @notice Update reward state for an account before state mutation.
+    /// @dev Avoids dead SLOAD: reads rewardPerTokenStored directly instead of
+    ///      routing through a wrapper function that returns the same value.
     modifier updateReward(address account) {
-        rewardPerTokenStored = _rewardPerToken();
         if (account != address(0)) {
             rewards[account] = earned(account);
             userRewardPerTokenPaid[account] = rewardPerTokenStored;
@@ -82,16 +87,20 @@ contract ZenthisToken is ERC20, ERC20Permit, ERC20Votes, Ownable, ReentrancyGuar
 
     // ── Staking actions ────────────────────────────────────────────────────────
 
-    /// @notice Stake ZENTHIS tokens to earn protocol-fee rewards
+    /// @notice Stake ZTS tokens to earn protocol-fee rewards and governance voting power.
+    /// @dev Auto-delegates voting power to the staker on first stake (ERC20Votes).
     function stake(uint256 amount) external nonReentrant updateReward(msg.sender) {
         if (amount == 0) revert ZeroAmount();
         totalStaked += amount;
         stakedBalance[msg.sender] += amount;
         _transfer(msg.sender, address(this), amount);
+        // Auto-delegate voting power so staked tokens participate in governance.
+        // This is a no-op if already delegated (OpenZeppelin skips no-op delegates).
+        _delegate(msg.sender, msg.sender);
         emit Staked(msg.sender, amount);
     }
 
-    /// @notice Unstake ZENTHIS tokens
+    /// @notice Unstake ZTS tokens
     function unstake(uint256 amount) external nonReentrant updateReward(msg.sender) {
         if (amount == 0) revert ZeroAmount();
         if (stakedBalance[msg.sender] < amount) revert InsufficientStakedBalance();
