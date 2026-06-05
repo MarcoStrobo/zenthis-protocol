@@ -140,7 +140,9 @@ contract ZenthisToken is ERC20, ERC20Permit, ERC20Votes, Ownable, ReentrancyGuar
     // ── Burn ────────────────────────────────────────────────────────────────────
 
     /// @notice Burn own tokens
+    /// @dev Reverts on zero amount to avoid wasting gas on no-op burns.
     function burn(uint256 amount) external {
+        if (amount == 0) revert ZeroAmount();
         _burn(msg.sender, amount);
     }
 
