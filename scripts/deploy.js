@@ -17,6 +17,7 @@
  *    MAINNET_RPC_URL  DEPLOYER_PRIVATE_KEY  TGE_TIMESTAMP
  *    WALLET_SEED  WALLET_IDO  WALLET_LIQUIDITY
  *    WALLET_TEAM  WALLET_TREASURY  WALLET_AIRDROPS
+ *    MULTISIG_ADDRESS  (Gnosis Safe 2/2 — ownership transferred here)
  *
  *  Pre-flight checklist:
  *    □ npx hardhat test         → all tests pass
@@ -24,6 +25,7 @@
  *    □ Deployer holds enough ETH (~0.08 ETH at 30 gwei)
  *    □ All WALLET_* addresses confirmed correct
  *    □ TGE_TIMESTAMP is in the future
+ *    □ MULTISIG_ADDRESS is a valid Gnosis Safe 2/2
  * ─────────────────────────────────────────────────────────────────────────────
  */
 
@@ -83,6 +85,11 @@ async function main() {
     FOUNDER_OPS: requireEnv("WALLET_FOUNDER_OPS"),
     AIRDROPS:    requireEnv("WALLET_AIRDROPS"),
   };
+
+  const MULTISIG = requireEnv("MULTISIG_ADDRESS");
+  if (!ethers.isAddress(MULTISIG)) {
+    throw new Error(`Invalid MULTISIG_ADDRESS: "${MULTISIG}"`);
+  }
 
   const TGE = BigInt(requireEnv("TGE_TIMESTAMP"));
 
@@ -155,6 +162,7 @@ async function main() {
     deployedAt: new Date().toISOString(),
     tge:        TGE.toString(),
     deployer:   deployer.address,
+    multisig:   MULTISIG,
     contracts: {
       ZenthisToken:   tokenAddr,
       ZenthisVesting: vestingAddr,
@@ -196,10 +204,38 @@ async function main() {
     }
   }
 
+  // ── [5/5] Transfer ownership to multi-sig ──────────────────────────────────
+  console.log(`\n🔐 [5/5] Transferring ownership to multisig: ${MULTISIG}`);
+  
+  for (const [name, contract] of [
+    ["ZenthisToken",   token],
+    ["ZenthisVesting", vesting],
+    ["ZenthisHTLC",    htlc],
+  ]) {
+    const currentOwner = await contract.owner();
+    if (currentOwner.toLowerCase() === MULTISIG.toLowerCase()) {
+      console.log(`   ✓ ${name.padEnd(14)} already owned by multisig`);
+    } else {
+      const tx = await contract.transferOwnership(MULTISIG);
+      await tx.wait();
+      console.log(`   ✓ ${name.padEnd(14)} ownership → ${MULTISIG}`);
+    }
+  }
+  
+  // Final sanity: verify all three are transferred
+  for (const [name, contract] of [["Token", token], ["Vesting", vesting], ["HTLC", htlc]]) {
+    const owner = await contract.owner();
+    if (owner.toLowerCase() !== MULTISIG.toLowerCase()) {
+      console.error(`   ✘ ${name} owner is STILL ${owner} — abort.`);
+      process.exit(1);
+    }
+  }
+  console.log("   ✓ All contracts owned by multisig — deployer key is now harmless.");
+
   console.log("\n  NEXT STEPS:");
   console.log("  1. Transfer WALLET_IDO tokens to PinkSale presale contract");
   console.log("  2. Configure presale on pinksale.finance");
-  console.log("  3. Transfer contract ownership to multi-sig");
+  console.log("  3. Update .env MULTISIG_ADDRESS with recovery wallet if needed");
   console.log("");
 }
 
