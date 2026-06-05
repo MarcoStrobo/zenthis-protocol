@@ -455,6 +455,13 @@ describe("ZenthisHTLC", function () {
         htlc.connect(recipient).redeem(swapId, preimage)
       ).to.be.revertedWith("HTLC: swap not active");
     });
+
+    it("reverts after timelock expiry", async () => {
+      await time.increaseTo(timelock);
+      await expect(
+        htlc.connect(recipient).redeem(swapId, preimage)
+      ).to.be.revertedWith("HTLC: swap expired");
+    });
   });
 
   describe("refund (ERC-20)", () => {

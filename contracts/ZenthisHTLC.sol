@@ -28,6 +28,12 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
  *     the swap-ID front-running vector (M-01 / SWC-114).
  *   - Fee deduction: _calcFee() before state mutation (Checks-Effects-Interactions).
  *   - ReentrancyGuard on all external state-changing functions.
+ *   - redeem() enforces block.timestamp < timelock so expired swaps are
+ *     exclusively refundable (H-02 fix).
+ *
+ * Compatibility:
+ *   - Fee-on-transfer / rebasing tokens are NOT supported. The contract
+ *     does not measure pre/post transfer balances (M-01).
  *
  * Protocol fee (optional):
  *   feeBps — basis points deducted from the locked amount on swap creation
@@ -189,6 +195,7 @@ contract ZenthisHTLC is Ownable, Pausable, ReentrancyGuard {
     function redeem(bytes32 swapId, bytes32 preimage) external nonReentrant {
         Swap storage s = _swaps[swapId];
         require(s.status == Status.ACTIVE, "HTLC: swap not active");
+        require(block.timestamp < s.timelock,  "HTLC: swap expired");
         require(
             sha256(abi.encodePacked(preimage)) == s.hashlock,
             "HTLC: invalid preimage"
