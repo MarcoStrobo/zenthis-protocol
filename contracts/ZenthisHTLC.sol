@@ -214,8 +214,9 @@ contract ZenthisHTLC is Ownable, Pausable, ReentrancyGuard {
 
     function setFeeBps(uint256 bps) external onlyOwner {
         require(bps <= MAX_FEE_BPS, "HTLC: fee too high");
-        emit FeeBpsUpdated(feeBps, bps);
+        uint256 oldBps = feeBps;
         feeBps = bps;
+        emit FeeBpsUpdated(oldBps, bps);
     }
 
     function withdrawEthFees(address payable to) external onlyOwner nonReentrant {

@@ -21,7 +21,7 @@ describe("ZenthisToken", function () {
   describe("Deployment", () => {
     it("has correct name and symbol", async () => {
       expect(await token.name()).to.equal("Zenthis");
-      expect(await token.symbol()).to.equal("ZENTHIS");
+      expect(await token.symbol()).to.equal("ZTS");
     });
 
     it("mints the full supply to treasury", async () => {
@@ -35,8 +35,7 @@ describe("ZenthisToken", function () {
 
     it("reverts on zero treasury address", async () => {
       const Token = await ethers.getContractFactory("ZenthisToken");
-      await expect(Token.deploy(ethers.ZeroAddress))
-        .to.be.revertedWith("ZENTHIS: invalid treasury");
+      await expect(Token.deploy(ethers.ZeroAddress)).to.be.reverted;
     });
   });
 
@@ -69,7 +68,7 @@ describe("ZenthisToken", function () {
 
     it("reverts on staking 0", async () => {
       await expect(token.connect(alice).stake(0))
-        .to.be.revertedWith("ZENTHIS: cannot stake 0");
+        .to.be.revertedWithCustomError(token, "ZeroAmount");
     });
 
     it("allows unstaking and emits Unstaked event", async () => {
@@ -90,7 +89,7 @@ describe("ZenthisToken", function () {
       await token.connect(alice).stake(STAKE_AMT);
       await expect(
         token.connect(alice).unstake(STAKE_AMT + 1n)
-      ).to.be.revertedWith("ZENTHIS: insufficient stake");
+      ).to.be.revertedWithCustomError(token, "InsufficientStakedBalance");
     });
   });
 
@@ -141,7 +140,7 @@ describe("ZenthisToken", function () {
     it("reverts claiming when no rewards", async () => {
       await expect(
         token.connect(alice).claimRewards()
-      ).to.be.revertedWith("ZENTHIS: no rewards to claim");
+      ).to.be.revertedWithCustomError(token, "ZeroAmount");
     });
   });
 

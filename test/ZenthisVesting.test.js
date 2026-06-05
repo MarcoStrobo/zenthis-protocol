@@ -98,7 +98,7 @@ describe("ZenthisVesting", function () {
       expect(s.cliffDuration).to.equal(MONTH * 12n);
       expect(s.vestingDuration).to.equal(MONTH * 36n);
       expect(s.released).to.equal(0n);
-      expect(s.initialized).to.be.true;
+      expect(s.status).to.equal(1n); // Status.INITIALIZED = 1
     });
 
     it("registers schedule ID in the list", async () => {
