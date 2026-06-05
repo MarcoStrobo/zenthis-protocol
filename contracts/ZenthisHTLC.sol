@@ -15,63 +15,58 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
  *   1. Initiator calls newSwap()      — locks ETH, sets hashlock (sha256) + timelock.
  *      swapId is computed deterministically from initiator + params + chain + nonce.
  *   2. Recipient (or anyone with preimage) calls redeem() before timelock
- *   3. If unredeemed, initiator calls refund() after timelock
+ *   3. If unredeemed, anyone calls refund() after timelock — funds return to initiator
  *
  * Flow (ERC-20):
  *   1. Initiator approves this contract, calls newSwapToken()
  *   2. Recipient calls redeem() — tokens go to recipient
- *   3. Initiator calls refund() after timelock — tokens return to initiator
+ *   3. Anyone calls refund() after timelock — tokens return to initiator
  *
  * Security:
  *   - swapId is NOT user-supplied: it is derived from msg.sender, recipient,
  *     hashlock, timelock, chainid and a per-initiator nonce. This eliminates
- *     the swap-ID front-running vector (M-01 / SWC-114).
- *   - Fee deduction: _calcFee() before state mutation (Checks-Effects-Interactions).
+ *     the swap-ID front-running vector.
+ *   - Fee deduction via _calcFee() before state mutation (Checks-Effects-Interactions).
  *   - ReentrancyGuard on all external state-changing functions.
  *   - redeem() enforces block.timestamp < timelock so expired swaps are
- *     exclusively refundable (H-02 fix).
+ *     exclusively refundable.
+ *   - refund() is permissionless — no liveness dependency on the initiator.
  *
  * Compatibility:
  *   - Fee-on-transfer / rebasing tokens are NOT supported. The contract
- *     does not measure pre/post transfer balances (M-01).
+ *     does not measure pre/post transfer balances.
  *
  * Protocol fee (optional):
  *   feeBps — basis points deducted from the locked amount on swap creation
  *            (e.g. 10 = 0.1%). Fees accumulate in this contract and are
- *            withdrawn by the owner via withdrawFees().
+ *            withdrawn by the owner via withdrawEthFees() / withdrawTokenFees().
  *
  * Hashlock: sha256(abi.encodePacked(preimage))
  * Timelock: absolute Unix timestamp; must be > MIN_TIMELOCK from now
  *           and < MAX_TIMELOCK from now.
- *
- * Notes:
- *   - Do NOT reuse the same hashlock across multiple active swaps (M-03).
- *     If the preimage for one swap is revealed, all swaps sharing that
- *     hashlock become redeemable. Each swap should use a unique secret.
- *   - refund() is permissionless after expiry so funds are never stuck
- *     if the initiator goes offline (L-02).
- *   - ETH sent via selfdestruct to this contract bypasses receive() and
- *     does not update accounting. That ETH is treated as stuck and is
- *     recoverable via withdrawStuckETH on the token contract. On the
- *     HTLC itself it has no effect (no storage changes).
  */
 contract ZenthisHTLC is Ownable, Pausable, ReentrancyGuard {
     using SafeERC20 for IERC20;
 
     // -- Constants
+    /// @notice Minimum timelock delta from creation (5 minutes).
     uint256 public constant MIN_TIMELOCK_DELTA =  5 minutes;
+    /// @notice Maximum timelock delta from creation (2 days).
     uint256 public constant MAX_TIMELOCK_DELTA =  2 days;
+    /// @notice Maximum fee basis points (500 = 5%).
     uint256 public constant MAX_FEE_BPS        =  500;
 
     // -- Swap status
+    /// @notice Lifecycle state of a swap.
     enum Status { EMPTY, ACTIVE, REDEEMED, REFUNDED }
 
     // -- Swap record
+    /// @notice Full swap data stored on-chain.
     struct Swap {
         address  initiator;
         address  recipient;
-        address  token;
-        uint256  amount;
+        address  token;   // address(0) for ETH swaps
+        uint256  amount;  // net amount after fee deduction
         bytes32  hashlock;
         uint256  timelock;
         Status   status;
@@ -81,11 +76,22 @@ contract ZenthisHTLC is Ownable, Pausable, ReentrancyGuard {
     mapping(bytes32 => Swap) private _swaps;
     mapping(address => uint256) private _nonces; // per-initiator nonce for swapId derivation
 
+    /// @notice Current protocol fee in basis points.
     uint256 public feeBps;
+    /// @notice Accumulated ETH protocol fees.
     uint256 public collectedEthFees;
+    /// @notice Accumulated ERC-20 protocol fees per token address.
     mapping(address => uint256) public collectedTokenFees;
 
     // -- Events
+    /// @notice Emitted when a new swap is created.
+    /// @param swapId    Deterministic identifier for the swap.
+    /// @param initiator Address that locked the funds.
+    /// @param recipient Address that can redeem the funds.
+    /// @param token     Token address (0x0 for ETH).
+    /// @param amount    Net amount locked (after fee).
+    /// @param hashlock  SHA-256 hash of the preimage.
+    /// @param timelock  Unix timestamp after which the swap can be refunded.
     event SwapCreated(
         bytes32 indexed swapId,
         address indexed initiator,
@@ -95,21 +101,33 @@ contract ZenthisHTLC is Ownable, Pausable, ReentrancyGuard {
         bytes32  hashlock,
         uint256  timelock
     );
+    /// @notice Emitted when a swap is redeemed.
     event SwapRedeemed(bytes32 indexed swapId, bytes preimage);
+    /// @notice Emitted when a swap is refunded.
     event SwapRefunded(bytes32 indexed swapId);
+    /// @notice Emitted when the protocol fee is changed.
     event FeeBpsUpdated(uint256 oldBps, uint256 newBps);
+    /// @notice Emitted when accumulated fees are withdrawn.
+    /// @param token Token address (0x0 for ETH).
     event FeesWithdrawn(address indexed token, address indexed to, uint256 amount);
 
     // -- Constructor
+    /// @notice Deploys the contract. Sets deployer as initial owner.
     constructor() Ownable(msg.sender) {}
 
+    /// @notice Reject direct ETH sends; use newSwap().
     receive() external payable { revert("HTLC: use newSwap()"); }
+    /// @notice Reject unknown function calls; use newSwap().
     fallback() external payable { revert("HTLC: use newSwap()"); }
 
     // -- Internal helpers
 
     /// @notice Compute a deterministic, collision-resistant swap ID.
     /// @dev The nonce is per-initiator, preventing front-runners from occupying the ID.
+    /// @param recipient The intended swap recipient.
+    /// @param hashlock  The SHA-256 hashlock to satisfy.
+    /// @param timelock  The absolute Unix expiry timestamp.
+    /// @return A unique bytes32 swap identifier.
     function _nextSwapId(
         address recipient,
         bytes32 hashlock,
@@ -121,6 +139,10 @@ contract ZenthisHTLC is Ownable, Pausable, ReentrancyGuard {
         ));
     }
 
+    /// @notice Validate common swap creation parameters.
+    /// @dev Reverts if recipient is zero, self-swap is attempted, or timelock is out of bounds.
+    /// @param recipient The intended swap recipient.
+    /// @param timelock  The absolute Unix expiry timestamp.
     function _validateSwapParams(
         address recipient,
         uint256 timelock
@@ -131,6 +153,10 @@ contract ZenthisHTLC is Ownable, Pausable, ReentrancyGuard {
         require(timelock <= block.timestamp + MAX_TIMELOCK_DELTA, "HTLC: timelock too long");
     }
 
+    /// @notice Calculate protocol fee from a gross amount.
+    /// @param gross The full lock amount before fee.
+    /// @return fee The protocol fee deducted.
+    /// @return net  The net amount after fee (gross - fee).
     function _calcFee(uint256 gross) internal view returns (uint256 fee, uint256 net) {
         fee = (gross * feeBps) / 10_000;
         net = gross - fee;
@@ -138,8 +164,13 @@ contract ZenthisHTLC is Ownable, Pausable, ReentrancyGuard {
 
     // -- newSwap (ETH)
 
-    /// @notice Create an atomic swap, locking ETH. swapId is derived from params + nonce.
-    /// @return swapId The deterministic identifier for this swap.
+    /// @notice Lock ETH in a new atomic swap.
+    /// @dev Emits SwapCreated with the deterministic swapId. Fee is deducted automatically.
+    ///      The swapId is returned so the initiator can share it with the recipient.
+    /// @param recipient Address that can redeem by supplying the preimage.
+    /// @param hashlock  SHA-256 hash of the preimage that satisfies the swap.
+    /// @param timelock  Absolute Unix timestamp after which the swap expires.
+    /// @return swapId   The deterministic identifier for this swap.
     function newSwap(
         address recipient,
         bytes32 hashlock,
@@ -168,8 +199,15 @@ contract ZenthisHTLC is Ownable, Pausable, ReentrancyGuard {
 
     // -- newSwapToken (ERC-20)
 
-    /// @notice Create an atomic swap, locking ERC-20 tokens. swapId is derived from params + nonce.
-    /// @return swapId The deterministic identifier for this swap.
+    /// @notice Lock ERC-20 tokens in a new atomic swap.
+    /// @dev The caller must have approved this contract to spend `amount` tokens.
+    ///      Fee is deducted automatically; the recipient receives the net amount.
+    /// @param recipient Address that can redeem by supplying the preimage.
+    /// @param tokenAddr The ERC-20 token address.
+    /// @param amount    Gross amount of tokens to lock (fee deducted on top).
+    /// @param hashlock  SHA-256 hash of the preimage that satisfies the swap.
+    /// @param timelock  Absolute Unix timestamp after which the swap expires.
+    /// @return swapId   The deterministic identifier for this swap.
     function newSwapToken(
         address recipient,
         address tokenAddr,
@@ -203,6 +241,11 @@ contract ZenthisHTLC is Ownable, Pausable, ReentrancyGuard {
 
     // -- redeem (ETH + ERC-20)
 
+    /// @notice Redeem a swap by providing the preimage.
+    /// @dev Funds are transferred to s.recipient regardless of msg.sender.
+    ///      Reverts if swap is expired (block.timestamp >= s.timelock).
+    /// @param swapId   The swap identifier to redeem.
+    /// @param preimage The secret whose SHA-256 hash matches the swap's hashlock.
     function redeem(bytes32 swapId, bytes32 preimage) external nonReentrant {
         Swap storage s = _swaps[swapId];
         require(s.status == Status.ACTIVE, "HTLC: swap not active");
@@ -226,6 +269,10 @@ contract ZenthisHTLC is Ownable, Pausable, ReentrancyGuard {
 
     // -- refund (ETH + ERC-20)
 
+    /// @notice Refund an expired swap (anyone can call; funds always go to initiator).
+    /// @dev Permissionless: if the initiator is offline, any third party can trigger the refund.
+    ///      Reverts if the swap is still active (block.timestamp < s.timelock).
+    /// @param swapId The swap identifier to refund.
     function refund(bytes32 swapId) external nonReentrant {
         Swap storage s = _swaps[swapId];
         require(s.status == Status.ACTIVE,     "HTLC: swap not active");
@@ -245,22 +292,32 @@ contract ZenthisHTLC is Ownable, Pausable, ReentrancyGuard {
 
     // -- Views
 
+    /// @notice Get the full swap data for a given swap ID.
+    /// @param swapId The swap identifier.
+    /// @return The Swap struct (initiator, recipient, token, amount, hashlock, timelock, status).
     function getSwap(bytes32 swapId) external view returns (Swap memory) {
         return _swaps[swapId];
     }
 
     /// @notice Returns the current nonce for a given account.
     /// @dev Used by off-chain clients to pre-compute swapId before submitting a transaction.
+    /// @param account The initiator address to query.
+    /// @return The current nonce value.
     function getNonce(address account) external view returns (uint256) {
         return _nonces[account];
     }
 
+    /// @notice Check whether a swap is still active (unredeemed and unrefunded).
+    /// @param swapId The swap identifier.
+    /// @return true if the swap status is ACTIVE, false otherwise.
     function isActive(bytes32 swapId) external view returns (bool) {
         return _swaps[swapId].status == Status.ACTIVE;
     }
 
     // -- Admin
 
+    /// @notice Set the protocol fee in basis points.
+    /// @param bps New fee value (capped at MAX_FEE_BPS = 500 = 5%).
     function setFeeBps(uint256 bps) external onlyOwner {
         require(bps <= MAX_FEE_BPS, "HTLC: fee too high");
         uint256 oldBps = feeBps;
@@ -268,6 +325,8 @@ contract ZenthisHTLC is Ownable, Pausable, ReentrancyGuard {
         emit FeeBpsUpdated(oldBps, bps);
     }
 
+    /// @notice Withdraw accumulated ETH protocol fees.
+    /// @param to Recipient of the withdrawn fees. Must be non-zero.
     function withdrawEthFees(address payable to) external onlyOwner nonReentrant {
         require(to != address(0), "HTLC: invalid address");
         uint256 amount = collectedEthFees;
@@ -278,6 +337,9 @@ contract ZenthisHTLC is Ownable, Pausable, ReentrancyGuard {
         emit FeesWithdrawn(address(0), to, amount);
     }
 
+    /// @notice Withdraw accumulated ERC-20 protocol fees for a specific token.
+    /// @param tokenAddr The ERC-20 token address whose fees to withdraw.
+    /// @param to        Recipient of the withdrawn tokens. Must be non-zero.
     function withdrawTokenFees(address tokenAddr, address to) external onlyOwner nonReentrant {
         require(to != address(0), "HTLC: invalid address");
         uint256 amount = collectedTokenFees[tokenAddr];
@@ -287,6 +349,8 @@ contract ZenthisHTLC is Ownable, Pausable, ReentrancyGuard {
         emit FeesWithdrawn(tokenAddr, to, amount);
     }
 
+    /// @notice Pause all swap creation (emergency stop).
     function pause()   external onlyOwner { _pause(); }
+    /// @notice Unpause swap creation.
     function unpause() external onlyOwner { _unpause(); }
 }
