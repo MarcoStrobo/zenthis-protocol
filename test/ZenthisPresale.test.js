@@ -54,7 +54,7 @@ describe("ZenthisPresale", function () {
 
   beforeEach(async function () {
     [owner, liqWallet, treasuryWallet, ...users] = await ethers.getSigners();
-    const Token = await ethers.getContractFactory("ZENTHIS");
+    const Token = await ethers.getContractFactory("ZenthisToken");
     token = await Token.deploy(owner.address);
     await token.waitForDeployment();
 
@@ -63,6 +63,7 @@ describe("ZenthisPresale", function () {
     const pAddr = await presale.getAddress();
     const required = await presale.getRequiredZts();
     await token.transfer(pAddr, required);
+    await presale.depositTokens();
   });
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -167,6 +168,7 @@ describe("ZenthisPresale", function () {
       const p2 = await deploy({ soft: ethers.parseEther("0.1"), max: ethers.parseEther("60") });
       const pAddr = await p2.getAddress();
       await token.transfer(pAddr, await p2.getRequiredZts());
+      await p2.depositTokens();
       await p2.connect(users[0]).contribute(ethers.ZeroAddress, { value: ethers.parseEther("49") });
       await expect(
         p2.connect(users[0]).contribute(ethers.ZeroAddress, { value: ethers.parseEther("2") })
@@ -204,8 +206,11 @@ describe("ZenthisPresale", function () {
     });
 
     it("should revert after end time", async function () {
-      const p2 = await deploy({ duration: 1 });
-      await ethers.provider.send("evm_increaseTime", [3]);
+      const p2 = await deploy({ startTimeOffset: 1000, duration: 100 });
+      const pAddr = await p2.getAddress();
+      await token.transfer(pAddr, await p2.getRequiredZts());
+      await p2.depositTokens();
+      await ethers.provider.send("evm_increaseTime", [1200]);
       await ethers.provider.send("evm_mine", []);
       await expect(
         p2.connect(users[0]).contribute(ethers.ZeroAddress, { value: ethers.parseEther("1") })
@@ -232,6 +237,7 @@ describe("ZenthisPresale", function () {
       const pAddr = await p2.getAddress();
       const required = await p2.getRequiredZts();
       await token.transfer(pAddr, required);
+      await p2.depositTokens();
       const u = users[0];
       await p2.connect(u).contribute(owner.address, { value: ethers.parseEther("1") });
       expect(await p2.qualifiedReferrals(owner.address)).to.equal(0);
@@ -358,6 +364,8 @@ describe("ZenthisPresale", function () {
       const pAddr = await p2.getAddress();
       const required = await p2.getRequiredZts();
       await token.transfer(pAddr, required);
+      await p2.depositTokens();
+
       await p2.connect(users[0]).contribute(ethers.ZeroAddress, { value: ONE_ETH });
       await networkForwardAndFinalize(p2);
       // Bonus pool is only 100 ZTS — that's less than FLAT_AIRDROP (2,000)
@@ -507,3 +515,6 @@ async function networkForwardAndFinalize(contract) {
   await networkForwardTime(contract, 7*24*3600 + 1);
   await contract.finalize();
 }
+
+
+
