@@ -14,6 +14,19 @@ function randomPreimage() {
   return ethers.randomBytes(32);
 }
 
+function getSwapId(htlc, receipt) {
+  const event = receipt.logs
+    .map((log) => {
+      try {
+        return htlc.interface.parseLog(log);
+      } catch {
+        return null;
+      }
+    })
+    .find((p) => p && p.name === "SwapCreated");
+  return event.args[0];
+}
+
 async function main() {
   const [deployer, seed, ido, liquidity, team, treasury, founderOps, airdrops] =
     await ethers.getSigners();
@@ -79,8 +92,8 @@ async function main() {
   const htlcAddr = await htlc.getAddress();
   console.log(`   ✓ HTLC       : ${htlcAddr}`);
 
-  console.log("📦 Funding vesting (70M ZENTHIS)...");
-  await (await token.transfer(vestingAddr, ethers.parseEther("70000000"))).wait();
+  console.log("📦 Funding vesting (97M ZENTHIS)...");
+  await (await token.transfer(vestingAddr, ethers.parseEther("97000000"))).wait();
   console.log(`   ✓ Funded`);
   console.log(
     `   ✓ Deployer remaining: ${ethers.formatEther(await token.balanceOf(deployerAddr))} ZENTHIS\n`,
@@ -183,13 +196,14 @@ async function main() {
   // ETH swap → redeem
   const preimage = randomPreimage();
   const hash = hashlock(preimage);
-  const swapId = ethers.randomBytes(32);
   const now = (await ethers.provider.getBlock("latest")).timestamp;
   const amount = ethers.parseEther("2");
   const fee = (amount * 200n) / 10000n;
   const net = amount - fee;
 
-  await htlc.newSwap(swapId, teamAddr, hash, now + 600, { value: amount });
+  const swapTx1 = await htlc.newSwap(teamAddr, hash, now + 600, { value: amount });
+  const swapRcpt1 = await swapTx1.wait();
+  const swapId = getSwapId(htlc, swapRcpt1);
   check("ETH swap active", await htlc.isActive(swapId));
   check("Fee deducted", (await htlc.getSwap(swapId)).amount === net);
 
@@ -202,12 +216,13 @@ async function main() {
 
   // Refund scenario
   const pre2 = randomPreimage();
-  const swapId2 = ethers.randomBytes(32);
   const now2 = (await ethers.provider.getBlock("latest")).timestamp;
   await htlc.setFeeBps(0); // 0% fee for clean test
-  await htlc.newSwap(swapId2, teamAddr, hashlock(pre2), now2 + 400, {
+  const swapTx2 = await htlc.newSwap(teamAddr, hashlock(pre2), now2 + 400, {
     value: ethers.parseEther("0.5"),
   });
+  const swapRcpt2 = await swapTx2.wait();
+  const swapId2 = getSwapId(htlc, swapRcpt2);
   await ethers.provider.send("evm_increaseTime", [420]);
   await ethers.provider.send("evm_mine");
   await htlc.refund(swapId2);
@@ -218,11 +233,18 @@ async function main() {
 
   // ERC20 swap → redeem
   const pre3 = randomPreimage();
-  const swapId3 = ethers.randomBytes(32);
   const now3 = (await ethers.provider.getBlock("latest")).timestamp;
   const tokenAmount = ethers.parseEther("5000");
   await token.approve(htlcAddr, tokenAmount);
-  await htlc.newSwapToken(swapId3, teamAddr, tokenAddr, tokenAmount, hashlock(pre3), now3 + 600);
+  const swapTx3 = await htlc.newSwapToken(
+    teamAddr,
+    tokenAddr,
+    tokenAmount,
+    hashlock(pre3),
+    now3 + 600,
+  );
+  const swapRcpt3 = await swapTx3.wait();
+  const swapId3 = getSwapId(htlc, swapRcpt3);
   check("ERC20 swap active", await htlc.isActive(swapId3));
   await htlc.connect(team).redeem(swapId3, pre3);
   check("ERC20 swap redeemed", (await htlc.getSwap(swapId3)).status === 2n);
