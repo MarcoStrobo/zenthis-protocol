@@ -49,7 +49,7 @@ describe("ZenthisHTLC — Invariant Tests", function () {
     htlc = await HTLC.deploy();
     await htlc.waitForDeployment();
 
-    const MockToken = await ethers.getContractFactory("ZENTHIS");
+    const MockToken = await ethers.getContractFactory("ZenthisToken");
     token = await MockToken.deploy(owner.address);
     await token.waitForDeployment();
 

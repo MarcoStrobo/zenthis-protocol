@@ -40,7 +40,7 @@ describe("ZenthisVesting — Fuzz Tests", function () {
   beforeEach(async function () {
     [owner, beneficiary, beneficiary2] = await ethers.getSigners();
 
-    const ZENTHIS = await ethers.getContractFactory("ZENTHIS");
+    const ZENTHIS = await ethers.getContractFactory("ZenthisToken");
     token = await ZENTHIS.deploy(owner.address);
     await token.waitForDeployment();
 
