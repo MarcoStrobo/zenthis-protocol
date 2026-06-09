@@ -290,13 +290,22 @@ describe("ZenthisPresale", function () {
   // ─────────────────────────────────────────────────────────────────────────
   describe("Refund", function () {
     it("should refund when soft cap not reached", async function () {
-      await presale.connect(users[0]).contribute(ethers.ZeroAddress, { value: ethers.parseEther("1") });
-      await networkForwardTime(presale, 7*24*3600 + 1);
+      // Deploy presale with soft cap higher than min buy so we can fail meaningfully
+      const pF = await deploy({
+        soft: ethers.parseEther("10"), hard: ethers.parseEther("50"),
+        min: ethers.parseEther("0.05"), max: ethers.parseEther("5")
+      });
+      const pFAddr = await pF.getAddress();
+      await token.transfer(pFAddr, await pF.getRequiredZts());
+      await pF.depositTokens();
+      await pF.connect(users[0]).contribute(ethers.ZeroAddress, { value: ethers.parseEther("0.5") });
+      await networkForwardTime(pF, 7*24*3600 + 1);
+      await pF.markFailed();
       const bal = await ethers.provider.getBalance(users[0].address);
-      const tx = await presale.connect(users[0]).refundMe();
+      const tx = await pF.connect(users[0]).refundMe();
       const receipt = await tx.wait();
       const gasCost = receipt.gasUsed * receipt.gasPrice;
-      expect(await ethers.provider.getBalance(users[0].address)).to.equal(bal - gasCost + ethers.parseEther("1"));
+      expect(await ethers.provider.getBalance(users[0].address)).to.equal(bal - gasCost + ethers.parseEther("0.5"));
     });
 
     it("should not refund after finalize", async function () {
@@ -308,10 +317,18 @@ describe("ZenthisPresale", function () {
     });
 
     it("should track failed state", async function () {
-      await presale.connect(users[0]).contribute(ethers.ZeroAddress, { value: ethers.parseEther("1") });
-      await networkForwardTime(presale, 7*24*3600 + 1);
-      await presale.connect(users[0]).refundMe();
-      expect(await presale.failed()).to.be.true;
+      const pF = await deploy({
+        soft: ethers.parseEther("10"), hard: ethers.parseEther("50"),
+        min: ethers.parseEther("0.05"), max: ethers.parseEther("5")
+      });
+      const pFAddr = await pF.getAddress();
+      await token.transfer(pFAddr, await pF.getRequiredZts());
+      await pF.depositTokens();
+      await pF.connect(users[0]).contribute(ethers.ZeroAddress, { value: ethers.parseEther("0.5") });
+      await networkForwardTime(pF, 7*24*3600 + 1);
+      await pF.markFailed();
+      await pF.connect(users[0]).refundMe();
+      expect(await pF.failed()).to.be.true;
     });
   });
 
@@ -483,6 +500,9 @@ describe("ZenthisPresale", function () {
     it("should withdraw unused tokens after finalize", async function () {
       await presale.connect(users[0]).contribute(ethers.ZeroAddress, { value: ethers.parseEther("1") });
       await networkForwardAndFinalize(presale);
+      await presale.setClaimDeadline((await ethers.provider.getBlock("latest")).timestamp + 1000);
+      await ethers.provider.send("evm_increaseTime", [2000]);
+      await ethers.provider.send("evm_mine", []);
       const balBefore = await token.balanceOf(owner.address);
       await presale.withdrawUnusedTokens();
       const balAfter = await token.balanceOf(owner.address);
