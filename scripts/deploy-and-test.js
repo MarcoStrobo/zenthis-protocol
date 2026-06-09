@@ -1,6 +1,6 @@
 /**
  * Zenthis Protocol — Full Deploy + Integration Test (single run)
- * 
+ *
  * Usage: npx hardhat run scripts/deploy-and-test.js --network hardhat
  */
 
@@ -10,7 +10,9 @@ const { ethers } = hre;
 function hashlock(preimage) {
   return ethers.sha256(ethers.solidityPacked(["bytes32"], [preimage]));
 }
-function randomPreimage() { return ethers.randomBytes(32); }
+function randomPreimage() {
+  return ethers.randomBytes(32);
+}
 
 async function main() {
   const [deployer, seed, ido, liquidity, team, treasury, founderOps, airdrops] =
@@ -25,10 +27,16 @@ async function main() {
   const founderOpsAddr = await founderOps.getAddress();
   const airdropsAddr = await airdrops.getAddress();
 
-  let passed = 0, failed = 0;
+  let passed = 0,
+    failed = 0;
   function check(name, condition) {
-    if (condition) { console.log(`   ✅ ${name}`); passed++; }
-    else { console.log(`   ❌ ${name}`); failed++; }
+    if (condition) {
+      console.log(`   ✅ ${name}`);
+      passed++;
+    } else {
+      console.log(`   ❌ ${name}`);
+      failed++;
+    }
   }
 
   // ═════════════════════════════════════════════════════════
@@ -58,7 +66,9 @@ async function main() {
   }
 
   console.log("📦 Deploying ZenthisVesting...");
-  const vesting = await (await ethers.getContractFactory("ZenthisVesting")).deploy(tokenAddr, deployerAddr);
+  const vesting = await (
+    await ethers.getContractFactory("ZenthisVesting")
+  ).deploy(tokenAddr, deployerAddr);
   await vesting.waitForDeployment();
   const vestingAddr = await vesting.getAddress();
   console.log(`   ✓ Vesting    : ${vestingAddr}`);
@@ -72,25 +82,64 @@ async function main() {
   console.log("📦 Funding vesting (70M ZENTHIS)...");
   await (await token.transfer(vestingAddr, ethers.parseEther("70000000"))).wait();
   console.log(`   ✓ Funded`);
-  console.log(`   ✓ Deployer remaining: ${ethers.formatEther(await token.balanceOf(deployerAddr))} ZENTHIS\n`);
+  console.log(
+    `   ✓ Deployer remaining: ${ethers.formatEther(await token.balanceOf(deployerAddr))} ZENTHIS\n`,
+  );
 
   console.log("📦 Creating 7 vesting schedules...");
   const MONTH = 30 * 24 * 3600;
   const TGE = Math.floor(Date.now() / 1000) + 3600;
 
   const scheduleDefs = [
-    { id: ethers.id("SEED"),        addr: seedAddr,         total: "10000000", tge: "0",       cliff: 12, vest: 24 },
-    { id: ethers.id("IDO"),         addr: idoAddr,          total: "12000000", tge: "1200000", cliff: 0,  vest: 12 },
-    { id: ethers.id("LIQUIDITY"),   addr: liquidityAddr,    total: "20000000", tge: "10000000",cliff: 0,  vest: 6  },
-    { id: ethers.id("TEAM"),        addr: teamAddr,         total: "10000000", tge: "0",       cliff: 12, vest: 36 },
-    { id: ethers.id("TREASURY"),    addr: treasuryAddr,     total: "18200000", tge: "2000000", cliff: 0,  vest: 48 },
-    { id: ethers.id("FOUNDER_OPS"), addr: founderOpsAddr,   total: "8000000",  tge: "0",       cliff: 6,  vest: 30 },
-    { id: ethers.id("AIRDROPS"),    addr: airdropsAddr,     total: "0",        tge: "5000000", cliff: 0,  vest: 0  },
+    { id: ethers.id("SEED"), addr: seedAddr, total: "10000000", tge: "0", cliff: 12, vest: 24 },
+    { id: ethers.id("IDO"), addr: idoAddr, total: "12000000", tge: "1200000", cliff: 0, vest: 12 },
+    {
+      id: ethers.id("LIQUIDITY"),
+      addr: liquidityAddr,
+      total: "20000000",
+      tge: "10000000",
+      cliff: 0,
+      vest: 6,
+    },
+    { id: ethers.id("TEAM"), addr: teamAddr, total: "10000000", tge: "0", cliff: 12, vest: 36 },
+    {
+      id: ethers.id("TREASURY"),
+      addr: treasuryAddr,
+      total: "18200000",
+      tge: "2000000",
+      cliff: 0,
+      vest: 48,
+    },
+    {
+      id: ethers.id("FOUNDER_OPS"),
+      addr: founderOpsAddr,
+      total: "8000000",
+      tge: "0",
+      cliff: 6,
+      vest: 30,
+    },
+    {
+      id: ethers.id("AIRDROPS"),
+      addr: airdropsAddr,
+      total: "0",
+      tge: "5000000",
+      cliff: 0,
+      vest: 0,
+    },
   ];
 
   for (const s of scheduleDefs) {
-    await (await vesting.createSchedule(s.id, s.addr,
-      ethers.parseEther(s.total), ethers.parseEther(s.tge), TGE, s.cliff, s.vest)).wait();
+    await (
+      await vesting.createSchedule(
+        s.id,
+        s.addr,
+        ethers.parseEther(s.total),
+        ethers.parseEther(s.tge),
+        TGE,
+        s.cliff,
+        s.vest,
+      )
+    ).wait();
   }
   console.log(`   ✓ ${(await vesting.getScheduleIds()).length} schedules created\n`);
 
@@ -111,11 +160,17 @@ async function main() {
 
   await token.connect(team).approve(deployerAddr, ethers.parseEther("300"));
   await token.transferFrom(teamAddr, seedAddr, ethers.parseEther("300"));
-  check("TransferFrom via allowance", (await token.balanceOf(seedAddr)) === ethers.parseEther("300"));
+  check(
+    "TransferFrom via allowance",
+    (await token.balanceOf(seedAddr)) === ethers.parseEther("300"),
+  );
 
   const preBurnSupply = await token.totalSupply();
   await token.burn(ethers.parseEther("500"));
-  check("Burn reduces supply", (await token.totalSupply()) === preBurnSupply - ethers.parseEther("500"));
+  check(
+    "Burn reduces supply",
+    (await token.totalSupply()) === preBurnSupply - ethers.parseEther("500"),
+  );
 
   // ── HTLC ─────────────────────────────────────────────────
   console.log("\n📋 HTLC");
@@ -131,7 +186,7 @@ async function main() {
   const swapId = ethers.randomBytes(32);
   const now = (await ethers.provider.getBlock("latest")).timestamp;
   const amount = ethers.parseEther("2");
-  const fee = amount * 200n / 10000n;
+  const fee = (amount * 200n) / 10000n;
   const net = amount - fee;
 
   await htlc.newSwap(swapId, teamAddr, hash, now + 600, { value: amount });
@@ -150,7 +205,9 @@ async function main() {
   const swapId2 = ethers.randomBytes(32);
   const now2 = (await ethers.provider.getBlock("latest")).timestamp;
   await htlc.setFeeBps(0); // 0% fee for clean test
-  await htlc.newSwap(swapId2, teamAddr, hashlock(pre2), now2 + 400, { value: ethers.parseEther("0.5") });
+  await htlc.newSwap(swapId2, teamAddr, hashlock(pre2), now2 + 400, {
+    value: ethers.parseEther("0.5"),
+  });
   await ethers.provider.send("evm_increaseTime", [420]);
   await ethers.provider.send("evm_mine");
   await htlc.refund(swapId2);
@@ -183,17 +240,23 @@ async function main() {
   check("7 schedules", ids.length === 7);
 
   // Check all schedule constants
-  check("SEED constant",     await vesting.SEED() === ethers.id("SEED"));
-  check("IDO constant",      await vesting.IDO() === ethers.id("IDO"));
-  check("LIQUIDITY constant",await vesting.LIQUIDITY() === ethers.id("LIQUIDITY"));
-  check("TEAM constant",     await vesting.TEAM() === ethers.id("TEAM"));
-  check("TREASURY constant", await vesting.TREASURY() === ethers.id("TREASURY"));
-  check("FOUNDER_OPS const", await vesting.FOUNDER_OPS() === ethers.id("FOUNDER_OPS"));
-  check("AIRDROPS constant", await vesting.AIRDROPS() === ethers.id("AIRDROPS"));
+  check("SEED constant", (await vesting.SEED()) === ethers.id("SEED"));
+  check("IDO constant", (await vesting.IDO()) === ethers.id("IDO"));
+  check("LIQUIDITY constant", (await vesting.LIQUIDITY()) === ethers.id("LIQUIDITY"));
+  check("TEAM constant", (await vesting.TEAM()) === ethers.id("TEAM"));
+  check("TREASURY constant", (await vesting.TREASURY()) === ethers.id("TREASURY"));
+  check("FOUNDER_OPS const", (await vesting.FOUNDER_OPS()) === ethers.id("FOUNDER_OPS"));
+  check("AIRDROPS constant", (await vesting.AIRDROPS()) === ethers.id("AIRDROPS"));
 
   // Before TGE — nothing releasable
-  check("No releasable before TGE (IDO)", (await vesting.releasableAmount(ethers.id("IDO"))) === 0n);
-  check("No releasable before TGE (TEAM)", (await vesting.releasableAmount(ethers.id("TEAM"))) === 0n);
+  check(
+    "No releasable before TGE (IDO)",
+    (await vesting.releasableAmount(ethers.id("IDO"))) === 0n,
+  );
+  check(
+    "No releasable before TGE (TEAM)",
+    (await vesting.releasableAmount(ethers.id("TEAM"))) === 0n,
+  );
 
   // Jump to TGE
   await ethers.provider.send("evm_setNextBlockTimestamp", [TGE + 10]);
@@ -203,7 +266,10 @@ async function main() {
   const airdropRel = await vesting.releasableAmount(ethers.id("AIRDROPS"));
   check("Airdrops 5M TGE releasable", airdropRel === ethers.parseEther("5000000"));
   await vesting.connect(airdrops).release(ethers.id("AIRDROPS"));
-  check("Airdrops released", (await token.balanceOf(airdropsAddr)) === ethers.parseEther("5000000"));
+  check(
+    "Airdrops released",
+    (await token.balanceOf(airdropsAddr)) === ethers.parseEther("5000000"),
+  );
 
   // IDO: TGE + partial vesting
   const idoRel = await vesting.releasableAmount(ethers.id("IDO"));

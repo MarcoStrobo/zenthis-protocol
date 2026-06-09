@@ -1,9 +1,9 @@
 /**
  * Zenthis Protocol — Local Testnet Full Deployment
- * 
+ *
  * Deploys all contracts to the Hardhat local network,
  * creates all 7 vesting schedules, and runs integration checks.
- * 
+ *
  * Usage: npx hardhat run scripts/deploy-local.js --network hardhat
  */
 
@@ -49,7 +49,9 @@ async function main() {
   const fundAmount = ethers.parseEther("100000000");
   const txFund = await token.transfer(vestingAddr, fundAmount);
   await txFund.wait();
-  console.log(`   ✓ Vesting bal   : ${ethers.formatEther(await token.balanceOf(vestingAddr))} ZENTHIS\n`);
+  console.log(
+    `   ✓ Vesting bal   : ${ethers.formatEther(await token.balanceOf(vestingAddr))} ZENTHIS\n`,
+  );
 
   // ── 4. Deploy HTLC ─────────────────────────────────────
   console.log("📦 [4/5] Deploying ZenthisHTLC...");
@@ -69,7 +71,7 @@ async function main() {
     {
       id: ethers.id("SEED"),
       beneficiary: await seed.getAddress(),
-      total: ethers.parseEther("10000000"),   // 10M
+      total: ethers.parseEther("10000000"), // 10M
       tge: 0n,
       cliff: 12,
       vesting: 24,
@@ -78,7 +80,7 @@ async function main() {
     {
       id: ethers.id("IDO"),
       beneficiary: await ido.getAddress(),
-      total: ethers.parseEther("12000000"),   // 12M
+      total: ethers.parseEther("12000000"), // 12M
       tge: ethers.parseEther("1200000"),
       cliff: 0,
       vesting: 12,
@@ -87,7 +89,7 @@ async function main() {
     {
       id: ethers.id("LIQUIDITY"),
       beneficiary: await liquidity.getAddress(),
-      total: ethers.parseEther("20000000"),   // 20M
+      total: ethers.parseEther("20000000"), // 20M
       tge: ethers.parseEther("10000000"),
       cliff: 0,
       vesting: 6,
@@ -96,7 +98,7 @@ async function main() {
     {
       id: ethers.id("TEAM"),
       beneficiary: await team.getAddress(),
-      total: ethers.parseEther("10000000"),   // 10M
+      total: ethers.parseEther("10000000"), // 10M
       tge: 0n,
       cliff: 12,
       vesting: 36,
@@ -105,7 +107,7 @@ async function main() {
     {
       id: ethers.id("TREASURY"),
       beneficiary: await treasury.getAddress(),
-      total: ethers.parseEther("18200000"),   // 18.2M
+      total: ethers.parseEther("18200000"), // 18.2M
       tge: ethers.parseEther("2000000"),
       cliff: 0,
       vesting: 48,
@@ -114,7 +116,7 @@ async function main() {
     {
       id: ethers.id("FOUNDER_OPS"),
       beneficiary: await founderOps.getAddress(),
-      total: ethers.parseEther("8000000"),    // 8M
+      total: ethers.parseEther("8000000"), // 8M
       tge: 0n,
       cliff: 6,
       vesting: 30,
@@ -124,7 +126,7 @@ async function main() {
       id: ethers.id("AIRDROPS"),
       beneficiary: await airdrops.getAddress(),
       total: 0n,
-      tge: ethers.parseEther("5000000"),      // 5M pure TGE
+      tge: ethers.parseEther("5000000"), // 5M pure TGE
       cliff: 0,
       vesting: 0,
       label: "AIRDROPS",
@@ -134,13 +136,23 @@ async function main() {
   let totalAllocated = 0n;
   for (const s of schedules) {
     const tx = await vesting.createSchedule(
-      s.id, s.beneficiary, s.total, s.tge, TGE, s.cliff, s.vesting
+      s.id,
+      s.beneficiary,
+      s.total,
+      s.tge,
+      TGE,
+      s.cliff,
+      s.vesting,
     );
     await tx.wait();
 
     totalAllocated += s.total + s.tge;
     console.log(`   ✓ ${s.label.padEnd(14)} → ${s.beneficiary}`);
-    console.log(`     Total: ${ethers.formatEther(s.total + s.tge)} ZENTHIS | Cliff: ${s.cliff}m | Vesting: ${s.vesting}m`);
+    console.log(
+      `     Total: ${ethers.formatEther(s.total + s.tge)} ZENTHIS | Cliff: ${s.cliff}m | Vesting: ${
+        s.vesting
+      }m`,
+    );
   }
 
   const scheduleIds = await vesting.getScheduleIds();
@@ -165,7 +177,7 @@ async function main() {
     vesting: vestingAddr,
     htlc: htlcAddr,
     tgeTimestamp: TGE,
-    schedules: schedules.map(s => ({
+    schedules: schedules.map((s) => ({
       id: s.id,
       beneficiary: s.beneficiary,
       total: s.total.toString(),
@@ -180,7 +192,7 @@ async function main() {
   fs.mkdirSync(outDir, { recursive: true });
   fs.writeFileSync(
     path.join(outDir, `deploy-${Date.now()}.json`),
-    JSON.stringify(deployData, null, 2)
+    JSON.stringify(deployData, null, 2),
   );
   console.log("📄 Deployment saved to deploy_output/\n");
 

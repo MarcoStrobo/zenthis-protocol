@@ -40,40 +40,42 @@ async function main() {
   console.log("═══════════════════════════════════════════════════════");
   console.log(`  Network  : ${network.name} (chainId ${netInfo.chainId})`);
   console.log(`  Deployer : ${deployer.address}`);
-  console.log(`  Balance  : ${ethers.formatEther(await ethers.provider.getBalance(deployer.address))} ETH`);
+  console.log(
+    `  Balance  : ${ethers.formatEther(await ethers.provider.getBalance(deployer.address))} ETH`,
+  );
   console.log("═══════════════════════════════════════════════════════\n");
 
   // ── Load env ───────────────────────────────────────────────────
-  const tokenAddr     = requireEnv("TOKEN_ADDRESS");
-  const vestingAddr   = requireEnv("VESTING_ADDRESS");
-  const rate          = ethers.parseEther(requireEnv("PRESALE_RATE"));
-  const softCap       = ethers.parseEther(requireEnv("PRESALE_SOFT_CAP"));
-  const hardCap       = ethers.parseEther(requireEnv("PRESALE_HARD_CAP"));
-  const minBuy        = ethers.parseEther(requireEnv("PRESALE_MIN_BUY"));
-  const maxBuy        = ethers.parseEther(requireEnv("PRESALE_MAX_BUY"));
-  const liqPct        = BigInt(requireEnv("PRESALE_LIQUIDITY_PCT"));
-  const startTime     = BigInt(requireEnv("PRESALE_START_TIME"));
-  const endTime       = BigInt(requireEnv("PRESALE_END_TIME"));
-  const liqWallet     = requireEnv("PRESALE_LIQUIDITY_WALLET");
+  const tokenAddr = requireEnv("TOKEN_ADDRESS");
+  const vestingAddr = requireEnv("VESTING_ADDRESS");
+  const rate = ethers.parseEther(requireEnv("PRESALE_RATE"));
+  const softCap = ethers.parseEther(requireEnv("PRESALE_SOFT_CAP"));
+  const hardCap = ethers.parseEther(requireEnv("PRESALE_HARD_CAP"));
+  const minBuy = ethers.parseEther(requireEnv("PRESALE_MIN_BUY"));
+  const maxBuy = ethers.parseEther(requireEnv("PRESALE_MAX_BUY"));
+  const liqPct = BigInt(requireEnv("PRESALE_LIQUIDITY_PCT"));
+  const startTime = BigInt(requireEnv("PRESALE_START_TIME"));
+  const endTime = BigInt(requireEnv("PRESALE_END_TIME"));
+  const liqWallet = requireEnv("PRESALE_LIQUIDITY_WALLET");
   const treasuryWallet = requireEnv("PRESALE_TREASURY_WALLET");
 
   // ── Bonus & Referral params ──────────────────────────────────
-  const bonusPoolSize       = ethers.parseEther(requireEnv("PRESALE_BONUS_POOL"));
-  const flatAirdrop          = ethers.parseEther(requireEnv("PRESALE_FLAT_AIRDROP"));
-  const bonusTier1Eth        = ethers.parseEther(requireEnv("PRESALE_BONUS_TIER1_ETH"));
-  const bonusTier1Reward     = ethers.parseEther(requireEnv("PRESALE_BONUS_TIER1_REWARD"));
-  const bonusTier2Eth        = ethers.parseEther(requireEnv("PRESALE_BONUS_TIER2_ETH"));
-  const bonusTier2Reward     = ethers.parseEther(requireEnv("PRESALE_BONUS_TIER2_REWARD"));
-  const bonusTier3Eth        = ethers.parseEther(requireEnv("PRESALE_BONUS_TIER3_ETH"));
-  const bonusTier3Reward     = ethers.parseEther(requireEnv("PRESALE_BONUS_TIER3_REWARD"));
-  const bonusTier4Eth        = ethers.parseEther(requireEnv("PRESALE_BONUS_TIER4_ETH"));
-  const bonusTier4Reward     = ethers.parseEther(requireEnv("PRESALE_BONUS_TIER4_REWARD"));
-  const referralMinEth       = ethers.parseEther(requireEnv("PRESALE_REFERRAL_MIN_ETH"));
+  const bonusPoolSize = ethers.parseEther(requireEnv("PRESALE_BONUS_POOL"));
+  const flatAirdrop = ethers.parseEther(requireEnv("PRESALE_FLAT_AIRDROP"));
+  const bonusTier1Eth = ethers.parseEther(requireEnv("PRESALE_BONUS_TIER1_ETH"));
+  const bonusTier1Reward = ethers.parseEther(requireEnv("PRESALE_BONUS_TIER1_REWARD"));
+  const bonusTier2Eth = ethers.parseEther(requireEnv("PRESALE_BONUS_TIER2_ETH"));
+  const bonusTier2Reward = ethers.parseEther(requireEnv("PRESALE_BONUS_TIER2_REWARD"));
+  const bonusTier3Eth = ethers.parseEther(requireEnv("PRESALE_BONUS_TIER3_ETH"));
+  const bonusTier3Reward = ethers.parseEther(requireEnv("PRESALE_BONUS_TIER3_REWARD"));
+  const bonusTier4Eth = ethers.parseEther(requireEnv("PRESALE_BONUS_TIER4_ETH"));
+  const bonusTier4Reward = ethers.parseEther(requireEnv("PRESALE_BONUS_TIER4_REWARD"));
+  const referralMinEth = ethers.parseEther(requireEnv("PRESALE_REFERRAL_MIN_ETH"));
 
   // ── Validate ───────────────────────────────────────────────────
-  if (!ethers.isAddress(tokenAddr))     throw new Error(`Invalid TOKEN_ADDRESS: ${tokenAddr}`);
-  if (!ethers.isAddress(vestingAddr))   throw new Error(`Invalid VESTING_ADDRESS: ${vestingAddr}`);
-  if (!ethers.isAddress(liqWallet))     throw new Error(`Invalid PRESALE_LIQUIDITY_WALLET`);
+  if (!ethers.isAddress(tokenAddr)) throw new Error(`Invalid TOKEN_ADDRESS: ${tokenAddr}`);
+  if (!ethers.isAddress(vestingAddr)) throw new Error(`Invalid VESTING_ADDRESS: ${vestingAddr}`);
+  if (!ethers.isAddress(liqWallet)) throw new Error(`Invalid PRESALE_LIQUIDITY_WALLET`);
   if (!ethers.isAddress(treasuryWallet)) throw new Error(`Invalid PRESALE_TREASURY_WALLET`);
 
   const token = await ethers.getContractAt("ZENTHIS", tokenAddr);
@@ -82,13 +84,28 @@ async function main() {
   console.log("📦 [1/2] Deploying ZenthisPresale...");
   const Presale = await ethers.getContractFactory("ZenthisPresale");
   const presale = await Presale.deploy(
-    tokenAddr, rate, softCap, hardCap, minBuy, maxBuy,
-    liqPct, startTime, endTime, liqWallet, treasuryWallet,
+    tokenAddr,
+    rate,
+    softCap,
+    hardCap,
+    minBuy,
+    maxBuy,
+    liqPct,
+    startTime,
+    endTime,
+    liqWallet,
+    treasuryWallet,
     bonusPoolSize,
     flatAirdrop,
-    bonusTier1Eth, bonusTier1Reward, bonusTier2Eth, bonusTier2Reward,
-    bonusTier3Eth, bonusTier3Reward, bonusTier4Eth, bonusTier4Reward,
-    referralMinEth
+    bonusTier1Eth,
+    bonusTier1Reward,
+    bonusTier2Eth,
+    bonusTier2Reward,
+    bonusTier3Eth,
+    bonusTier3Reward,
+    bonusTier4Eth,
+    bonusTier4Reward,
+    referralMinEth,
   );
   await presale.waitForDeployment();
   const presaleAddr = await presale.getAddress();
@@ -109,8 +126,8 @@ async function main() {
     // For simplicity, check if the treasury wallet (owner) still holds enough
     throw new Error(
       `Insufficient ZTS in deployer wallet. Have ${ethers.formatEther(treasuryBalance)}, ` +
-      `need ${ethers.formatEther(required)}.\n` +
-      `Transfer ZTS to deployer first, or run after main deploy without vesting transfer.`
+        `need ${ethers.formatEther(required)}.\n` +
+        `Transfer ZTS to deployer first, or run after main deploy without vesting transfer.`,
     );
   }
 
@@ -121,27 +138,29 @@ async function main() {
 
   // ── Save deployment record ─────────────────────────────────────
   const deployment = {
-    network:    network.name,
-    chainId:    netInfo.chainId.toString(),
+    network: network.name,
+    chainId: netInfo.chainId.toString(),
     deployedAt: new Date().toISOString(),
-    deployer:   deployer.address,
+    deployer: deployer.address,
     contracts: {
       ZenthisPresale: presaleAddr,
     },
     presaleParams: {
-      rate:       rate.toString(),
-      softCap:    softCap.toString(),
-      hardCap:    hardCap.toString(),
-      minBuy:     minBuy.toString(),
-      maxBuy:     maxBuy.toString(),
-      liqPct:     liqPct.toString(),
-      startTime:  startTime.toString(),
-      endTime:    endTime.toString(),
-      dateRange: `${new Date(Number(startTime) * 1000).toISOString()} → ${new Date(Number(endTime) * 1000).toISOString()}`,
+      rate: rate.toString(),
+      softCap: softCap.toString(),
+      hardCap: hardCap.toString(),
+      minBuy: minBuy.toString(),
+      maxBuy: maxBuy.toString(),
+      liqPct: liqPct.toString(),
+      startTime: startTime.toString(),
+      endTime: endTime.toString(),
+      dateRange: `${new Date(Number(startTime) * 1000).toISOString()} → ${new Date(
+        Number(endTime) * 1000,
+      ).toISOString()}`,
     },
     wallets: {
       liquidity: liqWallet,
-      treasury:  treasuryWallet,
+      treasury: treasuryWallet,
     },
     ztsRequired: required.toString(),
   };
@@ -177,13 +196,31 @@ async function main() {
   // ── Auto-verify ────────────────────────────────────────────────
   if (!["hardhat", "localhost"].includes(network.name)) {
     console.log("\n⏳ Waiting 30s for Etherscan to index...");
-    await new Promise(r => setTimeout(r, 30_000));
-    const args = [tokenAddr, rate, softCap, hardCap, minBuy, maxBuy,
-                  liqPct, startTime, endTime, liqWallet, treasuryWallet,
-                  bonusPoolSize, flatAirdrop,
-                  bonusTier1Eth, bonusTier1Reward, bonusTier2Eth, bonusTier2Reward,
-                  bonusTier3Eth, bonusTier3Reward, bonusTier4Eth, bonusTier4Reward,
-                  referralMinEth];
+    await new Promise((r) => setTimeout(r, 30_000));
+    const args = [
+      tokenAddr,
+      rate,
+      softCap,
+      hardCap,
+      minBuy,
+      maxBuy,
+      liqPct,
+      startTime,
+      endTime,
+      liqWallet,
+      treasuryWallet,
+      bonusPoolSize,
+      flatAirdrop,
+      bonusTier1Eth,
+      bonusTier1Reward,
+      bonusTier2Eth,
+      bonusTier2Reward,
+      bonusTier3Eth,
+      bonusTier3Reward,
+      bonusTier4Eth,
+      bonusTier4Reward,
+      referralMinEth,
+    ];
     try {
       await run("verify:verify", { address: presaleAddr, constructorArguments: args });
       console.log("   ✓ ZenthisPresale verified on Etherscan");

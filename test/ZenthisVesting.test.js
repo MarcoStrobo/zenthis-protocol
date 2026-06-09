@@ -1,18 +1,18 @@
-const { expect }  = require("chai");
-const { ethers }  = require("hardhat");
-const { time }    = require("@nomicfoundation/hardhat-network-helpers");
+const { expect } = require("chai");
+const { ethers } = require("hardhat");
+const { time } = require("@nomicfoundation/hardhat-network-helpers");
 
 // ─── Constants ──────────────────────────────────────────────────────────────
 
 const MONTH = 30n * 24n * 3600n; // 30 days in seconds
 
 const T = {
-  SEED:      ethers.keccak256(ethers.toUtf8Bytes("SEED")),
-  IDO:       ethers.keccak256(ethers.toUtf8Bytes("IDO")),
+  SEED: ethers.keccak256(ethers.toUtf8Bytes("SEED")),
+  IDO: ethers.keccak256(ethers.toUtf8Bytes("IDO")),
   LIQUIDITY: ethers.keccak256(ethers.toUtf8Bytes("LIQUIDITY")),
-  TEAM:      ethers.keccak256(ethers.toUtf8Bytes("TEAM")),
-  TREASURY:  ethers.keccak256(ethers.toUtf8Bytes("TREASURY")),
-  AIRDROPS:  ethers.keccak256(ethers.toUtf8Bytes("AIRDROPS")),
+  TEAM: ethers.keccak256(ethers.toUtf8Bytes("TEAM")),
+  TREASURY: ethers.keccak256(ethers.toUtf8Bytes("TREASURY")),
+  AIRDROPS: ethers.keccak256(ethers.toUtf8Bytes("AIRDROPS")),
 };
 
 const e18 = (n) => ethers.parseEther(String(n));
@@ -74,22 +74,19 @@ describe("ZenthisVesting", function () {
     it("creates a schedule and emits ScheduleCreated", async () => {
       await fund(e18(10_000_000));
       await expect(
-        vesting.connect(owner).createSchedule(
-          T.TEAM, alice.address, e18(10_000_000), 0n, tge, 12n, 36n
-        )
+        vesting
+          .connect(owner)
+          .createSchedule(T.TEAM, alice.address, e18(10_000_000), 0n, tge, 12n, 36n),
       )
         .to.emit(vesting, "ScheduleCreated")
-        .withArgs(
-          T.TEAM, alice.address, e18(10_000_000), 0n,
-          tge, MONTH * 12n, MONTH * 36n
-        );
+        .withArgs(T.TEAM, alice.address, e18(10_000_000), 0n, tge, MONTH * 12n, MONTH * 36n);
     });
 
     it("stores correct schedule data", async () => {
       await fund(e18(10_000_000));
-      await vesting.connect(owner).createSchedule(
-        T.TEAM, alice.address, e18(10_000_000), 0n, tge, 12n, 36n
-      );
+      await vesting
+        .connect(owner)
+        .createSchedule(T.TEAM, alice.address, e18(10_000_000), 0n, tge, 12n, 36n);
       const s = await vesting.getSchedule(T.TEAM);
       expect(s.beneficiary).to.equal(alice.address);
       expect(s.totalAmount).to.equal(e18(10_000_000));
@@ -103,63 +100,61 @@ describe("ZenthisVesting", function () {
 
     it("registers schedule ID in the list", async () => {
       await fund(e18(1_000_000));
-      await vesting.connect(owner).createSchedule(
-        T.SEED, alice.address, e18(1_000_000), 0n, tge, 6n, 24n
-      );
+      await vesting
+        .connect(owner)
+        .createSchedule(T.SEED, alice.address, e18(1_000_000), 0n, tge, 6n, 24n);
       const ids = await vesting.getScheduleIds();
       expect(ids).to.include(T.SEED);
     });
 
     it("reverts on duplicate schedule ID", async () => {
       await fund(e18(2_000_000));
-      await vesting.connect(owner).createSchedule(
-        T.TEAM, alice.address, e18(1_000_000), 0n, tge, 12n, 36n
-      );
+      await vesting
+        .connect(owner)
+        .createSchedule(T.TEAM, alice.address, e18(1_000_000), 0n, tge, 12n, 36n);
       await expect(
-        vesting.connect(owner).createSchedule(
-          T.TEAM, bob.address, e18(1_000_000), 0n, tge, 12n, 36n
-        )
+        vesting
+          .connect(owner)
+          .createSchedule(T.TEAM, bob.address, e18(1_000_000), 0n, tge, 12n, 36n),
       ).to.be.revertedWithCustomError(vesting, "ScheduleAlreadyExists");
     });
 
     it("reverts on zero beneficiary", async () => {
       await expect(
-        vesting.connect(owner).createSchedule(
-          T.TEAM, ethers.ZeroAddress, e18(1_000_000), 0n, tge, 12n, 36n
-        )
+        vesting
+          .connect(owner)
+          .createSchedule(T.TEAM, ethers.ZeroAddress, e18(1_000_000), 0n, tge, 12n, 36n),
       ).to.be.revertedWithCustomError(vesting, "ZeroAddress");
     });
 
     it("reverts on zero allocation (both totalAmount and tgeAmount = 0)", async () => {
       await expect(
-        vesting.connect(owner).createSchedule(
-          T.TEAM, alice.address, 0n, 0n, tge, 0n, 1n
-        )
+        vesting.connect(owner).createSchedule(T.TEAM, alice.address, 0n, 0n, tge, 0n, 1n),
       ).to.be.revertedWithCustomError(vesting, "ZeroAllocation");
     });
 
     it("reverts when totalAmount > 0 but vestingMonths = 0", async () => {
       await expect(
-        vesting.connect(owner).createSchedule(
-          T.TEAM, alice.address, e18(1_000_000), 0n, tge, 0n, 0n
-        )
+        vesting
+          .connect(owner)
+          .createSchedule(T.TEAM, alice.address, e18(1_000_000), 0n, tge, 0n, 0n),
       ).to.be.revertedWithCustomError(vesting, "ZeroVestingDuration");
     });
 
     it("reverts when startTime is in the past", async () => {
       const pastTime = BigInt(await time.latest()) - 1n;
       await expect(
-        vesting.connect(owner).createSchedule(
-          T.TEAM, alice.address, e18(1_000_000), 0n, pastTime, 12n, 36n
-        )
+        vesting
+          .connect(owner)
+          .createSchedule(T.TEAM, alice.address, e18(1_000_000), 0n, pastTime, 12n, 36n),
       ).to.be.revertedWithCustomError(vesting, "StartTimeInPast");
     });
 
     it("reverts if called by non-owner", async () => {
       await expect(
-        vesting.connect(attacker).createSchedule(
-          T.TEAM, attacker.address, e18(1_000_000), 0n, tge, 12n, 36n
-        )
+        vesting
+          .connect(attacker)
+          .createSchedule(T.TEAM, attacker.address, e18(1_000_000), 0n, tge, 12n, 36n),
       ).to.be.revertedWithCustomError(vesting, "OwnableUnauthorizedAccount");
     });
 
@@ -168,9 +163,9 @@ describe("ZenthisVesting", function () {
       // totalAmount = 0, vestingMonths = 0 — allowed because ZeroVestingDuration
       // only reverts when totalAmount > 0
       await expect(
-        vesting.connect(owner).createSchedule(
-          T.AIRDROPS, alice.address, 0n, e18(10_000_000), tge, 0n, 1n
-        )
+        vesting
+          .connect(owner)
+          .createSchedule(T.AIRDROPS, alice.address, 0n, e18(10_000_000), tge, 0n, 1n),
       ).to.emit(vesting, "ScheduleCreated");
     });
   });
@@ -180,9 +175,9 @@ describe("ZenthisVesting", function () {
   describe("release — TEAM schedule (cliff + linear, no TGE)", () => {
     beforeEach(async () => {
       await fund(e18(10_000_000));
-      await vesting.connect(owner).createSchedule(
-        T.TEAM, alice.address, e18(10_000_000), 0n, tge, 12n, 36n
-      );
+      await vesting
+        .connect(owner)
+        .createSchedule(T.TEAM, alice.address, e18(10_000_000), 0n, tge, 12n, 36n);
     });
 
     it("releases 0 before TGE", async () => {
@@ -237,9 +232,10 @@ describe("ZenthisVesting", function () {
     it("does not double-release", async () => {
       await time.increaseTo(tge + MONTH * 48n + 1n);
       await vesting.connect(alice).release(T.TEAM);
-      await expect(
-        vesting.connect(alice).release(T.TEAM)
-      ).to.be.revertedWithCustomError(vesting, "NothingToRelease");
+      await expect(vesting.connect(alice).release(T.TEAM)).to.be.revertedWithCustomError(
+        vesting,
+        "NothingToRelease",
+      );
     });
 
     it("partial release then full release works correctly", async () => {
@@ -255,37 +251,35 @@ describe("ZenthisVesting", function () {
 
       expect(balAfterSecond).to.equal(e18(10_000_000));
       // Second claim = remainder
-      expect(balAfterSecond - balAfterFirst).to.be.closeTo(
-        e18(5_000_000), e18(5_000_000) / 1000n
-      );
+      expect(balAfterSecond - balAfterFirst).to.be.closeTo(e18(5_000_000), e18(5_000_000) / 1000n);
     });
 
     it("reverts if non-beneficiary calls release", async () => {
       await time.increaseTo(tge + MONTH * 48n + 1n);
-      await expect(
-        vesting.connect(attacker).release(T.TEAM)
-      ).to.be.revertedWithCustomError(vesting, "NotBeneficiary");
+      await expect(vesting.connect(attacker).release(T.TEAM)).to.be.revertedWithCustomError(
+        vesting,
+        "NotBeneficiary",
+      );
     });
 
     it("reverts release on unknown schedule", async () => {
       const unknownId = ethers.keccak256(ethers.toUtf8Bytes("UNKNOWN"));
-      await expect(
-        vesting.connect(alice).release(unknownId)
-      ).to.be.revertedWithCustomError(vesting, "ScheduleNotFound");
+      await expect(vesting.connect(alice).release(unknownId)).to.be.revertedWithCustomError(
+        vesting,
+        "ScheduleNotFound",
+      );
     });
   });
 
   // ── release — IDO (0 cliff, 20% TGE, 18-month linear on 80%) ────────────
 
   describe("release — IDO schedule (TGE unlock + linear)", () => {
-    const TOTAL = e18(20_000_000);  // tokens subject to vesting
-    const TGE   = e18(5_000_000);   // 20% of 25M total IDO allocation
+    const TOTAL = e18(20_000_000); // tokens subject to vesting
+    const TGE = e18(5_000_000); // 20% of 25M total IDO allocation
 
     beforeEach(async () => {
       await fund(TOTAL + TGE);
-      await vesting.connect(owner).createSchedule(
-        T.IDO, alice.address, TOTAL, TGE, tge, 0n, 18n
-      );
+      await vesting.connect(owner).createSchedule(T.IDO, alice.address, TOTAL, TGE, tge, 0n, 18n);
     });
 
     it("releases TGE amount immediately at startTime", async () => {
@@ -320,9 +314,9 @@ describe("ZenthisVesting", function () {
 
     beforeEach(async () => {
       await fund(AIRDROP);
-      await vesting.connect(owner).createSchedule(
-        T.AIRDROPS, alice.address, 0n, AIRDROP, tge, 0n, 1n
-      );
+      await vesting
+        .connect(owner)
+        .createSchedule(T.AIRDROPS, alice.address, 0n, AIRDROP, tge, 0n, 1n);
     });
 
     it("releases 0 before TGE", async () => {
@@ -346,9 +340,9 @@ describe("ZenthisVesting", function () {
   describe("vestedAmount", () => {
     beforeEach(async () => {
       await fund(e18(10_000_000));
-      await vesting.connect(owner).createSchedule(
-        T.TEAM, alice.address, e18(10_000_000), 0n, tge, 12n, 36n
-      );
+      await vesting
+        .connect(owner)
+        .createSchedule(T.TEAM, alice.address, e18(10_000_000), 0n, tge, 12n, 36n);
     });
 
     it("returns 0 for unknown schedule", async () => {
@@ -375,12 +369,12 @@ describe("ZenthisVesting", function () {
   describe("multiple concurrent schedules", () => {
     it("manages TEAM and SEED schedules independently", async () => {
       await fund(e18(25_000_000)); // 15M seed + 10M team
-      await vesting.connect(owner).createSchedule(
-        T.SEED, alice.address, e18(15_000_000), 0n, tge, 6n, 24n
-      );
-      await vesting.connect(owner).createSchedule(
-        T.TEAM, bob.address, e18(10_000_000), 0n, tge, 12n, 36n
-      );
+      await vesting
+        .connect(owner)
+        .createSchedule(T.SEED, alice.address, e18(15_000_000), 0n, tge, 6n, 24n);
+      await vesting
+        .connect(owner)
+        .createSchedule(T.TEAM, bob.address, e18(10_000_000), 0n, tge, 12n, 36n);
 
       const ids = await vesting.getScheduleIds();
       expect(ids.length).to.equal(2);
@@ -391,18 +385,18 @@ describe("ZenthisVesting", function () {
       const seedReleasable = await vesting.releasableAmount(T.SEED);
       const teamReleasable = await vesting.releasableAmount(T.TEAM);
 
-      expect(seedReleasable).to.be.gt(0n);   // 1/24 of 15M
-      expect(teamReleasable).to.equal(0n);    // still in cliff
+      expect(seedReleasable).to.be.gt(0n); // 1/24 of 15M
+      expect(teamReleasable).to.equal(0n); // still in cliff
     });
 
     it("one beneficiary releasing does not affect another schedule", async () => {
       await fund(e18(25_000_000));
-      await vesting.connect(owner).createSchedule(
-        T.SEED, alice.address, e18(15_000_000), 0n, tge, 6n, 24n
-      );
-      await vesting.connect(owner).createSchedule(
-        T.TEAM, bob.address, e18(10_000_000), 0n, tge, 12n, 36n
-      );
+      await vesting
+        .connect(owner)
+        .createSchedule(T.SEED, alice.address, e18(15_000_000), 0n, tge, 6n, 24n);
+      await vesting
+        .connect(owner)
+        .createSchedule(T.TEAM, bob.address, e18(10_000_000), 0n, tge, 12n, 36n);
 
       await time.increaseTo(tge + MONTH * 7n);
       await vesting.connect(alice).release(T.SEED);
@@ -418,24 +412,27 @@ describe("ZenthisVesting", function () {
   describe("cancelSchedule", () => {
     it("reverts if called after startTime", async () => {
       await fund(e18(10_000_000));
-      await vesting.connect(owner).createSchedule(
-        T.TEAM, alice.address, e18(10_000_000), 0n, tge, 12n, 36n
-      );
+      await vesting
+        .connect(owner)
+        .createSchedule(T.TEAM, alice.address, e18(10_000_000), 0n, tge, 12n, 36n);
       await time.increaseTo(tge);
-      await expect(
-        vesting.connect(owner).cancelSchedule(T.TEAM)
-      ).to.be.revertedWithCustomError(vesting, "ScheduleActive");
+      await expect(vesting.connect(owner).cancelSchedule(T.TEAM)).to.be.revertedWithCustomError(
+        vesting,
+        "ScheduleActive",
+      );
     });
 
     it("cancels and recovers tokens before startTime", async () => {
       await fund(e18(10_000_000));
-      await vesting.connect(owner).createSchedule(
-        T.TEAM, alice.address, e18(10_000_000), 0n, tge, 12n, 36n
-      );
+      await vesting
+        .connect(owner)
+        .createSchedule(T.TEAM, alice.address, e18(10_000_000), 0n, tge, 12n, 36n);
       // Cancel before TGE
-      await expect(
-        vesting.connect(owner).cancelSchedule(T.TEAM)
-      ).to.changeTokenBalance(token, owner, e18(10_000_000));
+      await expect(vesting.connect(owner).cancelSchedule(T.TEAM)).to.changeTokenBalance(
+        token,
+        owner,
+        e18(10_000_000),
+      );
       // Schedule status is now CANCELLED
       const s = await vesting.getSchedule(T.TEAM);
       expect(s.status).to.equal(2n); // Status.CANCELLED
@@ -443,9 +440,9 @@ describe("ZenthisVesting", function () {
 
     it("reduces totalAllocated on cancel", async () => {
       await fund(e18(10_000_000));
-      await vesting.connect(owner).createSchedule(
-        T.TEAM, alice.address, e18(10_000_000), 0n, tge, 12n, 36n
-      );
+      await vesting
+        .connect(owner)
+        .createSchedule(T.TEAM, alice.address, e18(10_000_000), 0n, tge, 12n, 36n);
       expect(await vesting.totalAllocated()).to.equal(e18(10_000_000));
       await vesting.connect(owner).cancelSchedule(T.TEAM);
       expect(await vesting.totalAllocated()).to.equal(0n);
@@ -453,9 +450,9 @@ describe("ZenthisVesting", function () {
 
     it("removes scheduleId from list on cancel", async () => {
       await fund(e18(10_000_000));
-      await vesting.connect(owner).createSchedule(
-        T.SEED, alice.address, e18(10_000_000), 0n, tge, 6n, 24n
-      );
+      await vesting
+        .connect(owner)
+        .createSchedule(T.SEED, alice.address, e18(10_000_000), 0n, tge, 6n, 24n);
       expect((await vesting.getScheduleIds()).length).to.equal(1n);
       await vesting.connect(owner).cancelSchedule(T.SEED);
       const ids = await vesting.getScheduleIds();
@@ -465,19 +462,21 @@ describe("ZenthisVesting", function () {
 
     it("reverts on unknown schedule", async () => {
       const unknown = ethers.keccak256(ethers.toUtf8Bytes("NONE"));
-      await expect(
-        vesting.connect(owner).cancelSchedule(unknown)
-      ).to.be.revertedWithCustomError(vesting, "ScheduleNotFound");
+      await expect(vesting.connect(owner).cancelSchedule(unknown)).to.be.revertedWithCustomError(
+        vesting,
+        "ScheduleNotFound",
+      );
     });
 
     it("reverts if non-owner tries to cancel", async () => {
       await fund(e18(10_000_000));
-      await vesting.connect(owner).createSchedule(
-        T.TEAM, alice.address, e18(10_000_000), 0n, tge, 12n, 36n
+      await vesting
+        .connect(owner)
+        .createSchedule(T.TEAM, alice.address, e18(10_000_000), 0n, tge, 12n, 36n);
+      await expect(vesting.connect(attacker).cancelSchedule(T.TEAM)).to.be.revertedWithCustomError(
+        vesting,
+        "OwnableUnauthorizedAccount",
       );
-      await expect(
-        vesting.connect(attacker).cancelSchedule(T.TEAM)
-      ).to.be.revertedWithCustomError(vesting, "OwnableUnauthorizedAccount");
     });
   });
 
@@ -487,23 +486,23 @@ describe("ZenthisVesting", function () {
     it("reverts if contract lacks sufficient balance", async () => {
       // Don't fund the contract — balance is 0
       await expect(
-        vesting.connect(owner).createSchedule(
-          T.TEAM, alice.address, e18(10_000_000), 0n, tge, 12n, 36n
-        )
+        vesting
+          .connect(owner)
+          .createSchedule(T.TEAM, alice.address, e18(10_000_000), 0n, tge, 12n, 36n),
       ).to.be.revertedWithCustomError(vesting, "InsufficientContractBalance");
     });
 
     it("rejects over-allocation beyond contract balance", async () => {
       await fund(e18(5_000_000)); // only 5M tokens
       // First schedule uses 5M — fine
-      await vesting.connect(owner).createSchedule(
-        T.SEED, alice.address, e18(5_000_000), 0n, tge, 6n, 24n
-      );
+      await vesting
+        .connect(owner)
+        .createSchedule(T.SEED, alice.address, e18(5_000_000), 0n, tge, 6n, 24n);
       // Second schedule needs 10M — insufficient
       await expect(
-        vesting.connect(owner).createSchedule(
-          T.TEAM, bob.address, e18(10_000_000), 0n, tge, 12n, 36n
-        )
+        vesting
+          .connect(owner)
+          .createSchedule(T.TEAM, bob.address, e18(10_000_000), 0n, tge, 12n, 36n),
       ).to.be.revertedWithCustomError(vesting, "InsufficientContractBalance");
     });
   });
@@ -518,13 +517,13 @@ describe("ZenthisVesting", function () {
       await dummy.connect(owner).transfer(await vesting.getAddress(), e18(5000));
 
       await expect(
-        vesting.connect(owner).rescueERC20(await dummy.getAddress(), owner.address)
+        vesting.connect(owner).rescueERC20(await dummy.getAddress(), owner.address),
       ).to.changeTokenBalance(dummy, owner, e18(5000));
     });
 
     it("reverts when trying to rescue the vesting token itself", async () => {
       await expect(
-        vesting.connect(owner).rescueERC20(await token.getAddress(), owner.address)
+        vesting.connect(owner).rescueERC20(await token.getAddress(), owner.address),
       ).to.be.revertedWithCustomError(vesting, "CannotRescueVestingToken");
     });
 
@@ -532,7 +531,7 @@ describe("ZenthisVesting", function () {
       const Token = await ethers.getContractFactory("ZenthisToken");
       const dummy = await Token.deploy(owner.address);
       await expect(
-        vesting.connect(owner).rescueERC20(await dummy.getAddress(), ethers.ZeroAddress)
+        vesting.connect(owner).rescueERC20(await dummy.getAddress(), ethers.ZeroAddress),
       ).to.be.revertedWithCustomError(vesting, "ZeroAddress");
     });
 
@@ -540,7 +539,7 @@ describe("ZenthisVesting", function () {
       const Token = await ethers.getContractFactory("ZenthisToken");
       const dummy = await Token.deploy(owner.address);
       await expect(
-        vesting.connect(attacker).rescueERC20(await dummy.getAddress(), owner.address)
+        vesting.connect(attacker).rescueERC20(await dummy.getAddress(), owner.address),
       ).to.be.revertedWithCustomError(vesting, "OwnableUnauthorizedAccount");
     });
   });

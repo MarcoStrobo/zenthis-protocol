@@ -1,0 +1,57 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ============================================================
+    // WHITELIST / AIRDROP — open for public registration
+    // ============================================================
+
+    // Anyone can read their own registration by email
+    match /waitlist/{email} {
+      allow read: if true;
+      allow create: if true;
+      allow update: if true;
+    }
+
+    // Anyone can read stats
+    match /waitlist_meta/stats {
+      allow read, write: if true;
+    }
+
+    // ============================================================
+    // MAIL collection — only the extension function writes here
+    // (Cloud Functions have admin access, bypass rules)
+    // ============================================================
+    match /mail/{email} {
+      allow read: if true;
+      allow create: if true;
+    }
+
+    // ============================================================
+    // AIRDROP collection — authenticated users can read/create/update
+    // ============================================================
+    match /airdrop/{wallet} {
+      allow read: if true;
+      allow create: if true;
+      allow update: if true;
+    }
+
+    // Airdrop meta stats — public read/write
+    match /airdrop_meta/{doc} {
+      allow read, write: if true;
+    }
+
+    // Referral events — public read/write
+    match /referral_events/{event} {
+      allow read, write: if true;
+    }
+
+    // ============================================================
+    // DEFAULT — deny everything else
+    // ============================================================
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

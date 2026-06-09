@@ -5,9 +5,9 @@ describe("ZenthisToken", function () {
   let token;
   let owner, treasury, alice, bob, attacker;
 
-  const MAX_SUPPLY  = ethers.parseEther("100000000"); // 100M
-  const STAKE_AMT   = ethers.parseEther("1000");
-  const FEE_AMT     = ethers.parseEther("1"); // 1 ETH fee deposit
+  const MAX_SUPPLY = ethers.parseEther("100000000"); // 100M
+  const STAKE_AMT = ethers.parseEther("1000");
+  const FEE_AMT = ethers.parseEther("1"); // 1 ETH fee deposit
 
   beforeEach(async () => {
     [owner, treasury, alice, bob, attacker] = await ethers.getSigners();
@@ -61,14 +61,18 @@ describe("ZenthisToken", function () {
     });
 
     it("transfers tokens to contract on stake", async () => {
-      await expect(
-        token.connect(alice).stake(STAKE_AMT)
-      ).to.changeTokenBalance(token, alice, -STAKE_AMT);
+      await expect(token.connect(alice).stake(STAKE_AMT)).to.changeTokenBalance(
+        token,
+        alice,
+        -STAKE_AMT,
+      );
     });
 
     it("reverts on staking 0", async () => {
-      await expect(token.connect(alice).stake(0))
-        .to.be.revertedWithCustomError(token, "ZeroAmount");
+      await expect(token.connect(alice).stake(0)).to.be.revertedWithCustomError(
+        token,
+        "ZeroAmount",
+      );
     });
 
     it("allows unstaking and emits Unstaked event", async () => {
@@ -80,16 +84,19 @@ describe("ZenthisToken", function () {
 
     it("returns tokens on unstake", async () => {
       await token.connect(alice).stake(STAKE_AMT);
-      await expect(
-        token.connect(alice).unstake(STAKE_AMT)
-      ).to.changeTokenBalance(token, alice, STAKE_AMT);
+      await expect(token.connect(alice).unstake(STAKE_AMT)).to.changeTokenBalance(
+        token,
+        alice,
+        STAKE_AMT,
+      );
     });
 
     it("reverts on unstaking more than staked", async () => {
       await token.connect(alice).stake(STAKE_AMT);
-      await expect(
-        token.connect(alice).unstake(STAKE_AMT + 1n)
-      ).to.be.revertedWithCustomError(token, "InsufficientStakedBalance");
+      await expect(token.connect(alice).unstake(STAKE_AMT + 1n)).to.be.revertedWithCustomError(
+        token,
+        "InsufficientStakedBalance",
+      );
     });
   });
 
@@ -118,29 +125,29 @@ describe("ZenthisToken", function () {
     it("allows claiming rewards", async () => {
       await token.connect(owner).depositFees({ value: FEE_AMT });
 
-      await expect(token.connect(alice).claimRewards())
-        .to.emit(token, "RewardClaimed");
+      await expect(token.connect(alice).claimRewards()).to.emit(token, "RewardClaimed");
     });
 
     it("sends ETH to claimer", async () => {
       await token.connect(owner).depositFees({ value: FEE_AMT });
 
       const halfFee = FEE_AMT / 2n;
-      await expect(
-        token.connect(alice).claimRewards()
-      ).to.changeEtherBalance(alice, halfFee, { includeFee: false });
+      await expect(token.connect(alice).claimRewards()).to.changeEtherBalance(alice, halfFee, {
+        includeFee: false,
+      });
     });
 
     it("reverts if non-owner deposits fees", async () => {
       await expect(
-        token.connect(attacker).depositFees({ value: FEE_AMT })
+        token.connect(attacker).depositFees({ value: FEE_AMT }),
       ).to.be.revertedWithCustomError(token, "OwnableUnauthorizedAccount");
     });
 
     it("reverts claiming when no rewards", async () => {
-      await expect(
-        token.connect(alice).claimRewards()
-      ).to.be.revertedWithCustomError(token, "ZeroAmount");
+      await expect(token.connect(alice).claimRewards()).to.be.revertedWithCustomError(
+        token,
+        "ZeroAmount",
+      );
     });
   });
 
@@ -154,9 +161,10 @@ describe("ZenthisToken", function () {
     });
 
     it("reverts on zero burn", async () => {
-      await expect(
-        token.connect(treasury).burn(0)
-      ).to.be.revertedWithCustomError(token, "ZeroAmount");
+      await expect(token.connect(treasury).burn(0)).to.be.revertedWithCustomError(
+        token,
+        "ZeroAmount",
+      );
     });
   });
 
@@ -171,33 +179,33 @@ describe("ZenthisToken", function () {
       await dummy.connect(owner).transfer(await token.getAddress(), DUMMY_AMT);
 
       await expect(
-        token.connect(owner).rescueERC20(await dummy.getAddress(), owner.address)
+        token.connect(owner).rescueERC20(await dummy.getAddress(), owner.address),
       ).to.changeTokenBalance(dummy, owner, DUMMY_AMT);
     });
 
     it("reverts on zero recipient", async () => {
       const dummy = await (await ethers.getContractFactory("ZenthisToken")).deploy(owner.address);
       await expect(
-        token.connect(owner).rescueERC20(await dummy.getAddress(), ethers.ZeroAddress)
+        token.connect(owner).rescueERC20(await dummy.getAddress(), ethers.ZeroAddress),
       ).to.be.revertedWithCustomError(token, "ZeroAddress");
     });
 
     it("reverts when trying to rescue ZTS itself", async () => {
       await expect(
-        token.connect(owner).rescueERC20(await token.getAddress(), owner.address)
+        token.connect(owner).rescueERC20(await token.getAddress(), owner.address),
       ).to.be.revertedWithCustomError(token, "CannotRescueStakingToken");
     });
 
     it("reverts when no tokens to rescue", async () => {
       const dummy = await (await ethers.getContractFactory("ZenthisToken")).deploy(owner.address);
       await expect(
-        token.connect(owner).rescueERC20(await dummy.getAddress(), owner.address)
+        token.connect(owner).rescueERC20(await dummy.getAddress(), owner.address),
       ).to.be.revertedWithCustomError(token, "ZeroAmount");
     });
 
     it("reverts if non-owner calls rescueERC20", async () => {
       await expect(
-        token.connect(attacker).rescueERC20(owner.address, owner.address)
+        token.connect(attacker).rescueERC20(owner.address, owner.address),
       ).to.be.revertedWithCustomError(token, "OwnableUnauthorizedAccount");
     });
   });

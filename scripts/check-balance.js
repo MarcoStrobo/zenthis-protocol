@@ -3,7 +3,7 @@ const { ethers } = require("ethers");
 async function main() {
   const provider = new ethers.JsonRpcProvider("https://ethereum-sepolia-rpc.publicnode.com");
   const addr = "0xBa54cfa02D491cf0f07edFea3fcD00ED8Af9Ac5a";
-  
+
   try {
     const balance = await provider.getBalance(addr);
     console.log(`Balance: ${ethers.formatEther(balance)} ETH`);

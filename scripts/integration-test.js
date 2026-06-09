@@ -1,6 +1,6 @@
 /**
  * Zenthis Protocol — Integration Tests (against deployed contracts)
- * 
+ *
  * Usage: npx hardhat run scripts/integration-test.js --network hardhat
  */
 
@@ -12,7 +12,10 @@ async function main() {
   const fs = require("fs");
   const path = require("path");
   const outDir = path.join(__dirname, "..", "deploy_output");
-  const files = fs.readdirSync(outDir).filter(f => f.startsWith("deploy-")).sort();
+  const files = fs
+    .readdirSync(outDir)
+    .filter((f) => f.startsWith("deploy-"))
+    .sort();
   const latestFile = path.join(outDir, files[files.length - 1]);
   const deployData = JSON.parse(fs.readFileSync(latestFile, "utf8"));
   console.log(`   Using: ${files[files.length - 1]}\n`);
@@ -27,7 +30,9 @@ async function main() {
   function hashlock(preimage) {
     return ethers.sha256(ethers.solidityPacked(["bytes32"], [preimage]));
   }
-  function randomPreimage() { return ethers.randomBytes(32); }
+  function randomPreimage() {
+    return ethers.randomBytes(32);
+  }
 
   let passed = 0;
   let failed = 0;
@@ -53,7 +58,10 @@ async function main() {
 
   // Transfer
   await token.transfer(await team.getAddress(), ethers.parseEther("1000"));
-  check("Transfer 1000 ZENTHIS", (await token.balanceOf(await team.getAddress())) === ethers.parseEther("1000"));
+  check(
+    "Transfer 1000 ZENTHIS",
+    (await token.balanceOf(await team.getAddress())) === ethers.parseEther("1000"),
+  );
 
   // Burn
   const supplyBefore = await token.totalSupply();
@@ -77,7 +85,7 @@ async function main() {
   const now = (await ethers.provider.getBlock("latest")).timestamp;
   const timelock = now + 600; // 10 min
 
-  await htlc.newSwap(swapId, (await team.getAddress()), hash, timelock, {
+  await htlc.newSwap(swapId, await team.getAddress(), hash, timelock, {
     value: ethers.parseEther("1"),
   });
   check("HTLC swap active", await htlc.isActive(swapId));
@@ -89,7 +97,7 @@ async function main() {
   // Refund test
   const swapId2 = ethers.randomBytes(32);
   const tl2 = now + 310; // 5min10s
-  await htlc.newSwap(swapId2, (await deployer.getAddress()), hashlock(randomPreimage()), tl2, {
+  await htlc.newSwap(swapId2, await deployer.getAddress(), hashlock(randomPreimage()), tl2, {
     value: ethers.parseEther("0.1"),
   });
   // Advance past timelock

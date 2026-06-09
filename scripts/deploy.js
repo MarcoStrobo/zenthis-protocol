@@ -53,37 +53,39 @@ const M = (n) => ethers.parseEther((n * 1_000_000).toString());
 
 const SCHEDULES = [
   //  key              totalVest      tgeAmount    cliffMonths  vestingMonths
-  { key: "SEED",        total: M(10),    tge: M(0),    cliff: 6n,  vest: 24n },
-  { key: "IDO",         total: M(22.5),  tge: M(2.5),  cliff: 0n,  vest: 18n },  // 10% TGE (was 20%)
-  { key: "LIQUIDITY",   total: M(21.5),  tge: M(3.5),  cliff: 0n,  vest: 48n },  // LP tokens → lock 12mo on Team.Finance
-  { key: "TEAM",        total: M(10),    tge: M(0),    cliff: 12n, vest: 36n },  // Founder equity — no early exit
-  { key: "TREASURY",    total: M(16.2),  tge: M(2),    cliff: 0n,  vest: 48n },  // Multi-sig 3/5 required
-  { key: "FOUNDER_OPS", total: M(1.8),   tge: M(0),    cliff: 0n,  vest: 36n },  // ~50,000 ZENTHIS/month salary
-  { key: "AIRDROPS",    total: M(5),     tge: M(5),    cliff: 0n,  vest: 6n  },  // 50% TGE + 50% over 6 months
+  { key: "SEED", total: M(10), tge: M(0), cliff: 6n, vest: 24n },
+  { key: "IDO", total: M(22.5), tge: M(2.5), cliff: 0n, vest: 18n }, // 10% TGE (was 20%)
+  { key: "LIQUIDITY", total: M(21.5), tge: M(3.5), cliff: 0n, vest: 48n }, // LP tokens → lock 12mo on Team.Finance
+  { key: "TEAM", total: M(10), tge: M(0), cliff: 12n, vest: 36n }, // Founder equity — no early exit
+  { key: "TREASURY", total: M(16.2), tge: M(2), cliff: 0n, vest: 48n }, // Multi-sig 3/5 required
+  { key: "FOUNDER_OPS", total: M(1.8), tge: M(0), cliff: 0n, vest: 36n }, // ~50,000 ZENTHIS/month salary
+  { key: "AIRDROPS", total: M(5), tge: M(5), cliff: 0n, vest: 6n }, // 50% TGE + 50% over 6 months
 ];
 // Sum: (10)+(22.5+2.5)+(21.5+3.5)+(10)+(16.2+2)+(1.8)+(5+5) = 100 M ✓
 
 async function main() {
   const [deployer] = await ethers.getSigners();
-  const netInfo    = await ethers.provider.getNetwork();
+  const netInfo = await ethers.provider.getNetwork();
 
   console.log("\n═══════════════════════════════════════════════════════");
   console.log("  Zenthis Protocol — Full Deployment");
   console.log("═══════════════════════════════════════════════════════");
   console.log(`  Network  : ${network.name} (chainId ${netInfo.chainId})`);
   console.log(`  Deployer : ${deployer.address}`);
-  console.log(`  Balance  : ${ethers.formatEther(await ethers.provider.getBalance(deployer.address))} ETH`);
+  console.log(
+    `  Balance  : ${ethers.formatEther(await ethers.provider.getBalance(deployer.address))} ETH`,
+  );
   console.log("═══════════════════════════════════════════════════════\n");
 
   // ── Load & validate env ───────────────────────────────────────────────────
   const wallets = {
-    SEED:        requireEnv("WALLET_SEED"),
-    IDO:         requireEnv("WALLET_IDO"),
-    LIQUIDITY:   requireEnv("WALLET_LIQUIDITY"),
-    TEAM:        requireEnv("WALLET_TEAM"),
-    TREASURY:    requireEnv("WALLET_TREASURY"),
+    SEED: requireEnv("WALLET_SEED"),
+    IDO: requireEnv("WALLET_IDO"),
+    LIQUIDITY: requireEnv("WALLET_LIQUIDITY"),
+    TEAM: requireEnv("WALLET_TEAM"),
+    TREASURY: requireEnv("WALLET_TREASURY"),
     FOUNDER_OPS: requireEnv("WALLET_FOUNDER_OPS"),
-    AIRDROPS:    requireEnv("WALLET_AIRDROPS"),
+    AIRDROPS: requireEnv("WALLET_AIRDROPS"),
   };
 
   const MULTISIG = requireEnv("MULTISIG_ADDRESS");
@@ -93,7 +95,7 @@ async function main() {
 
   const TGE = BigInt(requireEnv("TGE_TIMESTAMP"));
 
-  const isTestnet = ["hardhat","localhost","sepolia","arbitrumSepolia"].includes(network.name);
+  const isTestnet = ["hardhat", "localhost", "sepolia", "arbitrumSepolia"].includes(network.name);
   for (const [key, val] of Object.entries(wallets)) {
     if (!ethers.isAddress(val)) {
       if (isTestnet) {
@@ -125,7 +127,9 @@ async function main() {
   console.log("\n   Transferring 100 M ZENTHIS → vesting contract...");
   const totalSupply = await token.totalSupply();
   await (await token.transfer(vestingAddr, totalSupply)).wait();
-  console.log(`   ✓ Vesting balance : ${ethers.formatEther(await token.balanceOf(vestingAddr))} ZENTHIS`);
+  console.log(
+    `   ✓ Vesting balance : ${ethers.formatEther(await token.balanceOf(vestingAddr))} ZENTHIS`,
+  );
 
   // ── [3/3] Deploy ZenthisHTLC ──────────────────────────────────────────────
   console.log("\n📦 [3/3] Deploying ZenthisHTLC...");
@@ -136,37 +140,45 @@ async function main() {
   console.log(`   ✓ ZenthisHTLC : ${htlcAddr}`);
 
   // ── [4/4] Create vesting schedules ───────────────────────────────────────
-  console.log(`\n📋 [4/4] Creating vesting schedules (TGE: ${new Date(Number(TGE) * 1000).toISOString()})`);
+  console.log(
+    `\n📋 [4/4] Creating vesting schedules (TGE: ${new Date(Number(TGE) * 1000).toISOString()})`,
+  );
   console.log("");
 
   for (const s of SCHEDULES) {
     const id = await vesting[s.key]();
     const tx = await vesting.createSchedule(
-      id, wallets[s.key], s.total, s.tge, TGE, s.cliff, s.vest
+      id,
+      wallets[s.key],
+      s.total,
+      s.tge,
+      TGE,
+      s.cliff,
+      s.vest,
     );
     await tx.wait();
     console.log(
       `   ✓ ${s.key.padEnd(10)}` +
-      `  vest=${ethers.formatEther(s.total).padStart(14)}` +
-      `  TGE=${ethers.formatEther(s.tge).padStart(12)}` +
-      `  cliff=${String(s.cliff).padStart(2)}mo` +
-      `  vest=${String(s.vest).padStart(2)}mo` +
-      `  → ${wallets[s.key]}`
+        `  vest=${ethers.formatEther(s.total).padStart(14)}` +
+        `  TGE=${ethers.formatEther(s.tge).padStart(12)}` +
+        `  cliff=${String(s.cliff).padStart(2)}mo` +
+        `  vest=${String(s.vest).padStart(2)}mo` +
+        `  → ${wallets[s.key]}`,
     );
   }
 
   // ── Save deployment record ────────────────────────────────────────────────
   const deployment = {
-    network:    network.name,
-    chainId:    netInfo.chainId.toString(),
+    network: network.name,
+    chainId: netInfo.chainId.toString(),
     deployedAt: new Date().toISOString(),
-    tge:        TGE.toString(),
-    deployer:   deployer.address,
-    multisig:   MULTISIG,
+    tge: TGE.toString(),
+    deployer: deployer.address,
+    multisig: MULTISIG,
     contracts: {
-      ZenthisToken:   tokenAddr,
+      ZenthisToken: tokenAddr,
       ZenthisVesting: vestingAddr,
-      ZenthisHTLC:    htlcAddr,
+      ZenthisHTLC: htlcAddr,
     },
     wallets,
   };
@@ -186,14 +198,14 @@ async function main() {
   console.log("═══════════════════════════════════════════════════════");
 
   // ── Auto-verify on Etherscan ──────────────────────────────────────────────
-  if (!["hardhat","localhost"].includes(network.name)) {
+  if (!["hardhat", "localhost"].includes(network.name)) {
     console.log("\n⏳ Waiting 30s for Etherscan to index...");
-    await new Promise(r => setTimeout(r, 30_000));
+    await new Promise((r) => setTimeout(r, 30_000));
 
     for (const [name, addr, args] of [
-      ["ZenthisToken",   tokenAddr,   [deployer.address]],
+      ["ZenthisToken", tokenAddr, [deployer.address]],
       ["ZenthisVesting", vestingAddr, [tokenAddr, deployer.address]],
-      ["ZenthisHTLC",    htlcAddr,    []],
+      ["ZenthisHTLC", htlcAddr, []],
     ]) {
       try {
         await run("verify:verify", { address: addr, constructorArguments: args });
@@ -206,11 +218,11 @@ async function main() {
 
   // ── [5/5] Transfer ownership to multi-sig ──────────────────────────────────
   console.log(`\n🔐 [5/5] Transferring ownership to multisig: ${MULTISIG}`);
-  
+
   for (const [name, contract] of [
-    ["ZenthisToken",   token],
+    ["ZenthisToken", token],
     ["ZenthisVesting", vesting],
-    ["ZenthisHTLC",    htlc],
+    ["ZenthisHTLC", htlc],
   ]) {
     const currentOwner = await contract.owner();
     if (currentOwner.toLowerCase() === MULTISIG.toLowerCase()) {
@@ -221,9 +233,13 @@ async function main() {
       console.log(`   ✓ ${name.padEnd(14)} ownership → ${MULTISIG}`);
     }
   }
-  
+
   // Final sanity: verify all three are transferred
-  for (const [name, contract] of [["Token", token], ["Vesting", vesting], ["HTLC", htlc]]) {
+  for (const [name, contract] of [
+    ["Token", token],
+    ["Vesting", vesting],
+    ["HTLC", htlc],
+  ]) {
     const owner = await contract.owner();
     if (owner.toLowerCase() !== MULTISIG.toLowerCase()) {
       console.error(`   ✘ ${name} owner is STILL ${owner} — abort.`);
@@ -241,7 +257,8 @@ async function main() {
 
 function requireEnv(key) {
   const v = process.env[key];
-  if (!v) throw new Error(`Missing env var: ${key}\n  copy .env.example to .env and fill in the value.`);
+  if (!v)
+    throw new Error(`Missing env var: ${key}\n  copy .env.example to .env and fill in the value.`);
   return v;
 }
 
