@@ -1,12 +1,15 @@
 name: Deploy to Sepolia
 
 on:
-  workflow_dispatch:     # Manual trigger from GitHub UI
+  workflow_dispatch:
     inputs:
       confirm:
         description: 'Type "DEPLOY" to confirm Sepolia deployment'
         required: true
         default: ""
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
   deploy:
@@ -15,20 +18,14 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: npm
-
-      - run: npm ci
-
+      - run: npm install
       - name: Compile contracts
         run: npx hardhat compile
-
       - name: Run tests
         run: npx hardhat test
-
       - name: Deploy to Sepolia
         env:
           SEPOLIA_RPC_URL: ${{ secrets.SEPOLIA_RPC_URL }}
