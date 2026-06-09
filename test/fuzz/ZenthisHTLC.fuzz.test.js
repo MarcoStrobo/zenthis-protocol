@@ -300,11 +300,9 @@ describe("ZenthisHTLC — Fuzz Tests", function () {
           hashes.push(hashlock(pres[j]));
           const tl = now + randInt(MIN_DELTA + 1, MAX_DELTA);
 
-          await htlc
-            .connect(initiator)
-            .newSwap(ids[j], recipient.address, hashes[j], tl, {
-              value: ethers.parseEther(String(j + 1)),
-            });
+          await htlc.connect(initiator).newSwap(ids[j], recipient.address, hashes[j], tl, {
+            value: ethers.parseEther(String(j + 1)),
+          });
         }
 
         // Every swap is active and independent
