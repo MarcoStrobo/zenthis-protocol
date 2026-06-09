@@ -120,8 +120,7 @@ contract ZenthisPresale is Ownable2Step, ReentrancyGuard, Pausable {
     mapping(address => address) public referrerOf;
     mapping(address => uint256) public qualifiedReferrals;
 
-    /// @dev ZP-03: usuarios ya procesados por rescueUnclaimedEth (éxito o fallo)
-    mapping(address => bool) private _rescueProcessed;
+    /// @dev V4-L-02: eliminado _rescueProcessed — contribution[user] == 0 es guard suficiente
 
     /// @dev Snapshot: total bonus ZTS per user (flat + tier), computed at contribution
     mapping(address => uint256) private _pendingBonus;
@@ -333,8 +332,10 @@ contract ZenthisPresale is Ownable2Step, ReentrancyGuard, Pausable {
     /// @notice Paso 1: solicitar finalización. Inicia un timelock de FINALIZE_DELAY.
     ///         Los inversores tienen visibilidad de finalizeReadyAt y pueden verificar
     ///         las direcciones de liquidityWallet y treasuryWallet durante el delay.
+    /// @notice V4-L-03: defensa en profundidad contra failed
     function requestFinalize() external onlyOwner onlyWhenEnded {
         if (finalized)   revert Presale_AlreadyFinalized();
+        if (failed)      revert Presale_AlreadyFailed();
         if (totalRaised < config.softCap) revert Presale_SoftCapNotMet();
         if (finalizeReadyAt != 0) revert Presale_AlreadyRequested();
         finalizeReadyAt = block.timestamp + FINALIZE_DELAY;
@@ -398,11 +399,12 @@ contract ZenthisPresale is Ownable2Step, ReentrancyGuard, Pausable {
             : 0;
         uint256 tierBonus = totalBonus > flatBonus ? totalBonus - flatBonus : 0;
 
+        // V4-M-01: evitar doble truncación — tierBonus absorbe el residuo
         if (totalBonus > remaining) {
             uint256 ratio = (remaining * 1e18) / totalBonus;
             flatBonus  = (flatBonus * ratio) / 1e18;
-            tierBonus  = (tierBonus * ratio) / 1e18;
-            totalBonus = flatBonus + tierBonus;
+            tierBonus  = remaining - flatBonus;
+            totalBonus = remaining;
         }
 
         uint256 totalZts = ztsPurchased + totalBonus;
@@ -449,18 +451,15 @@ contract ZenthisPresale is Ownable2Step, ReentrancyGuard, Pausable {
     }
 
     /// @notice Rescue masivo con skip-on-failure + límite de batch (ZP-03 + ZP-09).
-    ///         No se procesan direcciones duplicadas (_rescueProcessed).
+    /// @dev V4-L-02: contribution[user] == 0 es guard suficiente, _rescueProcessed eliminado.
     function rescueUnclaimedEth(address[] calldata _users) external onlyOwner nonReentrant {
         if (!failed) revert Presale_NotFailed();
         if (_users.length > MAX_RESCUE_BATCH) revert Presale_BatchTooLarge(); // ZP-09
 
         for (uint256 i = 0; i < _users.length; i++) {
             address user = _users[i];
-            // ZP-03: evitar doble procesamiento en batch
-            if (_rescueProcessed[user]) continue;
             if (contribution[user] == 0) continue;
 
-            _rescueProcessed[user] = true;
             uint256 amt = contribution[user];
             contribution[user] = 0;
 
@@ -468,9 +467,8 @@ contract ZenthisPresale is Ownable2Step, ReentrancyGuard, Pausable {
             if (ok) {
                 emit Refunded(user, amt);
             } else {
-                // Restore + limpia flag para reintento vía refundMe()
+                // Restore para reintento vía refundMe()
                 contribution[user] = amt;
-                _rescueProcessed[user] = false;
                 emit RefundSkipped(user);
             }
         }
@@ -485,12 +483,15 @@ contract ZenthisPresale is Ownable2Step, ReentrancyGuard, Pausable {
     }
 
     // ── Admin ───────────────────────────────────────────────────────────────
+    /// @notice V4-L-01: misma ventana CLAIM_WINDOW en modo failed para mantener transparencia
     function withdrawUnusedTokens() external onlyOwner {
         if (!finalized && !failed) revert Presale_NotFinalizedOrFailed();
 
         if (finalized) {
             if (claimDeadline == 0) revert Presale_ClaimDeadlineNotSet();   // ZP-15
             if (block.timestamp < claimDeadline) revert Presale_ClaimWindowActive(); // ZP-15
+        } else {
+            if (block.timestamp < config.endTime + CLAIM_WINDOW) revert Presale_ClaimWindowActive();
         }
 
         uint256 balance = config.token.balanceOf(address(this));
@@ -513,6 +514,11 @@ contract ZenthisPresale is Ownable2Step, ReentrancyGuard, Pausable {
         if (_newWallet == address(0)) revert Presale_ZeroAddress();
         emit WalletUpdated("treasury", config.treasuryWallet, _newWallet); // ZP-11
         config.treasuryWallet = _newWallet;
+    }
+
+    /// @notice V4-I-03: deshabilitar renuncia de ownership en contrato de IDO
+    function renounceOwnership() public override onlyOwner {
+        revert Presale_AlreadyFinalized();
     }
 
     function pause()  external onlyOwner { _pause(); }
