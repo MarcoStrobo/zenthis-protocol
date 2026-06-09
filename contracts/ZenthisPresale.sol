@@ -181,6 +181,7 @@ contract ZenthisPresale is Ownable2Step, ReentrancyGuard, Pausable {
     error Presale_AlreadyRequested();
     error Presale_TimelockPending();
     error Presale_InsufficientBalance();       // ZP-05
+    error Presale_RenounceDisabled();          // V5-M-01
 
     // ── Constructor ─────────────────────────────────────────────────────────
     constructor(
@@ -272,6 +273,10 @@ contract ZenthisPresale is Ownable2Step, ReentrancyGuard, Pausable {
     }
 
     // ── Deposit tokens ──────────────────────────────────────────────────────
+    /// @notice Depositar ZTS en el contrato. Puede llamarse en cualquier momento antes de
+    ///         la primera contribución (funded = one-way).
+    /// @dev V5-L-02: no se añadió restricción temporal — funded es one-way y contribuir
+    ///      sin funding no es posible (onlyWhenFunded). El owner es quien controla.
     function depositTokens() external onlyOwner {
         if (funded) revert Presale_AlreadyFunded();
         uint256 required = getRequiredZts();
@@ -452,6 +457,9 @@ contract ZenthisPresale is Ownable2Step, ReentrancyGuard, Pausable {
 
     /// @notice Rescue masivo con skip-on-failure + límite de batch (ZP-03 + ZP-09).
     /// @dev V4-L-02: contribution[user] == 0 es guard suficiente, _rescueProcessed eliminado.
+    /// @dev V5-L-01: el array _users NO debe contener direcciones duplicadas. Si una dirección
+    ///      aparece dos veces y el primer intento falla, se reintentará inmediatamente con el
+    ///      mismo resultado (gas desperdiciado). Si el primero tiene éxito, el segundo se salta.
     function rescueUnclaimedEth(address[] calldata _users) external onlyOwner nonReentrant {
         if (!failed) revert Presale_NotFailed();
         if (_users.length > MAX_RESCUE_BATCH) revert Presale_BatchTooLarge(); // ZP-09
@@ -483,7 +491,9 @@ contract ZenthisPresale is Ownable2Step, ReentrancyGuard, Pausable {
     }
 
     // ── Admin ───────────────────────────────────────────────────────────────
-    /// @notice V4-L-01: misma ventana CLAIM_WINDOW en modo failed para mantener transparencia
+    /// @notice Retirar ZTS no usados tras finalize (post-claim window) o failed.
+    /// @dev V4-L-01: misma ventana CLAIM_WINDOW en modo failed para mantener transparencia.
+    ///      V5-L-02: depositTokens() tiene restricción pre-start, no withdrawUnusedTokens.
     function withdrawUnusedTokens() external onlyOwner {
         if (!finalized && !failed) revert Presale_NotFinalizedOrFailed();
 
@@ -500,25 +510,32 @@ contract ZenthisPresale is Ownable2Step, ReentrancyGuard, Pausable {
         emit UnusedTokensWithdrawn(owner(), balance);
     }
 
-    /// @notice ZP-12: bloqueado también durante la ventana de timelock
+    /// @notice Cambiar wallet de liquidez.
+    /// @dev ZP-12: bloqueado durante timelock salvo que el timelock ya haya expirado
+    ///      y finalize() haya fallado (V5-L-03: DoS recovery).
     function setLiquidityWallet(address _newWallet) external onlyOwner {
-        if (finalized || failed || finalizeReadyAt != 0) revert Presale_AlreadyFinalized();
+        // V5-L-03: permitir cambio si el timelock expiró pero finalize() falló
+        bool stuck = finalizeReadyAt != 0 && block.timestamp >= finalizeReadyAt && !finalized;
+        if (!stuck && (finalized || failed || finalizeReadyAt != 0)) revert Presale_AlreadyFinalized();
         if (_newWallet == address(0)) revert Presale_ZeroAddress();
         emit WalletUpdated("liquidity", config.liquidityWallet, _newWallet); // ZP-11
         config.liquidityWallet = _newWallet;
     }
 
     /// @notice ZP-12: bloqueado también durante la ventana de timelock
+    /// @dev V5-L-03: misma lógica de stuck recovery que setLiquidityWallet
     function setTreasuryWallet(address _newWallet) external onlyOwner {
-        if (finalized || failed || finalizeReadyAt != 0) revert Presale_AlreadyFinalized();
+        bool stuck = finalizeReadyAt != 0 && block.timestamp >= finalizeReadyAt && !finalized;
+        if (!stuck && (finalized || failed || finalizeReadyAt != 0)) revert Presale_AlreadyFinalized();
         if (_newWallet == address(0)) revert Presale_ZeroAddress();
         emit WalletUpdated("treasury", config.treasuryWallet, _newWallet); // ZP-11
         config.treasuryWallet = _newWallet;
     }
 
     /// @notice V4-I-03: deshabilitar renuncia de ownership en contrato de IDO
+    /// @dev V5-M-01: error dedicado, semanticamente correcto
     function renounceOwnership() public override onlyOwner {
-        revert Presale_AlreadyFinalized();
+        revert Presale_RenounceDisabled();
     }
 
     function pause()  external onlyOwner { _pause(); }
@@ -537,14 +554,14 @@ contract ZenthisPresale is Ownable2Step, ReentrancyGuard, Pausable {
         return snapshotted > remaining ? remaining : snapshotted;
     }
 
+    /// @dev V5-I-03: usa snapshot en lugar de recomputar, consistente con claim()
     function getFlatBonus(address _user) external view returns (uint256) {
-        (uint256 flatBonus, ) = _computeBonus(_user);
-        return flatBonus;
+        return _pendingFlatBonus[_user];
     }
 
+    /// @dev V5-I-03: usa snapshot en lugar de recomputar
     function getTierBonus(address _user) external view returns (uint256) {
-        (, uint256 tierBonus) = _computeBonus(_user);
-        return tierBonus;
+        return _pendingBonus[_user] - _pendingFlatBonus[_user];
     }
 
     function getClaimableAmount(address _user) external view returns (uint256) {
