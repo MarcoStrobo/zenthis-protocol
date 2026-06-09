@@ -18,6 +18,7 @@ import "@openzeppelin/contracts/utils/Pausable.sol";
 ///       ◾ Refund if soft cap not reached — owner marksFailed(), users call refundMe()
 ///       ◾ Liquidity + treasury split on finalize
 ///       ◾ Bonus snapshotted at contribution time, NOT at claim time (no race)
+///       ◾ Claim deadline = endTime + 90 days, set automatically on finalize
 contract ZenthisPresale is Ownable, ReentrancyGuard, Pausable {
     using SafeERC20 for IERC20;
 
@@ -35,9 +36,7 @@ contract ZenthisPresale is Ownable, ReentrancyGuard, Pausable {
         address liquidityWallet;
         address treasuryWallet;
         uint256 bonusPoolSize;   // total ZTS reserved for airdrops + launch bonuses
-        // ── Flat whitelist airdrop ──────────────────────────────────────
         uint256 flatAirdrop;     // ZTS every qualified contributor gets (e.g. 2,000)
-        // ── IDO Launch Bonus tiers (ETH thresholds → additional ZTS) ──
         uint256 bonusTier1Eth;
         uint256 bonusTier1Reward;
         uint256 bonusTier2Eth;
@@ -46,8 +45,7 @@ contract ZenthisPresale is Ownable, ReentrancyGuard, Pausable {
         uint256 bonusTier3Reward;
         uint256 bonusTier4Eth;
         uint256 bonusTier4Reward;
-        // ── Referral ────────────────────────────────────────────────────
-        uint256 referralMinContribution; // min ETH for a referral to qualify
+        uint256 referralMinContribution;
     }
 
     // ── State ───────────────────────────────────────────────────────────────
@@ -61,15 +59,19 @@ contract ZenthisPresale is Ownable, ReentrancyGuard, Pausable {
     uint256 public totalReferralQualified;
     bool public funded;
 
-    uint256 public claimDeadline; // 0 until owner sets it post-finalize
+    /// @dev claimDeadline = endTime + CLAIM_WINDOW, set on finalize
+    uint256 public claimDeadline;
+    uint256 public constant CLAIM_WINDOW = 90 * 24 * 60 * 60; // 90 days
 
     mapping(address => uint256) public contribution;
     mapping(address => bool) public claimed;
     mapping(address => address) public referrerOf;
     mapping(address => uint256) public qualifiedReferrals;
 
-    /// @dev Snapshot of total bonus ZTS per user, computed at contribution time
+    /// @dev Snapshot: total bonus ZTS per user (flat + tier), computed at contribution
     mapping(address => uint256) private _pendingBonus;
+    /// @dev Snapshot: flat portion, stored separately to avoid recompute in claim()
+    mapping(address => uint256) private _pendingFlatBonus;
     mapping(address => bool) private _refereeAlreadyCounted;
 
     // ── Events ──────────────────────────────────────────────────────────────
@@ -87,7 +89,7 @@ contract ZenthisPresale is Ownable, ReentrancyGuard, Pausable {
     event ContractFunded(uint256 totalZts);
     event PresaleMarkedFailed();
     event WalletUpdated(string walletType, address indexed newWallet);
-    event ClaimDeadlineSet(uint256 deadline);
+    event RefundSkipped(address indexed user);
 
     // ── Custom Errors ───────────────────────────────────────────────────────
     error Presale_ZeroAddress();
@@ -113,13 +115,12 @@ contract ZenthisPresale is Ownable, ReentrancyGuard, Pausable {
     error Presale_EndInPast();
     error Presale_NotFailed();
     error Presale_TransferFailed();
-    error Presale_ClaimDeadlineNotSet();
-    error Presale_ClaimsStillOpen();
     error Presale_AlreadyFinalized();
     error Presale_AlreadyFailed();
     error Presale_NotFinalizedOrFailed();
 
     // ── Constructor ─────────────────────────────────────────────────────────
+    /// @dev 22 params — use deploy-presale.js (validates config post-deploy)
     constructor(
         IERC20 _token,
         uint256 _rate,
@@ -202,13 +203,15 @@ contract ZenthisPresale is Ownable, ReentrancyGuard, Pausable {
 
     // ── Deposit tokens ──────────────────────────────────────────────────────
     /// @notice Owner deposits the required ZTS. One-time; prevents C-01.
+    ///         If tokens were sent directly to the contract, they count toward the deposit.
+    ///         Always emits the REQUIRED amount (not the current balance) for traceability.
     function depositTokens() external onlyOwner {
         if (funded) revert Presale_AlreadyFunded();
         uint256 required = getRequiredZts();
         uint256 current = config.token.balanceOf(address(this));
         if (current >= required) {
             funded = true;
-            emit ContractFunded(current);
+            emit ContractFunded(required);  // V3-L-01: emit required, not current
             return;
         }
         uint256 toDeposit = required - current;
@@ -224,7 +227,6 @@ contract ZenthisPresale is Ownable, ReentrancyGuard, Pausable {
         _contribute(msg.sender, _referrer);
     }
 
-    /// @notice receive() fallback — contribution without referrer.
     receive() external payable nonReentrant whenNotPaused duringPresale onlyWhenFunded {
         _contribute(msg.sender, address(0));
     }
@@ -242,10 +244,11 @@ contract ZenthisPresale is Ownable, ReentrancyGuard, Pausable {
         contribution[_user] += msg.value;
         totalRaised += msg.value;
 
-        // Snapshot bonus at contribution time (FIX H-03)
-        _pendingBonus[_user] = _computeBonusTotal(_user);
+        // Snapshot bonus at contribution time (no race on claim — H-03 + V3-I-01)
+        (uint256 flatBonus, uint256 tierBonus) = _computeBonus(_user);
+        _pendingFlatBonus[_user] = flatBonus;
+        _pendingBonus[_user] = flatBonus + tierBonus;
 
-        // Qualified referrals: check accumulated contribution (FIX M-01)
         address referrer = referrerOf[_user];
         if (referrer != address(0)) {
             if (!_refereeAlreadyCounted[_user] && contribution[_user] >= config.referralMinContribution) {
@@ -259,16 +262,19 @@ contract ZenthisPresale is Ownable, ReentrancyGuard, Pausable {
     }
 
     // ── Finalize ────────────────────────────────────────────────────────────
+    /// @notice Finalize the presale. Automatically sets claimDeadline = endTime + 90 days.
+    ///         V3-L-02: deadline is fixed, owner CANNOT change it afterwards.
     function finalize() external onlyOwner onlyWhenFinalized {
         if (finalized) revert Presale_AlreadyFinalized();
         if (totalRaised < config.softCap) revert Presale_SoftCapNotMet();
 
         finalized = true;
+        claimDeadline = config.endTime + CLAIM_WINDOW;
+        emit ClaimDeadlineSet(claimDeadline);
 
         uint256 liquidityEth = (totalRaised * config.liquidityPct) / 10000;
         uint256 treasuryEth  = totalRaised - liquidityEth;
 
-        // Transfer ZTS + ETH for liquidity (FIX M-02: call instead of transfer)
         uint256 liquidityZts = (liquidityEth * config.rate) / 1e18;
         config.token.safeTransfer(config.liquidityWallet, liquidityZts);
 
@@ -281,19 +287,12 @@ contract ZenthisPresale is Ownable, ReentrancyGuard, Pausable {
         emit Finalized(totalRaised, liquidityEth, treasuryEth);
     }
 
-    // ── Set claim deadline ─────────────────────────────────────────────────
-    /// @notice After finalize, owner sets a deadline after which withdrawUnusedTokens works.
-    ///         N-H-01: prevents owner from draining unclaimed ZTS immediately.
-    function setClaimDeadline(uint256 _deadline) external onlyOwner {
-        if (!finalized) revert Presale_NotEnded();
-        if (_deadline <= block.timestamp) revert Presale_EndInPast();
-        claimDeadline = _deadline;
-        emit ClaimDeadlineSet(_deadline);
-    }
+    /// @dev claimDeadline is set ONCE in finalize(). No setter — V3-L-02 fixed.
+    event ClaimDeadlineSet(uint256 deadline);
 
     // ── Claim ───────────────────────────────────────────────────────────────
     function claim() external nonReentrant {
-        if (failed) revert Presale_SoftCapNotMet();    // FIX H-02
+        if (failed) revert Presale_SoftCapNotMet();
         if (!finalized) {
             if (block.timestamp <= config.endTime) revert Presale_NotEnded();
             revert Presale_SoftCapNotMet();
@@ -304,20 +303,20 @@ contract ZenthisPresale is Ownable, ReentrancyGuard, Pausable {
         claimed[msg.sender] = true;
 
         uint256 ztsPurchased = (contribution[msg.sender] * config.rate) / 1e18;
-        uint256 totalBonus = _pendingBonus[msg.sender]; // FIX H-03: snapshot
+        uint256 totalBonus = _pendingBonus[msg.sender];       // snapshot (H-03)
+        uint256 flatBonus  = _pendingFlatBonus[msg.sender];   // snapshot (V3-I-01)
 
         uint256 remaining = config.bonusPoolSize > totalBonusClaimed
             ? config.bonusPoolSize - totalBonusClaimed
             : 0;
-        if (totalBonus > remaining) totalBonus = remaining;
+        uint256 tierBonus = totalBonus > flatBonus ? totalBonus - flatBonus : 0;
 
-        // Scale event fields proportionally if pool-capped
-        (uint256 flatBonus, uint256 tierBonus) = _computeBonus(msg.sender);
-        uint256 pending = _pendingBonus[msg.sender];
-        if (pending > 0 && totalBonus < pending) {
-            uint256 ratio = (totalBonus * 1e18) / pending;
-            flatBonus = (flatBonus * ratio) / 1e18;
-            tierBonus = totalBonus - flatBonus;
+        if (totalBonus > remaining) {
+            // Scale proportionally
+            uint256 ratio = (remaining * 1e18) / totalBonus;
+            flatBonus  = (flatBonus * ratio) / 1e18;
+            tierBonus  = (tierBonus * ratio) / 1e18;
+            totalBonus = flatBonus + tierBonus;
         }
 
         uint256 totalZts = ztsPurchased + totalBonus;
@@ -345,14 +344,8 @@ contract ZenthisPresale is Ownable, ReentrancyGuard, Pausable {
         return (flatBonus, tierBonus);
     }
 
-    function _computeBonusTotal(address _user) internal view returns (uint256) {
-        (uint256 flat, uint256 tier) = _computeBonus(_user);
-        return flat + tier;
-    }
-
     // ── Refund ──────────────────────────────────────────────────────────────
-    /// @notice Users refund themselves only after owner has called markFailed().
-    ///         FIX N-H-02: does NOT set failed=true — refundMe is not a race.
+    /// @notice Users refund themselves after owner calls markFailed().
     function refundMe() external onlyWhenFinalized nonReentrant {
         if (finalized) revert Presale_SoftCapMet();
         if (!failed) revert Presale_NotFailed();
@@ -361,7 +354,6 @@ contract ZenthisPresale is Ownable, ReentrancyGuard, Pausable {
     }
 
     /// @notice Owner marks the presale as failed (only after end, soft cap not met).
-    ///         After this, any user can call refundMe() to get ETH back.
     function markFailed() external onlyOwner onlyWhenFinalized {
         if (finalized) revert Presale_SoftCapMet();
         if (failed) revert Presale_AlreadyFailed();
@@ -370,14 +362,22 @@ contract ZenthisPresale is Ownable, ReentrancyGuard, Pausable {
         emit PresaleMarkedFailed();
     }
 
-    /// @notice Owner can mass-refund users after presale marked as failed.
-    ///         FIX N-M-03: nonReentrant added.
+    /// @notice Mass refund: skip addresses that reject ETH (V3-M-01).
+    ///         Non-blocking: a single hostile receive() does NOT DoS the rest.
     function rescueUnclaimedEth(address[] calldata _users) external onlyOwner nonReentrant {
         if (!failed) revert Presale_NotFailed();
         for (uint256 i = 0; i < _users.length; i++) {
             address user = _users[i];
-            if (contribution[user] > 0) {
-                _refund(user);
+            if (contribution[user] == 0) continue;
+            uint256 amt = contribution[user];
+            contribution[user] = 0;
+            (bool ok, ) = payable(user).call{value: amt}("");
+            if (ok) {
+                emit Refunded(user, amt);
+            } else {
+                // Restore balance so they can retry or use refundMe()
+                contribution[user] = amt;
+                emit RefundSkipped(user);
             }
         }
     }
@@ -391,24 +391,23 @@ contract ZenthisPresale is Ownable, ReentrancyGuard, Pausable {
     }
 
     // ── Admin ───────────────────────────────────────────────────────────────
-    /// @notice Withdraw remaining ZTS after claim deadline or if presale failed.
-    ///         FIX N-H-01: claimDeadline gate prevents draining unclaimed tokens.
+    /// @notice Withdraw remaining ZTS after claim deadline, or if presale failed.
+    ///         V3-L-02: claimDeadline is set in finalize() and immutable.
+    ///         V3-L-03: in failed mode no gate needed (users take ETH, not ZTS).
     function withdrawUnusedTokens() external onlyOwner {
         if (!finalized && !failed) revert Presale_NotFinalizedOrFailed();
 
         if (finalized) {
-            if (claimDeadline == 0) revert Presale_ClaimDeadlineNotSet();
-            if (block.timestamp < claimDeadline) revert Presale_ClaimsStillOpen();
+            if (claimDeadline == 0) revert("Claim deadline not set");
+            if (block.timestamp < claimDeadline) revert("Claim window still active");
         }
 
         uint256 balance = config.token.balanceOf(address(this));
         if (balance == 0) revert Presale_NothingToClaim();
-
         config.token.safeTransfer(owner(), balance);
         emit UnusedTokensWithdrawn(owner(), balance);
     }
 
-    /// @notice Update wallets before finalize/fail (FIX I-03).
     function setLiquidityWallet(address _newWallet) external onlyOwner {
         if (finalized || failed) revert Presale_AlreadyFinalized();
         if (_newWallet == address(0)) revert Presale_ZeroAddress();
@@ -431,7 +430,6 @@ contract ZenthisPresale is Ownable, ReentrancyGuard, Pausable {
         return (contribution[_user] * config.rate) / 1e18;
     }
 
-    /// @notice Uses snapshot _pendingBonus (consistent with claim())
     function getTotalBonus(address _user) external view returns (uint256) {
         uint256 snapshotted = _pendingBonus[_user];
         uint256 remaining = config.bonusPoolSize > totalBonusClaimed
@@ -450,7 +448,6 @@ contract ZenthisPresale is Ownable, ReentrancyGuard, Pausable {
         return tierBonus;
     }
 
-    /// @notice Uses snapshot _pendingBonus — consistent with claim() (FIX N-M-02)
     function getClaimableAmount(address _user) external view returns (uint256) {
         if (claimed[_user] || !finalized || failed) return 0;
         uint256 totalBonus = _pendingBonus[_user];

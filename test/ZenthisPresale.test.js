@@ -500,8 +500,8 @@ describe("ZenthisPresale", function () {
     it("should withdraw unused tokens after finalize", async function () {
       await presale.connect(users[0]).contribute(ethers.ZeroAddress, { value: ethers.parseEther("1") });
       await networkForwardAndFinalize(presale);
-      await presale.setClaimDeadline((await ethers.provider.getBlock("latest")).timestamp + 1000);
-      await ethers.provider.send("evm_increaseTime", [2000]);
+      // claimDeadline is set automatically to endTime + 90 days — advance past it
+      await ethers.provider.send("evm_increaseTime", [91 * 24 * 3600]);
       await ethers.provider.send("evm_mine", []);
       const balBefore = await token.balanceOf(owner.address);
       await presale.withdrawUnusedTokens();
