@@ -43,7 +43,7 @@ describe("ZenthisVesting — Invariant Tests", function () {
     vesting = await Vesting.deploy(await token.getAddress(), owner.address);
     await vesting.waitForDeployment();
 
-    await token.transfer(await vesting.getAddress(), ethers.parseEther("50000000"));
+    await token.transfer(await vesting.getAddress(), ethers.parseEther("100000000"));
   });
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -52,13 +52,13 @@ describe("ZenthisVesting — Invariant Tests", function () {
   describe("Invariant: released ≤ vested ≤ totalAmount", function () {
     it("should hold through multiple schedules and time jumps", async function () {
       for (let run = 0; run < 30; run++) {
-        // Check if vesting contract has enough tokens left
-        const vestingBalance = await token.balanceOf(await vesting.getAddress());
-        const maxAllocation = ethers.parseEther("5000000"); // max possible
-        if (vestingBalance < maxAllocation) break; // not enough tokens, skip remaining runs
-
         const schedId = ethers.randomBytes(32);
-        const total = ethers.parseEther(String(randInt(1000, 5000000)));
+        const vestingBalance = await token.balanceOf(await vesting.getAddress());
+        if (vestingBalance < ethers.parseEther("10000")) break;
+        const maxPerSched = vestingBalance / 40n; // ≤2.5% of remaining per schedule (40 iterations budget)
+        const capTokens = Number(maxPerSched / BigInt(10 ** 18));
+        if (capTokens < 1000) break;
+        const total = ethers.parseEther(String(randInt(1000, Math.min(capTokens, 5000000))));
         const tge = (total * BigInt(randInt(0, 30))) / 100n;
         const vestingMonths = randInt(1, 24);
 

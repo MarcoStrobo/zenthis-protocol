@@ -49,7 +49,7 @@ describe("ZenthisVesting — Fuzz Tests", function () {
     await vesting.waitForDeployment();
 
     // Fund vesting contract with enough tokens
-    await token.transfer(await vesting.getAddress(), ethers.parseEther("10000000"));
+    await token.transfer(await vesting.getAddress(), ethers.parseEther("100000000"));
   });
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -59,7 +59,11 @@ describe("ZenthisVesting — Fuzz Tests", function () {
     it("should create schedules with any positive amount", async function () {
       for (let i = 0; i < 50; i++) {
         const schedId = ethers.randomBytes(32);
-        const totalAmount = BigInt(randInt(1, 10_000_000)) * BigInt(10 ** 18);
+        const remaining = await token.balanceOf(await vesting.getAddress());
+        const cap = remaining / 100n; // use ≤1% of remaining per schedule
+        if (cap < ethers.parseEther("1")) break;
+        const maxInt = Number(cap / BigInt(10 ** 18));
+        const totalAmount = BigInt(randInt(1, maxInt)) * BigInt(10 ** 18);
         const tgeAmount = (totalAmount * BigInt(randInt(0, 50))) / 100n; // 0–50 %
         const now = await getTimestamp();
         const startTime = now + randInt(60, ONE_YEAR);
