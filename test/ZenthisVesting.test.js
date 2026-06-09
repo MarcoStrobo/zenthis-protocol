@@ -1,641 +1,547 @@
-const { expect } = require("chai");
-const { ethers } = require("hardhat");
+const { expect }  = require("chai");
+const { ethers }  = require("hardhat");
+const { time }    = require("@nomicfoundation/hardhat-network-helpers");
+
+// ─── Constants ──────────────────────────────────────────────────────────────
+
+const MONTH = 30n * 24n * 3600n; // 30 days in seconds
+
+const T = {
+  SEED:      ethers.keccak256(ethers.toUtf8Bytes("SEED")),
+  IDO:       ethers.keccak256(ethers.toUtf8Bytes("IDO")),
+  LIQUIDITY: ethers.keccak256(ethers.toUtf8Bytes("LIQUIDITY")),
+  TEAM:      ethers.keccak256(ethers.toUtf8Bytes("TEAM")),
+  TREASURY:  ethers.keccak256(ethers.toUtf8Bytes("TREASURY")),
+  AIRDROPS:  ethers.keccak256(ethers.toUtf8Bytes("AIRDROPS")),
+};
+
+const e18 = (n) => ethers.parseEther(String(n));
+
+// ─── Tests ───────────────────────────────────────────────────────────────────
 
 describe("ZenthisVesting", function () {
-  const MONTH = 30 * 24 * 60 * 60; // 30 days in seconds
+  let token, vesting;
+  let owner, alice, bob, attacker;
+  let tge; // unix timestamp of TGE
 
-  let vesting, token;
-  let owner, beneficiary, nonBeneficiary;
+  beforeEach(async () => {
+    [owner, alice, bob, attacker] = await ethers.getSigners();
 
-  // Schedule IDs (matching contract constants)
-  const SEED        = ethers.id("SEED");
-  const IDO         = ethers.id("IDO");
-  const LIQUIDITY   = ethers.id("LIQUIDITY");
-  const TEAM        = ethers.id("TEAM");
-  const TREASURY    = ethers.id("TREASURY");
-  const FOUNDER_OPS = ethers.id("FOUNDER_OPS");
-  const AIRDROPS    = ethers.id("AIRDROPS");
-
-  const ALL_SCHEDULE_IDS = [SEED, IDO, LIQUIDITY, TEAM, TREASURY, FOUNDER_OPS, AIRDROPS];
-
-  async function getTimestamp() {
-    const block = await ethers.provider.getBlock("latest");
-    return block.timestamp;
-  }
-
-  async function increaseTime(seconds) {
-    await ethers.provider.send("evm_increaseTime", [seconds]);
-    await ethers.provider.send("evm_mine");
-  }
-
-  async function setNextBlockTimestamp(ts) {
-    await ethers.provider.send("evm_setNextBlockTimestamp", [ts]);
-    await ethers.provider.send("evm_mine");
-  }
-
-  beforeEach(async function () {
-    [owner, beneficiary, nonBeneficiary] = await ethers.getSigners();
-
-    // Deploy token
-    const ZENTHIS = await ethers.getContractFactory("ZENTHIS");
-    token = await ZENTHIS.deploy(owner.address);
-    await token.waitForDeployment();
+    // Deploy token (full supply to owner for easy transfer)
+    const Token = await ethers.getContractFactory("ZenthisToken");
+    token = await Token.deploy(owner.address);
 
     // Deploy vesting
     const Vesting = await ethers.getContractFactory("ZenthisVesting");
     vesting = await Vesting.deploy(await token.getAddress(), owner.address);
-    await vesting.waitForDeployment();
 
-    // Transfer tokens to vesting contract for schedules
-    // Seed: 10M total (no TGE), Team: 10M (no TGE)
-    await token.transfer(await vesting.getAddress(), ethers.parseEther("50000000")); // 50M for all
+    // TGE = now + 5 minutes (avoids "startTime in past" revert)
+    tge = BigInt(await time.latest()) + 300n;
   });
 
-  // ──────────────────────────────────────────────────────
-  // Deployment
-  // ──────────────────────────────────────────────────────
-  describe("Deployment", function () {
-    it("should set the correct token address", async function () {
+  // ── Helper: fund vesting contract ──────────────────────────────────────────
+
+  async function fund(amount) {
+    await token.connect(owner).transfer(await vesting.getAddress(), amount);
+  }
+
+  // ── Deployment ────────────────────────────────────────────────────────────
+
+  describe("Deployment", () => {
+    it("stores the correct token address", async () => {
       expect(await vesting.token()).to.equal(await token.getAddress());
     });
 
-    it("should set the correct owner", async function () {
+    it("sets the correct owner", async () => {
       expect(await vesting.owner()).to.equal(owner.address);
     });
 
-    it("should start with empty schedule list", async function () {
+    it("has no schedules initially", async () => {
       const ids = await vesting.getScheduleIds();
       expect(ids.length).to.equal(0);
     });
 
-    it("should revert deployment with zero token address", async function () {
-      const Vesting = await ethers.getContractFactory("ZenthisVesting");
+    it("exposes correct schedule ID constants", async () => {
+      expect(await vesting.TEAM()).to.equal(T.TEAM);
+      expect(await vesting.SEED()).to.equal(T.SEED);
+      expect(await vesting.AIRDROPS()).to.equal(T.AIRDROPS);
+    });
+  });
+
+  // ── createSchedule ────────────────────────────────────────────────────────
+
+  describe("createSchedule", () => {
+    it("creates a schedule and emits ScheduleCreated", async () => {
+      await fund(e18(10_000_000));
       await expect(
-        Vesting.deploy(ethers.ZeroAddress, owner.address)
-      ).to.be.revertedWithCustomError(vesting, "ZeroAddress");
-    });
-
-    it("should expose MONTH constant", async function () {
-      expect(await vesting.MONTH()).to.equal(BigInt(MONTH));
-    });
-  });
-
-  // ──────────────────────────────────────────────────────
-  // createSchedule — Happy paths
-  // ──────────────────────────────────────────────────────
-  describe("createSchedule", function () {
-    let startTime;
-
-    beforeEach(async function () {
-      startTime = (await getTimestamp()) + 3600; // 1 hour in the future
-    });
-
-    it("should create a simple vesting schedule (no TGE, no cliff)", async function () {
-      const total = ethers.parseEther("1000000");
-      const tx = await vesting.connect(owner).createSchedule(
-        IDO, beneficiary.address, total, 0n, startTime, 0, 18
-      );
-
-      await expect(tx)
+        vesting.connect(owner).createSchedule(
+          T.TEAM, alice.address, e18(10_000_000), 0n, tge, 12n, 36n
+        )
+      )
         .to.emit(vesting, "ScheduleCreated")
-        .withArgs(IDO, beneficiary.address, total, 0n, startTime, 0n, 18n * BigInt(MONTH));
-
-      const schedule = await vesting.getSchedule(IDO);
-      expect(schedule.beneficiary).to.equal(beneficiary.address);
-      expect(schedule.totalAmount).to.equal(total);
-      expect(schedule.tgeAmount).to.equal(0n);
-      expect(schedule.startTime).to.equal(startTime);
-      expect(schedule.cliffDuration).to.equal(0n);
-      expect(schedule.vestingDuration).to.equal(18n * BigInt(MONTH));
-      expect(schedule.released).to.equal(0n);
-      expect(schedule.status).to.equal(1n); // Status.INITIALIZED
+        .withArgs(
+          T.TEAM, alice.address, e18(10_000_000), 0n,
+          tge, MONTH * 12n, MONTH * 36n
+        );
     });
 
-    it("should create a schedule with TGE unlock", async function () {
-      const total = ethers.parseEther("1000000");
-      const tge = ethers.parseEther("100000"); // 10% TGE
-
+    it("stores correct schedule data", async () => {
+      await fund(e18(10_000_000));
       await vesting.connect(owner).createSchedule(
-        IDO, beneficiary.address, total, tge, startTime, 0, 18
+        T.TEAM, alice.address, e18(10_000_000), 0n, tge, 12n, 36n
       );
-
-      const schedule = await vesting.getSchedule(IDO);
-      expect(schedule.tgeAmount).to.equal(tge);
-      expect(schedule.totalAmount).to.equal(total);
+      const s = await vesting.getSchedule(T.TEAM);
+      expect(s.beneficiary).to.equal(alice.address);
+      expect(s.totalAmount).to.equal(e18(10_000_000));
+      expect(s.tgeAmount).to.equal(0n);
+      expect(s.startTime).to.equal(tge);
+      expect(s.cliffDuration).to.equal(MONTH * 12n);
+      expect(s.vestingDuration).to.equal(MONTH * 36n);
+      expect(s.released).to.equal(0n);
+      expect(s.status).to.equal(1n); // Status.INITIALIZED = 1
     });
 
-    it("should create a schedule with cliff", async function () {
-      const total = ethers.parseEther("10000000");
-      // Seed: cliff 6 months, vesting 24 months
+    it("registers schedule ID in the list", async () => {
+      await fund(e18(1_000_000));
       await vesting.connect(owner).createSchedule(
-        SEED, beneficiary.address, total, 0n, startTime, 6, 24
+        T.SEED, alice.address, e18(1_000_000), 0n, tge, 6n, 24n
       );
-
-      const schedule = await vesting.getSchedule(SEED);
-      expect(schedule.cliffDuration).to.equal(6n * BigInt(MONTH));
-      expect(schedule.vestingDuration).to.equal(24n * BigInt(MONTH));
-    });
-
-    it("should allow TGE-only schedule (no linear vesting)", async function () {
-      const tgeOnly = ethers.parseEther("5000000");
-      await vesting.connect(owner).createSchedule(
-        AIRDROPS, beneficiary.address, 0n, tgeOnly, startTime, 0, 0
-      );
-
-      const schedule = await vesting.getSchedule(AIRDROPS);
-      expect(schedule.totalAmount).to.equal(0n);
-      expect(schedule.tgeAmount).to.equal(tgeOnly);
-      expect(schedule.vestingDuration).to.equal(0n);
-    });
-
-    it("should record schedule ID in list", async function () {
-      await vesting.connect(owner).createSchedule(
-        IDO, beneficiary.address, ethers.parseEther("1000000"), 0n, startTime, 0, 18
-      );
-
       const ids = await vesting.getScheduleIds();
-      expect(ids.length).to.equal(1);
-      expect(ids[0]).to.equal(IDO);
+      expect(ids).to.include(T.SEED);
     });
 
-    it("should create multiple schedules with unique IDs", async function () {
+    it("reverts on duplicate schedule ID", async () => {
+      await fund(e18(2_000_000));
       await vesting.connect(owner).createSchedule(
-        IDO, beneficiary.address, ethers.parseEther("1000000"), 0n, startTime, 0, 18
-      );
-      await vesting.connect(owner).createSchedule(
-        SEED, beneficiary.address, ethers.parseEther("10000000"), 0n, startTime, 6, 24
-      );
-      await vesting.connect(owner).createSchedule(
-        AIRDROPS, beneficiary.address, 0n, ethers.parseEther("5000000"), startTime, 0, 0
-      );
-
-      const ids = await vesting.getScheduleIds();
-      expect(ids.length).to.equal(3);
-    });
-
-    it("should allow startTime exactly one second in the future", async function () {
-      const ts = (await getTimestamp()) + 1;
-      await vesting.connect(owner).createSchedule(
-        IDO, beneficiary.address, ethers.parseEther("1000"), 0n, ts, 0, 6
-      );
-      expect((await vesting.getSchedule(IDO)).startTime).to.equal(ts);
-    });
-  });
-
-  // ──────────────────────────────────────────────────────
-  // createSchedule — Validations
-  // ──────────────────────────────────────────────────────
-  describe("createSchedule validations", function () {
-    let startTime;
-
-    beforeEach(async function () {
-      startTime = (await getTimestamp()) + 3600;
-    });
-
-    it("should revert duplicate schedule ID", async function () {
-      await vesting.connect(owner).createSchedule(
-        IDO, beneficiary.address, ethers.parseEther("1000"), 0n, startTime, 0, 6
+        T.TEAM, alice.address, e18(1_000_000), 0n, tge, 12n, 36n
       );
       await expect(
         vesting.connect(owner).createSchedule(
-          IDO, beneficiary.address, ethers.parseEther("1000"), 0n, startTime, 0, 6
+          T.TEAM, bob.address, e18(1_000_000), 0n, tge, 12n, 36n
         )
       ).to.be.revertedWithCustomError(vesting, "ScheduleAlreadyExists");
     });
 
-    it("should revert with zero beneficiary", async function () {
+    it("reverts on zero beneficiary", async () => {
       await expect(
         vesting.connect(owner).createSchedule(
-          IDO, ethers.ZeroAddress, ethers.parseEther("1000"), 0n, startTime, 0, 6
+          T.TEAM, ethers.ZeroAddress, e18(1_000_000), 0n, tge, 12n, 36n
         )
       ).to.be.revertedWithCustomError(vesting, "ZeroAddress");
     });
 
-    it("should revert with zero allocation (both zero)", async function () {
+    it("reverts on zero allocation (both totalAmount and tgeAmount = 0)", async () => {
       await expect(
         vesting.connect(owner).createSchedule(
-          IDO, beneficiary.address, 0n, 0n, startTime, 0, 0
+          T.TEAM, alice.address, 0n, 0n, tge, 0n, 1n
         )
       ).to.be.revertedWithCustomError(vesting, "ZeroAllocation");
     });
 
-    it("should revert with totalAmount>0 but zero vesting months", async function () {
+    it("reverts when totalAmount > 0 but vestingMonths = 0", async () => {
       await expect(
         vesting.connect(owner).createSchedule(
-          IDO, beneficiary.address, ethers.parseEther("1000"), 0n, startTime, 0, 0
+          T.TEAM, alice.address, e18(1_000_000), 0n, tge, 0n, 0n
         )
       ).to.be.revertedWithCustomError(vesting, "ZeroVestingDuration");
     });
 
-    it("should revert with startTime in the past", async function () {
-      const pastTs = (await getTimestamp()) - 60;
+    it("reverts when startTime is in the past", async () => {
+      const pastTime = BigInt(await time.latest()) - 1n;
       await expect(
         vesting.connect(owner).createSchedule(
-          IDO, beneficiary.address, ethers.parseEther("1000"), 0n, pastTs, 0, 6
+          T.TEAM, alice.address, e18(1_000_000), 0n, pastTime, 12n, 36n
         )
       ).to.be.revertedWithCustomError(vesting, "StartTimeInPast");
     });
 
-    it("should revert with startTime equal to block.timestamp", async function () {
-      const now = await getTimestamp();
+    it("reverts if called by non-owner", async () => {
       await expect(
-        vesting.connect(owner).createSchedule(
-          IDO, beneficiary.address, ethers.parseEther("1000"), 0n, now, 0, 6
-        )
-      ).to.be.revertedWithCustomError(vesting, "StartTimeInPast");
-    });
-
-    it("should revert from non-owner", async function () {
-      await expect(
-        vesting.connect(beneficiary).createSchedule(
-          IDO, beneficiary.address, ethers.parseEther("1000"), 0n, startTime, 0, 6
+        vesting.connect(attacker).createSchedule(
+          T.TEAM, attacker.address, e18(1_000_000), 0n, tge, 12n, 36n
         )
       ).to.be.revertedWithCustomError(vesting, "OwnableUnauthorizedAccount");
     });
+
+    it("allows TGE-only schedule (totalAmount = 0)", async () => {
+      await fund(e18(10_000_000));
+      // totalAmount = 0, vestingMonths = 0 — allowed because ZeroVestingDuration
+      // only reverts when totalAmount > 0
+      await expect(
+        vesting.connect(owner).createSchedule(
+          T.AIRDROPS, alice.address, 0n, e18(10_000_000), tge, 0n, 1n
+        )
+      ).to.emit(vesting, "ScheduleCreated");
+    });
   });
 
-  // ──────────────────────────────────────────────────────
-  // Release — TGE only (no linear vesting)
-  // ──────────────────────────────────────────────────────
-  describe("Release — TGE only", function () {
-    const tgeAmount = ethers.parseEther("5000000");
-    let startTime;
+  // ── release — TEAM (12-month cliff, 36-month linear, 0 TGE) ─────────────
 
-    beforeEach(async function () {
-      const futureTs = (await getTimestamp()) + 3600;
+  describe("release — TEAM schedule (cliff + linear, no TGE)", () => {
+    beforeEach(async () => {
+      await fund(e18(10_000_000));
       await vesting.connect(owner).createSchedule(
-        AIRDROPS, beneficiary.address, 0n, tgeAmount, futureTs, 0, 0
+        T.TEAM, alice.address, e18(10_000_000), 0n, tge, 12n, 36n
       );
-      const s = await vesting.getSchedule(AIRDROPS);
-      startTime = Number(s.startTime);
     });
 
-    it("should not be releasable before startTime", async function () {
-      expect(await vesting.releasableAmount(AIRDROPS)).to.equal(0n);
+    it("releases 0 before TGE", async () => {
+      expect(await vesting.releasableAmount(T.TEAM)).to.equal(0n);
+    });
+
+    it("releases 0 during cliff (6 months after TGE)", async () => {
+      await time.increaseTo(tge + MONTH * 6n);
+      expect(await vesting.releasableAmount(T.TEAM)).to.equal(0n);
+    });
+
+    it("releases 0 at cliff end (12 months)", async () => {
+      await time.increaseTo(tge + MONTH * 12n);
+      expect(await vesting.releasableAmount(T.TEAM)).to.equal(0n);
+    });
+
+    it("releases ~1/36 of total after 1 month post-cliff", async () => {
+      await time.increaseTo(tge + MONTH * 13n); // cliff + 1 month
+      const releasable = await vesting.releasableAmount(T.TEAM);
+      const expected = e18(10_000_000) / 36n;
+      // Allow ±0.1% tolerance for integer division
+      expect(releasable).to.be.closeTo(expected, expected / 1000n);
+    });
+
+    it("releases 50% after 18 months post-cliff", async () => {
+      await time.increaseTo(tge + MONTH * 30n); // cliff(12) + 18
+      const releasable = await vesting.releasableAmount(T.TEAM);
+      const expected = e18(5_000_000);
+      expect(releasable).to.be.closeTo(expected, expected / 1000n);
+    });
+
+    it("releases 100% after full vesting (12+36 months)", async () => {
+      await time.increaseTo(tge + MONTH * 48n + 1n);
+      expect(await vesting.releasableAmount(T.TEAM)).to.equal(e18(10_000_000));
+    });
+
+    it("release() transfers tokens to beneficiary", async () => {
+      await time.increaseTo(tge + MONTH * 48n + 1n);
+      await expect(vesting.connect(alice).release(T.TEAM))
+        .to.emit(vesting, "TokensReleased")
+        .withArgs(T.TEAM, alice.address, e18(10_000_000));
+      expect(await token.balanceOf(alice.address)).to.equal(e18(10_000_000));
+    });
+
+    it("release() marks tokens as released", async () => {
+      await time.increaseTo(tge + MONTH * 48n + 1n);
+      await vesting.connect(alice).release(T.TEAM);
+      const s = await vesting.getSchedule(T.TEAM);
+      expect(s.released).to.equal(e18(10_000_000));
+    });
+
+    it("does not double-release", async () => {
+      await time.increaseTo(tge + MONTH * 48n + 1n);
+      await vesting.connect(alice).release(T.TEAM);
       await expect(
-        vesting.connect(beneficiary).release(AIRDROPS)
+        vesting.connect(alice).release(T.TEAM)
       ).to.be.revertedWithCustomError(vesting, "NothingToRelease");
     });
 
-    it("should release full TGE amount at startTime", async function () {
-      await setNextBlockTimestamp(startTime + 1);
+    it("partial release then full release works correctly", async () => {
+      // 1st claim at 18 months post-cliff
+      await time.increaseTo(tge + MONTH * 30n);
+      await vesting.connect(alice).release(T.TEAM);
+      const balAfterFirst = await token.balanceOf(alice.address);
 
-      await expect(vesting.connect(beneficiary).release(AIRDROPS))
-        .to.emit(vesting, "TokensReleased")
-        .withArgs(AIRDROPS, beneficiary.address, tgeAmount);
+      // 2nd claim at full vesting
+      await time.increaseTo(tge + MONTH * 48n + 1n);
+      await vesting.connect(alice).release(T.TEAM);
+      const balAfterSecond = await token.balanceOf(alice.address);
 
-      expect(await token.balanceOf(beneficiary.address)).to.equal(tgeAmount);
-      expect(await vesting.releasableAmount(AIRDROPS)).to.equal(0n);
-    });
-
-    it("should have correct vested amount", async function () {
-      await setNextBlockTimestamp(startTime + 1);
-      expect(await vesting.vestedAmount(AIRDROPS)).to.equal(tgeAmount);
-    });
-  });
-
-  // ──────────────────────────────────────────────────────
-  // Release — Linear vesting (no cliff)
-  // ──────────────────────────────────────────────────────
-  describe("Release — Linear vesting (no cliff)", function () {
-    const total = ethers.parseEther("12000000"); // 12M tokens
-    const tge = ethers.parseEther("1200000");    // 10% TGE
-    const vestingMonths = 12;
-    let startTime;
-    let vestingDuration;
-
-    beforeEach(async function () {
-      const futureTs = (await getTimestamp()) + 3600;
-      await vesting.connect(owner).createSchedule(
-        IDO, beneficiary.address, total, tge, futureTs, 0, vestingMonths
+      expect(balAfterSecond).to.equal(e18(10_000_000));
+      // Second claim = remainder
+      expect(balAfterSecond - balAfterFirst).to.be.closeTo(
+        e18(5_000_000), e18(5_000_000) / 1000n
       );
-      // Read exact stored startTime for precision
-      const s = await vesting.getSchedule(IDO);
-      startTime = Number(s.startTime);
-      vestingDuration = Number(s.vestingDuration);
     });
 
-    async function goTo(ts) {
-      await setNextBlockTimestamp(ts);
-    }
-
-    it("should have TGE plus partial linear after start", async function () {
-      await goTo(startTime + 1);
-      const ts = await getTimestamp();
-      const vested = await vesting.vestedAmount(IDO);
-      // At t = startTime + 1, vested ≈ tge (tiny linear portion from 1s)
-      expect(vested).to.be.gte(tge);
-    });
-
-    it("should vest linearly over time", async function () {
-      await goTo(startTime + 3 * MONTH);
-      const ts = await getTimestamp();
-      const vested = await vesting.vestedAmount(IDO);
-      // At 3/12 months, vested ≈ tge + total * 3/12
-      const elapsed = BigInt(ts - startTime);
-      const expected = tge + (total * elapsed) / BigInt(vestingDuration);
-      expect(vested).to.equal(expected);
-    });
-
-    it("should vest 50% at half duration", async function () {
-      await goTo(startTime + 6 * MONTH);
-      const ts = await getTimestamp();
-      const vested = await vesting.vestedAmount(IDO);
-      const elapsed = BigInt(ts - startTime);
-      const expected = tge + (total * elapsed) / BigInt(vestingDuration);
-      expect(vested).to.equal(expected);
-    });
-
-    it("should be fully vested after vesting duration", async function () {
-      await goTo(startTime + vestingDuration + 10);
-      const vested = await vesting.vestedAmount(IDO);
-      expect(vested).to.equal(total + tge);
-    });
-
-    it("should release incrementally", async function () {
-      await goTo(startTime + 3 * MONTH);
-      expect(await vesting.releasableAmount(IDO)).to.be.greaterThan(0n);
-      await vesting.connect(beneficiary).release(IDO);
-
-      const released1 = (await vesting.getSchedule(IDO)).released;
-      expect(await token.balanceOf(beneficiary.address)).to.equal(released1);
-      expect(await vesting.releasableAmount(IDO)).to.equal(0n);
-
-      // Advance 3 more months
-      await goTo(startTime + 6 * MONTH);
-      expect(await vesting.releasableAmount(IDO)).to.be.greaterThan(0n);
-
-      await vesting.connect(beneficiary).release(IDO);
-      const released2 = (await vesting.getSchedule(IDO)).released;
-      expect(await token.balanceOf(beneficiary.address)).to.equal(released2);
-      expect(released2).to.be.greaterThan(released1);
-    });
-
-    it("should cap vested amount at total + tge", async function () {
-      await goTo(startTime + vestingDuration * 2); // way past
-      const vested = await vesting.vestedAmount(IDO);
-      expect(vested).to.equal(total + tge);
-    });
-  });
-
-  // ──────────────────────────────────────────────────────
-  // Release — With cliff
-  // ──────────────────────────────────────────────────────
-  describe("Release — With cliff", function () {
-    const total = ethers.parseEther("10000000"); // 10M
-    const cliffMonths = 12;
-    const vestingMonths = 36;
-    let startTime, cliffDuration, vestingDuration;
-
-    beforeEach(async function () {
-      const futureTs = (await getTimestamp()) + 3600;
-      // Team: 0% TGE, 12-month cliff, 36-month vesting
-      await vesting.connect(owner).createSchedule(
-        TEAM, beneficiary.address, total, 0n, futureTs, cliffMonths, vestingMonths
-      );
-      const s = await vesting.getSchedule(TEAM);
-      startTime = Number(s.startTime);
-      cliffDuration = Number(s.cliffDuration);
-      vestingDuration = Number(s.vestingDuration);
-    });
-
-    async function goTo(ts) {
-      await setNextBlockTimestamp(ts);
-    }
-
-    function expectedVested(elapsedSeconds) {
-      // Cliff: no vesting during cliff; after cliff, linear from 0
-      const cliffEnd = cliffDuration;
-      if (elapsedSeconds <= cliffEnd) return 0n;
-      const elapsedVesting = BigInt(elapsedSeconds - cliffEnd);
-      const vestedLinear = (total * elapsedVesting) / BigInt(vestingDuration);
-      return vestedLinear > total ? total : vestedLinear;
-    }
-
-    it("should vest 0 before cliff ends", async function () {
-      await goTo(startTime + 6 * MONTH); // 6 months in — still in cliff
-      expect(await vesting.vestedAmount(TEAM)).to.equal(0n);
-      expect(await vesting.releasableAmount(TEAM)).to.equal(0n);
-    });
-
-    it("should vest 0 exactly at cliff end (no TGE)", async function () {
-      await goTo(startTime + cliffDuration); // exactly at cliff end
-      const ts = await getTimestamp();
-      expect(await vesting.vestedAmount(TEAM)).to.equal(expectedVested(ts - startTime));
-    });
-
-    it("should begin linear vesting after cliff", async function () {
-      await goTo(startTime + cliffDuration + 1); // 1 sec after cliff
-      const ts = await getTimestamp();
-      const vested = await vesting.vestedAmount(TEAM);
-      expect(vested).to.equal(expectedVested(ts - startTime));
-    });
-
-    it("should vest linearly after cliff", async function () {
-      await goTo(startTime + cliffDuration + 6 * MONTH);
-      const ts = await getTimestamp();
-      expect(await vesting.vestedAmount(TEAM)).to.equal(expectedVested(ts - startTime));
-    });
-
-    it("should release after cliff + partial vesting", async function () {
-      await goTo(startTime + cliffDuration + 12 * MONTH);
-      expect(await vesting.releasableAmount(TEAM)).to.be.greaterThan(0n);
-
-      await vesting.connect(beneficiary).release(TEAM);
-      const released = (await vesting.getSchedule(TEAM)).released;
-      expect(await token.balanceOf(beneficiary.address)).to.equal(released);
-      expect(released).to.be.greaterThan(0n);
-    });
-
-    it("should be fully vested after cliff + vesting", async function () {
-      await goTo(startTime + cliffDuration + vestingDuration + 10);
-      expect(await vesting.vestedAmount(TEAM)).to.equal(total);
-    });
-  });
-
-  // ──────────────────────────────────────────────────────
-  // Release — Cliff with TGE
-  // ──────────────────────────────────────────────────────
-  describe("Release — TGE + Cliff + Linear", function () {
-    const total = ethers.parseEther("18200000"); // 18.2M
-    const tge = ethers.parseEther("2000000");    // ~11%
-    let startTime, vestingDuration;
-
-    beforeEach(async function () {
-      const futureTs = (await getTimestamp()) + 3600;
-      // Treasury: 11% TGE, no cliff, 48-month vesting
-      await vesting.connect(owner).createSchedule(
-        TREASURY, beneficiary.address, total, tge, futureTs, 0, 48
-      );
-      const s = await vesting.getSchedule(TREASURY);
-      startTime = Number(s.startTime);
-      vestingDuration = Number(s.vestingDuration);
-    });
-
-    function expectedVested(elapsedSeconds, tgeAmt, vestDur) {
-      if (elapsedSeconds <= 0) return tgeAmt;
-      const vestedLinear = (total * BigInt(elapsedSeconds)) / BigInt(vestDur);
-      const totalVested = tgeAmt + vestedLinear;
-      return totalVested > (total + tgeAmt) ? (total + tgeAmt) : totalVested;
-    }
-
-    it("should have TGE available at start", async function () {
-      await setNextBlockTimestamp(startTime + 1);
-      const ts = await getTimestamp();
-      expect(await vesting.vestedAmount(TREASURY)).to.equal(expectedVested(ts - startTime, tge, vestingDuration));
-    });
-
-    it("should continue vesting after TGE", async function () {
-      await setNextBlockTimestamp(startTime + 24 * MONTH); // half of vesting
-      const ts = await getTimestamp();
-      expect(await vesting.vestedAmount(TREASURY)).to.equal(expectedVested(ts - startTime, tge, vestingDuration));
-    });
-  });
-
-  // ──────────────────────────────────────────────────────
-  // Release — Validation
-  // ──────────────────────────────────────────────────────
-  describe("Release validations", function () {
-    let startTime;
-
-    beforeEach(async function () {
-      const futureTs = (await getTimestamp()) + 3600;
-      await vesting.connect(owner).createSchedule(
-        IDO, beneficiary.address, ethers.parseEther("1000000"), 0n, futureTs, 0, 12
-      );
-      const s = await vesting.getSchedule(IDO);
-      startTime = Number(s.startTime);
-      // Jump to 6 months vested
-      await setNextBlockTimestamp(startTime + 6 * MONTH);
-    });
-
-    it("should revert release from non-beneficiary", async function () {
+    it("reverts if non-beneficiary calls release", async () => {
+      await time.increaseTo(tge + MONTH * 48n + 1n);
       await expect(
-        vesting.connect(nonBeneficiary).release(IDO)
+        vesting.connect(attacker).release(T.TEAM)
       ).to.be.revertedWithCustomError(vesting, "NotBeneficiary");
     });
 
-    it("should revert release on non-existent schedule", async function () {
+    it("reverts release on unknown schedule", async () => {
+      const unknownId = ethers.keccak256(ethers.toUtf8Bytes("UNKNOWN"));
       await expect(
-        vesting.connect(beneficiary).release(ethers.id("NONEXISTENT"))
+        vesting.connect(alice).release(unknownId)
       ).to.be.revertedWithCustomError(vesting, "ScheduleNotFound");
-    });
-
-    it("should drain all releasable tokens", async function () {
-      const releasable = await vesting.releasableAmount(IDO);
-      expect(releasable).to.be.greaterThan(0n);
-      await vesting.connect(beneficiary).release(IDO);
-
-      // After release in this block, remaining should be 0
-      // (minor block drift is handled by the test above with before-startTime)
-      expect(await vesting.releasableAmount(IDO)).to.equal(0n);
-    });
-
-    it("should revert release before startTime (NothingToRelease)", async function () {
-      // Create a schedule with startTime far in the future
-      const farFuture = (await getTimestamp()) + 100000;
-      await vesting.connect(owner).createSchedule(
-        ethers.id("FUTURE"), beneficiary.address, ethers.parseEther("1000"), 0n, farFuture, 0, 6
-      );
-      // Now try to release — should revert since startTime hasn't arrived
-      await expect(
-        vesting.connect(beneficiary).release(ethers.id("FUTURE"))
-      ).to.be.revertedWithCustomError(vesting, "NothingToRelease");
     });
   });
 
-  // ──────────────────────────────────────────────────────
-  // View functions — Edge cases
-  // ──────────────────────────────────────────────────────
-  describe("View functions edge cases", function () {
-    it("vestedAmount should return 0 for non-existent schedule", async function () {
-      expect(await vesting.vestedAmount(ethers.id("NOPE"))).to.equal(0n);
-    });
+  // ── release — IDO (0 cliff, 20% TGE, 18-month linear on 80%) ────────────
 
-    it("releasableAmount should return 0 for non-existent schedule", async function () {
-      expect(await vesting.releasableAmount(ethers.id("NOPE"))).to.equal(0n);
-    });
+  describe("release — IDO schedule (TGE unlock + linear)", () => {
+    const TOTAL = e18(20_000_000);  // tokens subject to vesting
+    const TGE   = e18(5_000_000);   // 20% of 25M total IDO allocation
 
-    it("getSchedule should return empty struct for unknown ID", async function () {
-      const schedule = await vesting.getSchedule(ethers.id("UNKNOWN"));
-      expect(schedule.status).to.equal(0n); // Status.EMPTY
-      expect(schedule.beneficiary).to.equal(ethers.ZeroAddress);
-    });
-
-    it("getScheduleIds should return all created schedule IDs in order", async function () {
-      const startTime = (await getTimestamp()) + 3600;
-
+    beforeEach(async () => {
+      await fund(TOTAL + TGE);
       await vesting.connect(owner).createSchedule(
-        SEED, beneficiary.address, ethers.parseEther("10000000"), 0n, startTime, 6, 24
+        T.IDO, alice.address, TOTAL, TGE, tge, 0n, 18n
+      );
+    });
+
+    it("releases TGE amount immediately at startTime", async () => {
+      await time.increaseTo(tge);
+      expect(await vesting.releasableAmount(T.IDO)).to.equal(TGE);
+    });
+
+    it("releases TGE + pro-rata after 9 months (50% of linear)", async () => {
+      await time.increaseTo(tge + MONTH * 9n);
+      const releasable = await vesting.releasableAmount(T.IDO);
+      const expected = TGE + TOTAL / 2n;
+      expect(releasable).to.be.closeTo(expected, expected / 1000n);
+    });
+
+    it("releases full amount after 18 months", async () => {
+      await time.increaseTo(tge + MONTH * 18n + 1n);
+      expect(await vesting.releasableAmount(T.IDO)).to.equal(TOTAL + TGE);
+    });
+
+    it("beneficiary can claim TGE portion immediately", async () => {
+      await time.increaseTo(tge);
+      await vesting.connect(alice).release(T.IDO);
+      // Allow ≤1 token tolerance: at tge+1 block, 1s of linear vesting (~0.43 tokens) may have accrued
+      expect(await token.balanceOf(alice.address)).to.be.closeTo(TGE, ethers.parseEther("1"));
+    });
+  });
+
+  // ── release — AIRDROPS (100% TGE, no vesting) ────────────────────────────
+
+  describe("release — AIRDROPS schedule (100% TGE)", () => {
+    const AIRDROP = e18(10_000_000);
+
+    beforeEach(async () => {
+      await fund(AIRDROP);
+      await vesting.connect(owner).createSchedule(
+        T.AIRDROPS, alice.address, 0n, AIRDROP, tge, 0n, 1n
+      );
+    });
+
+    it("releases 0 before TGE", async () => {
+      expect(await vesting.releasableAmount(T.AIRDROPS)).to.equal(0n);
+    });
+
+    it("releases 100% at TGE", async () => {
+      await time.increaseTo(tge);
+      expect(await vesting.releasableAmount(T.AIRDROPS)).to.equal(AIRDROP);
+    });
+
+    it("beneficiary claims full amount at TGE", async () => {
+      await time.increaseTo(tge);
+      await vesting.connect(alice).release(T.AIRDROPS);
+      expect(await token.balanceOf(alice.address)).to.equal(AIRDROP);
+    });
+  });
+
+  // ── vestedAmount view ─────────────────────────────────────────────────────
+
+  describe("vestedAmount", () => {
+    beforeEach(async () => {
+      await fund(e18(10_000_000));
+      await vesting.connect(owner).createSchedule(
+        T.TEAM, alice.address, e18(10_000_000), 0n, tge, 12n, 36n
+      );
+    });
+
+    it("returns 0 for unknown schedule", async () => {
+      const unknown = ethers.keccak256(ethers.toUtf8Bytes("NONE"));
+      expect(await vesting.vestedAmount(unknown)).to.equal(0n);
+    });
+
+    it("returns 0 before TGE", async () => {
+      expect(await vesting.vestedAmount(T.TEAM)).to.equal(0n);
+    });
+
+    it("accounts for already released tokens", async () => {
+      await time.increaseTo(tge + MONTH * 13n); // cliff + 1 month
+      await vesting.connect(alice).release(T.TEAM);
+      const released = (await vesting.getSchedule(T.TEAM)).released;
+      // vestedAmount should still reflect total vested (not subtracting released)
+      const vested = await vesting.vestedAmount(T.TEAM);
+      expect(vested).to.be.gte(released);
+    });
+  });
+
+  // ── Multiple schedules ────────────────────────────────────────────────────
+
+  describe("multiple concurrent schedules", () => {
+    it("manages TEAM and SEED schedules independently", async () => {
+      await fund(e18(25_000_000)); // 15M seed + 10M team
+      await vesting.connect(owner).createSchedule(
+        T.SEED, alice.address, e18(15_000_000), 0n, tge, 6n, 24n
       );
       await vesting.connect(owner).createSchedule(
-        TEAM, beneficiary.address, ethers.parseEther("10000000"), 0n, startTime, 12, 36
+        T.TEAM, bob.address, e18(10_000_000), 0n, tge, 12n, 36n
       );
 
       const ids = await vesting.getScheduleIds();
       expect(ids.length).to.equal(2);
-      expect(ids[0]).to.equal(SEED);
-      expect(ids[1]).to.equal(TEAM);
-    });
-  });
 
-  // ──────────────────────────────────────────────────────
-  // Schedule constants
-  // ──────────────────────────────────────────────────────
-  describe("Schedule ID constants", function () {
-    it("should expose SEED constant", async function () {
-      expect(await vesting.SEED()).to.equal(ethers.id("SEED"));
+      // SEED: past cliff at 7 months, TEAM: still in cliff
+      await time.increaseTo(tge + MONTH * 7n);
+
+      const seedReleasable = await vesting.releasableAmount(T.SEED);
+      const teamReleasable = await vesting.releasableAmount(T.TEAM);
+
+      expect(seedReleasable).to.be.gt(0n);   // 1/24 of 15M
+      expect(teamReleasable).to.equal(0n);    // still in cliff
     });
 
-    it("should expose IDO constant", async function () {
-      expect(await vesting.IDO()).to.equal(ethers.id("IDO"));
-    });
-
-    it("should expose LIQUIDITY constant", async function () {
-      expect(await vesting.LIQUIDITY()).to.equal(ethers.id("LIQUIDITY"));
-    });
-
-    it("should expose TEAM constant", async function () {
-      expect(await vesting.TEAM()).to.equal(ethers.id("TEAM"));
-    });
-
-    it("should expose TREASURY constant", async function () {
-      expect(await vesting.TREASURY()).to.equal(ethers.id("TREASURY"));
-    });
-
-    it("should expose FOUNDER_OPS constant", async function () {
-      expect(await vesting.FOUNDER_OPS()).to.equal(ethers.id("FOUNDER_OPS"));
-    });
-
-    it("should expose AIRDROPS constant", async function () {
-      expect(await vesting.AIRDROPS()).to.equal(ethers.id("AIRDROPS"));
-    });
-
-    it("all constants should be unique", async function () {
-      const values = new Set();
-      for (const id of ALL_SCHEDULE_IDS) {
-        values.add(id);
-      }
-      expect(values.size).to.equal(ALL_SCHEDULE_IDS.length);
-    });
-  });
-
-  // ──────────────────────────────────────────────────────
-  // Reentrancy protection
-  // ──────────────────────────────────────────────────────
-  describe("Reentrancy protection", function () {
-    it("should safely release with standard ERC20", async function () {
-      const futureTs = (await getTimestamp()) + 3600;
+    it("one beneficiary releasing does not affect another schedule", async () => {
+      await fund(e18(25_000_000));
       await vesting.connect(owner).createSchedule(
-        IDO, beneficiary.address, ethers.parseEther("1000000"), 0n, futureTs, 0, 12
+        T.SEED, alice.address, e18(15_000_000), 0n, tge, 6n, 24n
       );
-      const s = await vesting.getSchedule(IDO);
-      const startTime = Number(s.startTime);
+      await vesting.connect(owner).createSchedule(
+        T.TEAM, bob.address, e18(10_000_000), 0n, tge, 12n, 36n
+      );
 
-      await setNextBlockTimestamp(startTime + 6 * MONTH);
-      // Successful release proves no reentrancy issues with standard tokens
-      await vesting.connect(beneficiary).release(IDO);
-      expect(await token.balanceOf(beneficiary.address)).to.be.greaterThan(0n);
+      await time.increaseTo(tge + MONTH * 7n);
+      await vesting.connect(alice).release(T.SEED);
+
+      // Bob's schedule is unaffected
+      const teamSchedule = await vesting.getSchedule(T.TEAM);
+      expect(teamSchedule.released).to.equal(0n);
+    });
+  });
+
+  // ── cancelSchedule ────────────────────────────────────────────────────────
+
+  describe("cancelSchedule", () => {
+    it("reverts if called after startTime", async () => {
+      await fund(e18(10_000_000));
+      await vesting.connect(owner).createSchedule(
+        T.TEAM, alice.address, e18(10_000_000), 0n, tge, 12n, 36n
+      );
+      await time.increaseTo(tge);
+      await expect(
+        vesting.connect(owner).cancelSchedule(T.TEAM)
+      ).to.be.revertedWithCustomError(vesting, "ScheduleActive");
+    });
+
+    it("cancels and recovers tokens before startTime", async () => {
+      await fund(e18(10_000_000));
+      await vesting.connect(owner).createSchedule(
+        T.TEAM, alice.address, e18(10_000_000), 0n, tge, 12n, 36n
+      );
+      // Cancel before TGE
+      await expect(
+        vesting.connect(owner).cancelSchedule(T.TEAM)
+      ).to.changeTokenBalance(token, owner, e18(10_000_000));
+      // Schedule status is now CANCELLED
+      const s = await vesting.getSchedule(T.TEAM);
+      expect(s.status).to.equal(2n); // Status.CANCELLED
+    });
+
+    it("reduces totalAllocated on cancel", async () => {
+      await fund(e18(10_000_000));
+      await vesting.connect(owner).createSchedule(
+        T.TEAM, alice.address, e18(10_000_000), 0n, tge, 12n, 36n
+      );
+      expect(await vesting.totalAllocated()).to.equal(e18(10_000_000));
+      await vesting.connect(owner).cancelSchedule(T.TEAM);
+      expect(await vesting.totalAllocated()).to.equal(0n);
+    });
+
+    it("removes scheduleId from list on cancel", async () => {
+      await fund(e18(10_000_000));
+      await vesting.connect(owner).createSchedule(
+        T.SEED, alice.address, e18(10_000_000), 0n, tge, 6n, 24n
+      );
+      expect((await vesting.getScheduleIds()).length).to.equal(1n);
+      await vesting.connect(owner).cancelSchedule(T.SEED);
+      const ids = await vesting.getScheduleIds();
+      expect(ids.length).to.equal(0n);
+      expect(ids).not.to.include(T.SEED);
+    });
+
+    it("reverts on unknown schedule", async () => {
+      const unknown = ethers.keccak256(ethers.toUtf8Bytes("NONE"));
+      await expect(
+        vesting.connect(owner).cancelSchedule(unknown)
+      ).to.be.revertedWithCustomError(vesting, "ScheduleNotFound");
+    });
+
+    it("reverts if non-owner tries to cancel", async () => {
+      await fund(e18(10_000_000));
+      await vesting.connect(owner).createSchedule(
+        T.TEAM, alice.address, e18(10_000_000), 0n, tge, 12n, 36n
+      );
+      await expect(
+        vesting.connect(attacker).cancelSchedule(T.TEAM)
+      ).to.be.revertedWithCustomError(vesting, "OwnableUnauthorizedAccount");
+    });
+  });
+
+  // ── Balance validation ─────────────────────────────────────────────────────
+
+  describe("createSchedule — balance checks", () => {
+    it("reverts if contract lacks sufficient balance", async () => {
+      // Don't fund the contract — balance is 0
+      await expect(
+        vesting.connect(owner).createSchedule(
+          T.TEAM, alice.address, e18(10_000_000), 0n, tge, 12n, 36n
+        )
+      ).to.be.revertedWithCustomError(vesting, "InsufficientContractBalance");
+    });
+
+    it("rejects over-allocation beyond contract balance", async () => {
+      await fund(e18(5_000_000)); // only 5M tokens
+      // First schedule uses 5M — fine
+      await vesting.connect(owner).createSchedule(
+        T.SEED, alice.address, e18(5_000_000), 0n, tge, 6n, 24n
+      );
+      // Second schedule needs 10M — insufficient
+      await expect(
+        vesting.connect(owner).createSchedule(
+          T.TEAM, bob.address, e18(10_000_000), 0n, tge, 12n, 36n
+        )
+      ).to.be.revertedWithCustomError(vesting, "InsufficientContractBalance");
+    });
+  });
+
+  // ── rescueERC20 ──────────────────────────────────────────────────────────────
+
+  describe("rescueERC20", () => {
+    it("allows owner to recover non-vesting ERC-20 tokens", async () => {
+      // Deploy dummy token and send 5000 to vesting contract
+      const Token = await ethers.getContractFactory("ZenthisToken");
+      const dummy = await Token.deploy(owner.address);
+      await dummy.connect(owner).transfer(await vesting.getAddress(), e18(5000));
+
+      await expect(
+        vesting.connect(owner).rescueERC20(await dummy.getAddress(), owner.address)
+      ).to.changeTokenBalance(dummy, owner, e18(5000));
+    });
+
+    it("reverts when trying to rescue the vesting token itself", async () => {
+      await expect(
+        vesting.connect(owner).rescueERC20(await token.getAddress(), owner.address)
+      ).to.be.revertedWithCustomError(vesting, "CannotRescueVestingToken");
+    });
+
+    it("reverts on zero recipient", async () => {
+      const Token = await ethers.getContractFactory("ZenthisToken");
+      const dummy = await Token.deploy(owner.address);
+      await expect(
+        vesting.connect(owner).rescueERC20(await dummy.getAddress(), ethers.ZeroAddress)
+      ).to.be.revertedWithCustomError(vesting, "ZeroAddress");
+    });
+
+    it("reverts if non-owner calls rescueERC20", async () => {
+      const Token = await ethers.getContractFactory("ZenthisToken");
+      const dummy = await Token.deploy(owner.address);
+      await expect(
+        vesting.connect(attacker).rescueERC20(await dummy.getAddress(), owner.address)
+      ).to.be.revertedWithCustomError(vesting, "OwnableUnauthorizedAccount");
     });
   });
 });

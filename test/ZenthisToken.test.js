@@ -1,296 +1,237 @@
 const { expect } = require("chai");
 const { ethers } = require("hardhat");
 
-describe("ZENTHIS Token", function () {
-  const MAX_SUPPLY = 100_000_000n * 10n ** 18n;
-  const TOKEN_NAME = "Zenthis";
-  const TOKEN_SYMBOL = "ZENTHIS";
+describe("ZenthisToken", function () {
+  let token;
+  let owner, treasury, alice, bob, attacker;
 
-  let token, owner, addr1, addr2, addr3;
+  const MAX_SUPPLY  = ethers.parseEther("100000000"); // 100M
+  const STAKE_AMT   = ethers.parseEther("1000");
+  const FEE_AMT     = ethers.parseEther("1"); // 1 ETH fee deposit
 
-  beforeEach(async function () {
-    [owner, addr1, addr2, addr3] = await ethers.getSigners();
-    const ZENTHIS = await ethers.getContractFactory("ZENTHIS");
-    token = await ZENTHIS.deploy(owner.address);
-    await token.waitForDeployment();
+  beforeEach(async () => {
+    [owner, treasury, alice, bob, attacker] = await ethers.getSigners();
+
+    const Token = await ethers.getContractFactory("ZenthisToken");
+    token = await Token.deploy(treasury.address);
   });
 
-  // ──────────────────────────────────────────────────────
-  // Deployment
-  // ──────────────────────────────────────────────────────
-  describe("Deployment", function () {
-    it("should set the correct name", async function () {
-      expect(await token.name()).to.equal(TOKEN_NAME);
+  // ── Deployment ─────────────────────────────────────────────────────────────
+
+  describe("Deployment", () => {
+    it("has correct name and symbol", async () => {
+      expect(await token.name()).to.equal("Zenthis");
+      expect(await token.symbol()).to.equal("ZTS");
     });
 
-    it("should set the correct symbol", async function () {
-      expect(await token.symbol()).to.equal(TOKEN_SYMBOL);
-    });
-
-    it("should set 18 decimals", async function () {
-      expect(await token.decimals()).to.equal(18n);
-    });
-
-    it("should mint MAX_SUPPLY to the owner", async function () {
-      expect(await token.totalSupply()).to.equal(MAX_SUPPLY);
-      expect(await token.balanceOf(owner.address)).to.equal(MAX_SUPPLY);
-    });
-
-    it("should set the owner as contract owner", async function () {
-      expect(await token.owner()).to.equal(owner.address);
-    });
-
-    it("should expose MAX_SUPPLY constant", async function () {
-      expect(await token.MAX_SUPPLY()).to.equal(MAX_SUPPLY);
-    });
-
-    it("should start with totalBurned == 0", async function () {
-      expect(await token.totalBurned()).to.equal(0n);
-    });
-
-    it("should not be able to mint more tokens", async function () {
-      // No mint function exists, but verify supply is capped
-      expect(await token.totalSupply()).to.equal(MAX_SUPPLY);
-      // Transfer does not affect total supply
-      await token.transfer(addr1.address, 1000n);
+    it("mints the full supply to treasury", async () => {
+      expect(await token.balanceOf(treasury.address)).to.equal(MAX_SUPPLY);
       expect(await token.totalSupply()).to.equal(MAX_SUPPLY);
     });
-  });
 
-  // ──────────────────────────────────────────────────────
-  // ERC20 Basic Transfers
-  // ──────────────────────────────────────────────────────
-  describe("ERC20 Transfers", function () {
-    it("should transfer tokens correctly", async function () {
-      await token.transfer(addr1.address, 1000n);
-      expect(await token.balanceOf(addr1.address)).to.equal(1000n);
-      expect(await token.balanceOf(owner.address)).to.equal(MAX_SUPPLY - 1000n);
+    it("has 18 decimals", async () => {
+      expect(await token.decimals()).to.equal(18);
     });
 
-    it("should emit Transfer event", async function () {
-      await expect(token.transfer(addr1.address, 500n))
-        .to.emit(token, "Transfer")
-        .withArgs(owner.address, addr1.address, 500n);
-    });
-
-    it("should fail if sender balance is insufficient", async function () {
-      await expect(
-        token.connect(addr1).transfer(addr2.address, 1n)
-      ).to.be.revertedWithCustomError(token, "ERC20InsufficientBalance");
-    });
-
-    it("should fail if transfer to zero address", async function () {
-      await expect(
-        token.transfer(ethers.ZeroAddress, 100n)
-      ).to.be.revertedWithCustomError(token, "ERC20InvalidReceiver");
-    });
-
-    it("should transfer 0 tokens successfully (no-op)", async function () {
-      await token.transfer(addr1.address, 0n);
-      expect(await token.balanceOf(addr1.address)).to.equal(0n);
-    });
-
-    it("should handle full balance transfer", async function () {
-      await token.transfer(addr1.address, MAX_SUPPLY);
-      expect(await token.balanceOf(owner.address)).to.equal(0n);
-      expect(await token.balanceOf(addr1.address)).to.equal(MAX_SUPPLY);
+    it("reverts on zero treasury address", async () => {
+      const Token = await ethers.getContractFactory("ZenthisToken");
+      await expect(Token.deploy(ethers.ZeroAddress)).to.be.reverted;
     });
   });
 
-  // ──────────────────────────────────────────────────────
-  // Approvals & TransferFrom
-  // ──────────────────────────────────────────────────────
-  describe("Approvals", function () {
-    it("should approve and emit Approval event", async function () {
-      await expect(token.approve(addr1.address, 1000n))
-        .to.emit(token, "Approval")
-        .withArgs(owner.address, addr1.address, 1000n);
+  // ── Staking ────────────────────────────────────────────────────────────────
 
-      expect(await token.allowance(owner.address, addr1.address)).to.equal(1000n);
+  describe("Staking", () => {
+    beforeEach(async () => {
+      // Fund alice from treasury
+      await token.connect(treasury).transfer(alice.address, STAKE_AMT);
+      await token.connect(alice).approve(await token.getAddress(), STAKE_AMT);
     });
 
-    it("should transferFrom with sufficient allowance", async function () {
-      await token.approve(addr1.address, 1000n);
-      await token.connect(addr1).transferFrom(owner.address, addr2.address, 500n);
-      expect(await token.balanceOf(addr2.address)).to.equal(500n);
-      expect(await token.allowance(owner.address, addr1.address)).to.equal(500n);
+    it("allows staking and emits Staked event", async () => {
+      await expect(token.connect(alice).stake(STAKE_AMT))
+        .to.emit(token, "Staked")
+        .withArgs(alice.address, STAKE_AMT);
     });
 
-    it("should fail transferFrom with insufficient allowance", async function () {
-      await token.approve(addr1.address, 100n);
+    it("updates totalStaked and stakedBalance", async () => {
+      await token.connect(alice).stake(STAKE_AMT);
+      expect(await token.totalStaked()).to.equal(STAKE_AMT);
+      expect(await token.stakedBalance(alice.address)).to.equal(STAKE_AMT);
+    });
+
+    it("transfers tokens to contract on stake", async () => {
       await expect(
-        token.connect(addr1).transferFrom(owner.address, addr2.address, 500n)
-      ).to.be.revertedWithCustomError(token, "ERC20InsufficientAllowance");
+        token.connect(alice).stake(STAKE_AMT)
+      ).to.changeTokenBalance(token, alice, -STAKE_AMT);
     });
 
-    it("should fail transferFrom without approval", async function () {
+    it("reverts on staking 0", async () => {
+      await expect(token.connect(alice).stake(0))
+        .to.be.revertedWithCustomError(token, "ZeroAmount");
+    });
+
+    it("allows unstaking and emits Unstaked event", async () => {
+      await token.connect(alice).stake(STAKE_AMT);
+      await expect(token.connect(alice).unstake(STAKE_AMT))
+        .to.emit(token, "Unstaked")
+        .withArgs(alice.address, STAKE_AMT);
+    });
+
+    it("returns tokens on unstake", async () => {
+      await token.connect(alice).stake(STAKE_AMT);
       await expect(
-        token.connect(addr1).transferFrom(owner.address, addr2.address, 1n)
-      ).to.be.revertedWithCustomError(token, "ERC20InsufficientAllowance");
+        token.connect(alice).unstake(STAKE_AMT)
+      ).to.changeTokenBalance(token, alice, STAKE_AMT);
     });
 
-    it("should overwrite allowance on re-approve", async function () {
-      await token.approve(addr1.address, 1000n);
-      await token.approve(addr1.address, 500n);
-      expect(await token.allowance(owner.address, addr1.address)).to.equal(500n);
-    });
-
-    it("should handle multiple approvers independently", async function () {
-      await token.approve(addr1.address, 500n);
-      await token.approve(addr2.address, 1000n);
-      expect(await token.allowance(owner.address, addr1.address)).to.equal(500n);
-      expect(await token.allowance(owner.address, addr2.address)).to.equal(1000n);
-    });
-
-    it("should reset allowance to zero and re-approve", async function () {
-      await token.approve(addr1.address, 1000n);
-      // Reset to zero
-      await token.approve(addr1.address, 0n);
-      expect(await token.allowance(owner.address, addr1.address)).to.equal(0n);
-      // Re-approve
-      await token.approve(addr1.address, 2000n);
-      expect(await token.allowance(owner.address, addr1.address)).to.equal(2000n);
-    });
-
-    it("should prevent allowance underflow via approve(0)", async function () {
-      // OZ v5: to reduce allowance safely, approve to 0 first, then to new value
-      // This prevents the race condition
-      await token.approve(addr1.address, 0n);
-      // Verify allowance is zero
-      expect(await token.allowance(owner.address, addr1.address)).to.equal(0n);
+    it("reverts on unstaking more than staked", async () => {
+      await token.connect(alice).stake(STAKE_AMT);
+      await expect(
+        token.connect(alice).unstake(STAKE_AMT + 1n)
+      ).to.be.revertedWithCustomError(token, "InsufficientStakedBalance");
     });
   });
 
-  // ──────────────────────────────────────────────────────
-  // Burn
-  // ──────────────────────────────────────────────────────
-  describe("Burn", function () {
-    it("should burn own tokens", async function () {
-      await token.burn(1000n);
-      expect(await token.balanceOf(owner.address)).to.equal(MAX_SUPPLY - 1000n);
-      expect(await token.totalSupply()).to.equal(MAX_SUPPLY - 1000n);
-      expect(await token.totalBurned()).to.equal(1000n);
+  // ── Fee distribution ───────────────────────────────────────────────────────
+
+  describe("Fee distribution", () => {
+    beforeEach(async () => {
+      // Alice stakes 1000, Bob stakes 1000
+      await token.connect(treasury).transfer(alice.address, STAKE_AMT);
+      await token.connect(treasury).transfer(bob.address, STAKE_AMT);
+      await token.connect(alice).approve(await token.getAddress(), STAKE_AMT);
+      await token.connect(bob).approve(await token.getAddress(), STAKE_AMT);
+      await token.connect(alice).stake(STAKE_AMT);
+      await token.connect(bob).stake(STAKE_AMT);
     });
 
-    it("should emit TokensBurned on burn", async function () {
-      await expect(token.burn(500n))
-        .to.emit(token, "TokensBurned")
-        .withArgs(owner.address, 500n);
+    it("distributes fees equally between two equal stakers", async () => {
+      await token.connect(owner).depositFees({ value: FEE_AMT });
+
+      // Both should have earned 0.5 ETH
+      const halfFee = FEE_AMT / 2n;
+      expect(await token.earned(alice.address)).to.be.closeTo(halfFee, ethers.parseEther("0.0001"));
+      expect(await token.earned(bob.address)).to.be.closeTo(halfFee, ethers.parseEther("0.0001"));
     });
 
-    it("should accumulate totalBurned across multiple burns", async function () {
-      await token.burn(1000n);
-      await token.burn(2000n);
-      expect(await token.totalBurned()).to.equal(3000n);
-      expect(await token.totalSupply()).to.equal(MAX_SUPPLY - 3000n);
+    it("allows claiming rewards", async () => {
+      await token.connect(owner).depositFees({ value: FEE_AMT });
+
+      await expect(token.connect(alice).claimRewards())
+        .to.emit(token, "RewardClaimed");
     });
 
-    it("should fail burn more than balance", async function () {
-      await token.transfer(addr1.address, 500n);
+    it("sends ETH to claimer", async () => {
+      await token.connect(owner).depositFees({ value: FEE_AMT });
+
+      const halfFee = FEE_AMT / 2n;
       await expect(
-        token.connect(addr1).burn(1000n)
-      ).to.be.revertedWithCustomError(token, "ERC20InsufficientBalance");
+        token.connect(alice).claimRewards()
+      ).to.changeEtherBalance(alice, halfFee, { includeFee: false });
     });
 
-    it("should allow burning zero tokens", async function () {
-      await token.burn(0n);
-      expect(await token.totalBurned()).to.equal(0n);
-    });
-
-    it("should allow burning entire balance", async function () {
-      await token.transfer(addr1.address, 5000n);
-      await token.connect(addr1).burn(5000n);
-      expect(await token.balanceOf(addr1.address)).to.equal(0n);
-      expect(await token.totalBurned()).to.equal(5000n);
-    });
-  });
-
-  // ──────────────────────────────────────────────────────
-  // BurnFrom
-  // ──────────────────────────────────────────────────────
-  describe("BurnFrom", function () {
-    beforeEach(async function () {
-      await token.transfer(addr1.address, 5000n);
-    });
-
-    it("should burnFrom with sufficient allowance", async function () {
-      await token.connect(addr1).approve(owner.address, 2000n);
-      await token.burnFrom(addr1.address, 1000n);
-      expect(await token.balanceOf(addr1.address)).to.equal(4000n);
-      expect(await token.totalBurned()).to.equal(1000n);
-      expect(await token.totalSupply()).to.equal(MAX_SUPPLY - 1000n);
-    });
-
-    it("should emit TokensBurned from burnFrom", async function () {
-      await token.connect(addr1).approve(owner.address, 500n);
-      await expect(token.burnFrom(addr1.address, 500n))
-        .to.emit(token, "TokensBurned")
-        .withArgs(addr1.address, 500n);
-    });
-
-    it("should decrease allowance on burnFrom", async function () {
-      await token.connect(addr1).approve(owner.address, 2000n);
-      await token.burnFrom(addr1.address, 700n);
-      expect(await token.allowance(addr1.address, owner.address)).to.equal(1300n);
-    });
-
-    it("should fail burnFrom without allowance", async function () {
+    it("reverts if non-owner deposits fees", async () => {
       await expect(
-        token.burnFrom(addr1.address, 100n)
-      ).to.be.revertedWithCustomError(token, "ERC20InsufficientAllowance");
-    });
-
-    it("should fail burnFrom with insufficient allowance", async function () {
-      await token.connect(addr1).approve(owner.address, 100n);
-      await expect(
-        token.burnFrom(addr1.address, 500n)
-      ).to.be.revertedWithCustomError(token, "ERC20InsufficientAllowance");
-    });
-
-    it("should fail burnFrom more than account balance", async function () {
-      await token.connect(addr1).approve(owner.address, 10000n);
-      await expect(
-        token.burnFrom(addr1.address, 6000n)
-      ).to.be.revertedWithCustomError(token, "ERC20InsufficientBalance");
-    });
-
-    it("should allow multiple burnFrom calls", async function () {
-      await token.connect(addr1).approve(owner.address, 3000n);
-      await token.burnFrom(addr1.address, 1000n);
-      await token.burnFrom(addr1.address, 500n);
-      expect(await token.balanceOf(addr1.address)).to.equal(3500n);
-      expect(await token.totalBurned()).to.equal(1500n);
-      expect(await token.allowance(addr1.address, owner.address)).to.equal(1500n);
-    });
-  });
-
-  // ──────────────────────────────────────────────────────
-  // Edge Cases
-  // ──────────────────────────────────────────────────────
-  describe("Edge Cases", function () {
-    it("should track total supply correctly after burns", async function () {
-      await token.burn(1_000_000n * 10n ** 18n);
-      const expected = MAX_SUPPLY - 1_000_000n * 10n ** 18n;
-      expect(await token.totalSupply()).to.equal(expected);
-      expect(await token.totalBurned()).to.equal(1_000_000n * 10n ** 18n);
-    });
-
-    it("should not allow non-owner to call onlyOwner functions", async function () {
-      // There are no onlyOwner external functions beyond what ERC20 provides
-      // Owner can renounce ownership
-      await token.renounceOwnership();
-      expect(await token.owner()).to.equal(ethers.ZeroAddress);
-    });
-
-    it("should transfer ownership", async function () {
-      await token.transferOwnership(addr1.address);
-      expect(await token.owner()).to.equal(addr1.address);
-    });
-
-    it("should fail transferOwnership from non-owner", async function () {
-      await expect(
-        token.connect(addr1).transferOwnership(addr2.address)
+        token.connect(attacker).depositFees({ value: FEE_AMT })
       ).to.be.revertedWithCustomError(token, "OwnableUnauthorizedAccount");
+    });
+
+    it("reverts claiming when no rewards", async () => {
+      await expect(
+        token.connect(alice).claimRewards()
+      ).to.be.revertedWithCustomError(token, "ZeroAmount");
+    });
+  });
+
+  // ── Burn ───────────────────────────────────────────────────────────────────
+
+  describe("Burn", () => {
+    it("allows token holders to burn their tokens", async () => {
+      const burnAmt = ethers.parseEther("1000");
+      await token.connect(treasury).burn(burnAmt);
+      expect(await token.totalSupply()).to.equal(MAX_SUPPLY - burnAmt);
+    });
+
+    it("reverts on zero burn", async () => {
+      await expect(
+        token.connect(treasury).burn(0)
+      ).to.be.revertedWithCustomError(token, "ZeroAmount");
+    });
+  });
+
+  // ── Rescue ────────────────────────────────────────────────────────────────
+
+  describe("RescueERC20", () => {
+    it("allows owner to recover stuck ERC-20 tokens", async () => {
+      // Deploy a dummy token and send it to the contract
+      const Dummy = await ethers.getContractFactory("ZenthisToken");
+      const dummy = await Dummy.deploy(owner.address);
+      const DUMMY_AMT = ethers.parseEther("5000");
+      await dummy.connect(owner).transfer(await token.getAddress(), DUMMY_AMT);
+
+      await expect(
+        token.connect(owner).rescueERC20(await dummy.getAddress(), owner.address)
+      ).to.changeTokenBalance(dummy, owner, DUMMY_AMT);
+    });
+
+    it("reverts on zero recipient", async () => {
+      const dummy = await (await ethers.getContractFactory("ZenthisToken")).deploy(owner.address);
+      await expect(
+        token.connect(owner).rescueERC20(await dummy.getAddress(), ethers.ZeroAddress)
+      ).to.be.revertedWithCustomError(token, "ZeroAddress");
+    });
+
+    it("reverts when trying to rescue ZTS itself", async () => {
+      await expect(
+        token.connect(owner).rescueERC20(await token.getAddress(), owner.address)
+      ).to.be.revertedWithCustomError(token, "CannotRescueStakingToken");
+    });
+
+    it("reverts when no tokens to rescue", async () => {
+      const dummy = await (await ethers.getContractFactory("ZenthisToken")).deploy(owner.address);
+      await expect(
+        token.connect(owner).rescueERC20(await dummy.getAddress(), owner.address)
+      ).to.be.revertedWithCustomError(token, "ZeroAmount");
+    });
+
+    it("reverts if non-owner calls rescueERC20", async () => {
+      await expect(
+        token.connect(attacker).rescueERC20(owner.address, owner.address)
+      ).to.be.revertedWithCustomError(token, "OwnableUnauthorizedAccount");
+    });
+  });
+
+  // ── Governance ─────────────────────────────────────────────────────────────
+
+  describe("Governance (ERC20Votes)", () => {
+    it("allows delegating voting power", async () => {
+      await token.connect(treasury).delegate(treasury.address);
+      const votes = await token.getVotes(treasury.address);
+      expect(votes).to.equal(MAX_SUPPLY);
+    });
+
+    it("staked tokens count toward voting power", async () => {
+      // Fund alice from treasury
+      await token.connect(treasury).transfer(alice.address, STAKE_AMT);
+      await token.connect(alice).approve(await token.getAddress(), STAKE_AMT);
+
+      // Delegate first (required for checkpoints)
+      await token.connect(alice).delegate(alice.address);
+
+      // Before staking: voting power = token balance
+      const preStakeVotes = await token.getVotes(alice.address);
+      expect(preStakeVotes).to.equal(STAKE_AMT);
+
+      // Stake all tokens
+      await token.connect(alice).stake(STAKE_AMT);
+
+      // After staking: voting power should still equal the staked amount
+      const postStakeVotes = await token.getVotes(alice.address);
+      expect(postStakeVotes).to.equal(STAKE_AMT);
+
+      // Alice's balance is now 0, but voting power should still be STAKE_AMT
+      expect(await token.balanceOf(alice.address)).to.equal(0n);
     });
   });
 });
