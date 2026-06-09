@@ -23,7 +23,8 @@ jobs:
           node-version: 20
       - run: npm install
       - name: Check JavaScript formatting
-        run: npx prettier --check "test/**/*.js" "scripts/**/*.js"
+        run: >-
+          npx prettier --check "test/**/*.js" "scripts/**/*.js"
 
   test:
     runs-on: ubuntu-latest
@@ -39,7 +40,8 @@ jobs:
       - name: Run unit tests
         run: npx hardhat test
       - name: Run integration tests
-        run: npx hardhat run scripts/deploy-and-test.js --network hardhat
+        run: >-
+          npx hardhat run scripts/deploy-and-test.js --network hardhat
 
   gas-report:
     runs-on: ubuntu-latest
@@ -52,4 +54,6 @@ jobs:
           node-version: 20
       - run: npm install
       - name: Run tests with gas reporting
-        run: REPORT_GAS=true npx hardhat test
+        env:
+          REPORT_GAS: "true"
+        run: npx hardhat test
