@@ -516,9 +516,11 @@ contract ZenthisPresale is Ownable2Step, ReentrancyGuard, Pausable {
     ///      (V5-L-03: stuck recovery — ambas wallets son cambiables si la transferencia ETH
     ///       revirtió, ya que Solidity revierte todo el estado de finalize()).
     /// @dev V6-L-03: errores semánticos separados por estado.
+    /// @dev V8-L-01: al cambiar wallet en stuck recovery, se resetea finalizeReadyAt para forzar
+    ///      un nuevo timelock de 48h antes de reintentar finalize().
     function setLiquidityWallet(address _newWallet) external onlyOwner {
         if (_isStuck()) {
-            // V5-L-03: finalize() falló tras timelock — permitir cambio para recuperación
+            finalizeReadyAt = 0; // V8-L-01: forzar nuevo requestFinalize()
         } else if (finalized) {
             revert Presale_AlreadyFinalized();
         } else if (failed) {
@@ -534,9 +536,10 @@ contract ZenthisPresale is Ownable2Step, ReentrancyGuard, Pausable {
     /// @notice ZP-12: bloqueado durante timelock, salvo stuck recovery.
     /// @dev V5-L-03: misma lógica que setLiquidityWallet.
     /// @dev V6-L-03: errores semánticos separados por estado.
+    /// @dev V8-L-01: mismo tratamiento stuck→reset timelock que setLiquidityWallet.
     function setTreasuryWallet(address _newWallet) external onlyOwner {
         if (_isStuck()) {
-            // V5-L-03: finalize() falló tras timelock
+            finalizeReadyAt = 0; // V8-L-01: forzar nuevo requestFinalize()
         } else if (finalized) {
             revert Presale_AlreadyFinalized();
         } else if (failed) {
@@ -553,8 +556,14 @@ contract ZenthisPresale is Ownable2Step, ReentrancyGuard, Pausable {
     ///      V5-L-03: esto ocurre si la transferencia ETH en finalize() revierte —
     ///      Solidity revierte toda la transacción, pero la wallet que falló puede
     ///      cambiarse para reintentar.
-    function _isStuck() internal view returns (bool) {
+    /// @dev V8-I-03: expuesta como public para frontends y herramientas de monitoreo.
+    function isStuck() public view returns (bool) {
         return finalizeReadyAt != 0 && block.timestamp >= finalizeReadyAt && !finalized;
+    }
+
+    /// @dev alias internal
+    function _isStuck() internal view returns (bool) {
+        return isStuck();
     }
 
     /// @notice V4-I-03: deshabilitar renuncia de ownership en contrato de IDO
