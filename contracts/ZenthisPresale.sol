@@ -3,7 +3,7 @@ pragma solidity ^0.8.26;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/access/Ownable2Step.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/utils/Pausable.sol";
 
@@ -11,16 +11,66 @@ import "@openzeppelin/contracts/utils/Pausable.sol";
 /// @notice ETH → ZTS presale. Every contributor who meets minBuy gets a flat airdrop
 ///         + an IDO Launch Bonus tier based on contribution size.
 ///         Referral qualifications tracked on-chain; milestone rewards are off-chain.
-/// @dev  ◾ Flat airdrop: set per-user ZTS (e.g. 2,000) for contributors ≥ minBuy
+///
+/// @dev  ═════════════════════════════════════════════════════════════════════
+///       DESIGN NOTES
+///       ═════════════════════════════════════════════════════════════════════
+///
+///       ◾ Flat airdrop: set per-user ZTS (e.g. 2,000) for contributors ≥ minBuy
 ///       ◾ IDO Launch Bonus: additional ZTS by contribution tier (stacked on airdrop)
 ///       ◾ Bonus pool = total ZTS reserved for airdrops + bonuses (capped)
 ///       ◾ Pre-funded via depositTokens() — invariant checked before each contribution
 ///       ◾ Refund if soft cap not reached — owner marksFailed(), users call refundMe()
-///       ◾ Liquidity + treasury split on finalize
+///       ◾ Liquidity + treasury split on finalize (2-step: request → timelock → execute)
 ///       ◾ Bonus snapshotted at contribution time, NOT at claim time (no race)
 ///       ◾ Claim deadline = endTime + 90 days, set automatically on finalize
-contract ZenthisPresale is Ownable, ReentrancyGuard, Pausable {
+///       ◾ liquidityWallet → debe ser un multisig (Gnosis Safe 2/2 mínimo)
+///
+///       ═════════════════════════════════════════════════════════════════════
+///       LIQUIDITY ON FINALIZE
+///       ═════════════════════════════════════════════════════════════════════
+///
+///       ZP-01: finalize() NO integra un DEX directamente. Envía ETH + ZTS de
+///       liquidez a config.liquidityWallet. Para garantías on-chain:
+///         1) liquidityWallet DEBE ser un multisig (Gnosis Safe)
+///         2) finalize() requiere un timelock de FINALIZE_DELAY segundos desde
+///            requestFinalize(), dando visibilidad a los inversores.
+///       Después del claim deadline, el equipo puede añadir liquidez manualmente
+///       al DEX de su elección usando los fondos de liquidityWallet + los ZTS
+///       retirados vía withdrawUnusedTokens().
+///
+///       ═════════════════════════════════════════════════════════════════════
+///       TOKEN ACCOUNTING — getRequiredZts()
+///       ═════════════════════════════════════════════════════════════════════
+///
+///       ZP-02 (doble contabilización — FALSO POSITIVO): la fórmula suma TRES
+///       pools de ZTS independientes:
+///
+///         pool A = maxContribZts = hardCap × rate       → lo que RECIBEN compradores
+///         pool B = liqZts        = liqEth × rate         → LP match (adicional)
+///         pool C = bonusPoolSize                         → bonus pool
+///
+///       Relación: finalize() transfiere B a liquidityWallet + liqEth (ETH).
+///       Los compradores reclaman A del balance remanente. A y B no se solapan.
+///
+///       Ejemplo con hardCap=100ETH, rate=30k ZTS/ETH, liqPct=60%:
+///         A = 3,000,000 ZTS para 100 ETH comprados
+///         B = 1,800,000 ZTS + 60 ETH (LP match)
+///         C = 1,500,000 ZTS (bonus)
+///         Total = 6,300,000 ZTS — cada ZTS con destino único.
+///
+contract ZenthisPresale is Ownable2Step, ReentrancyGuard, Pausable {
     using SafeERC20 for IERC20;
+
+    // ── Constants ───────────────────────────────────────────────────────────
+    /// @notice Timelock entre requestFinalize() y finalize() — ZP-01
+    uint256 public constant FINALIZE_DELAY = 48 hours;
+
+    /// @notice Ventana de reclamación tras finalize (endTime + CLAIM_WINDOW)
+    uint256 public constant CLAIM_WINDOW = 90 * 24 * 60 * 60; // 90 days
+
+    /// @notice Máximo de direcciones por llamada rescueUnclaimedEth() — ZP-09
+    uint256 public constant MAX_RESCUE_BATCH = 200;
 
     // ── Structs ──────────────────────────────────────────────────────────────
     struct PresaleConfig {
@@ -35,8 +85,8 @@ contract ZenthisPresale is Ownable, ReentrancyGuard, Pausable {
         uint256 endTime;
         address liquidityWallet;
         address treasuryWallet;
-        uint256 bonusPoolSize;   // total ZTS reserved for airdrops + launch bonuses
-        uint256 flatAirdrop;     // ZTS every qualified contributor gets (e.g. 2,000)
+        uint256 bonusPoolSize;
+        uint256 flatAirdrop;
         uint256 bonusTier1Eth;
         uint256 bonusTier1Reward;
         uint256 bonusTier2Eth;
@@ -59,14 +109,19 @@ contract ZenthisPresale is Ownable, ReentrancyGuard, Pausable {
     uint256 public totalReferralQualified;
     bool public funded;
 
+    /// @dev Fecha tras la cual finalize() puede ejecutarse (set en requestFinalize)
+    uint256 public finalizeReadyAt;
+
     /// @dev claimDeadline = endTime + CLAIM_WINDOW, set on finalize
     uint256 public claimDeadline;
-    uint256 public constant CLAIM_WINDOW = 90 * 24 * 60 * 60; // 90 days
 
     mapping(address => uint256) public contribution;
     mapping(address => bool) public claimed;
     mapping(address => address) public referrerOf;
     mapping(address => uint256) public qualifiedReferrals;
+
+    /// @dev ZP-03: usuarios ya procesados por rescueUnclaimedEth (éxito o fallo)
+    mapping(address => bool) private _rescueProcessed;
 
     /// @dev Snapshot: total bonus ZTS per user (flat + tier), computed at contribution
     mapping(address => uint256) private _pendingBonus;
@@ -76,6 +131,7 @@ contract ZenthisPresale is Ownable, ReentrancyGuard, Pausable {
 
     // ── Events ──────────────────────────────────────────────────────────────
     event Contributed(address indexed user, uint256 amount, address indexed referrer);
+    event FinalizeRequested(uint256 readyAt);
     event Finalized(uint256 totalRaised, uint256 liquidityEth, uint256 treasuryEth);
     event Claimed(
         address indexed user,
@@ -88,8 +144,9 @@ contract ZenthisPresale is Ownable, ReentrancyGuard, Pausable {
     event UnusedTokensWithdrawn(address indexed recipient, uint256 amount);
     event ContractFunded(uint256 totalZts);
     event PresaleMarkedFailed();
-    event WalletUpdated(string walletType, address indexed newWallet);
+    event WalletUpdated(string walletType, address indexed oldWallet, address indexed newWallet); // ZP-11
     event RefundSkipped(address indexed user);
+    event ClaimDeadlineSet(uint256 deadline); // ZP-08: movido aquí
 
     // ── Custom Errors ───────────────────────────────────────────────────────
     error Presale_ZeroAddress();
@@ -118,9 +175,13 @@ contract ZenthisPresale is Ownable, ReentrancyGuard, Pausable {
     error Presale_AlreadyFinalized();
     error Presale_AlreadyFailed();
     error Presale_NotFinalizedOrFailed();
+    error Presale_InvalidMinBuy();             // ZP-06
+    error Presale_BatchTooLarge();             // ZP-09
+    error Presale_AlreadyRequested();
+    error Presale_TimelockPending();
+    error Presale_InsufficientBalance();       // ZP-05
 
     // ── Constructor ─────────────────────────────────────────────────────────
-    /// @dev 22 params — use deploy-presale.js (validates config post-deploy)
     constructor(
         IERC20 _token,
         uint256 _rate,
@@ -145,14 +206,22 @@ contract ZenthisPresale is Ownable, ReentrancyGuard, Pausable {
         uint256 _bonusTier4Reward,
         uint256 _referralMinContribution
     ) Ownable(msg.sender) {
+        // ── Addresses ────────────────────────────────────────────────
         if (address(_token) == address(0) || _liquidityWallet == address(0) || _treasuryWallet == address(0))
             revert Presale_ZeroAddress();
-        if (_startTime >= _endTime) revert Presale_InvalidTimes();
-        if (_endTime <= block.timestamp) revert Presale_EndInPast();
-        if (_rate == 0) revert Presale_InvalidRate();
-        if (_softCap > _hardCap) revert Presale_InvalidCaps();
-        if (_minBuy > _maxBuy) revert Presale_InvalidLimits();
-        if (_liquidityPct > 10000) revert Presale_InvalidPct();
+
+        // ── Timing — ZP-07 ───────────────────────────────────────────
+        if (_startTime < block.timestamp) revert Presale_InvalidTimes();
+        if (_startTime >= _endTime)        revert Presale_InvalidTimes();
+
+        // ── Rates & Caps ─────────────────────────────────────────────
+        if (_rate == 0)                    revert Presale_InvalidRate();
+        if (_softCap > _hardCap)           revert Presale_InvalidCaps();
+        if (_minBuy == 0)                  revert Presale_InvalidMinBuy(); // ZP-06
+        if (_minBuy > _maxBuy)             revert Presale_InvalidLimits();
+        if (_liquidityPct > 10000)         revert Presale_InvalidPct();
+
+        // ── Bonus tiers ──────────────────────────────────────────────
         if (
             _bonusTier1Eth > _bonusTier2Eth || _bonusTier2Eth > _bonusTier3Eth || _bonusTier3Eth > _bonusTier4Eth
             || _bonusTier1Reward > _bonusTier2Reward || _bonusTier2Reward > _bonusTier3Reward || _bonusTier3Reward > _bonusTier4Reward
@@ -191,7 +260,7 @@ contract ZenthisPresale is Ownable, ReentrancyGuard, Pausable {
         _;
     }
 
-    modifier onlyWhenFinalized() {
+    modifier onlyWhenEnded() {
         if (block.timestamp <= config.endTime) revert Presale_NotEnded();
         _;
     }
@@ -202,16 +271,13 @@ contract ZenthisPresale is Ownable, ReentrancyGuard, Pausable {
     }
 
     // ── Deposit tokens ──────────────────────────────────────────────────────
-    /// @notice Owner deposits the required ZTS. One-time; prevents C-01.
-    ///         If tokens were sent directly to the contract, they count toward the deposit.
-    ///         Always emits the REQUIRED amount (not the current balance) for traceability.
     function depositTokens() external onlyOwner {
         if (funded) revert Presale_AlreadyFunded();
         uint256 required = getRequiredZts();
         uint256 current = config.token.balanceOf(address(this));
         if (current >= required) {
             funded = true;
-            emit ContractFunded(required);  // V3-L-01: emit required, not current
+            emit ContractFunded(required);
             return;
         }
         uint256 toDeposit = required - current;
@@ -244,7 +310,7 @@ contract ZenthisPresale is Ownable, ReentrancyGuard, Pausable {
         contribution[_user] += msg.value;
         totalRaised += msg.value;
 
-        // Snapshot bonus at contribution time (no race on claim — H-03 + V3-I-01)
+        // Snapshot bonus at contribution time (no race)
         (uint256 flatBonus, uint256 tierBonus) = _computeBonus(_user);
         _pendingFlatBonus[_user] = flatBonus;
         _pendingBonus[_user] = flatBonus + tierBonus;
@@ -261,12 +327,28 @@ contract ZenthisPresale is Ownable, ReentrancyGuard, Pausable {
         emit Contributed(_user, msg.value, referrer);
     }
 
-    // ── Finalize ────────────────────────────────────────────────────────────
-    /// @notice Finalize the presale. Automatically sets claimDeadline = endTime + 90 days.
-    ///         V3-L-02: deadline is fixed, owner CANNOT change it afterwards.
-    function finalize() external onlyOwner onlyWhenFinalized {
-        if (finalized) revert Presale_AlreadyFinalized();
+    // ── Finalize (2-step with timelock — ZP-01) ────────────────────────────
+    /// @notice Paso 1: solicitar finalización. Inicia un timelock de FINALIZE_DELAY.
+    ///         Los inversores tienen visibilidad de finalizeReadyAt y pueden verificar
+    ///         las direcciones de liquidityWallet y treasuryWallet durante el delay.
+    function requestFinalize() external onlyOwner onlyWhenEnded {
+        if (finalized)   revert Presale_AlreadyFinalized();
         if (totalRaised < config.softCap) revert Presale_SoftCapNotMet();
+        if (finalizeReadyAt != 0) revert Presale_AlreadyRequested();
+        finalizeReadyAt = block.timestamp + FINALIZE_DELAY;
+        emit FinalizeRequested(finalizeReadyAt);
+    }
+
+    /// @notice Paso 2: ejecutar finalización (solo tras timelock).
+    ///         Transfiere ETH + ZTS de liquidez a liquidityWallet.
+    ///         Incluye assert de balance suficiente (ZP-05).
+    function finalize() external onlyOwner onlyWhenEnded {
+        if (finalized)    revert Presale_AlreadyFinalized();
+        if (totalRaised < config.softCap) revert Presale_SoftCapNotMet();
+
+        // ── Timelock check — ZP-01 ────────────────────────────────────
+        if (finalizeReadyAt == 0 || block.timestamp < finalizeReadyAt)
+            revert Presale_TimelockPending();
 
         finalized = true;
         claimDeadline = config.endTime + CLAIM_WINDOW;
@@ -274,10 +356,13 @@ contract ZenthisPresale is Ownable, ReentrancyGuard, Pausable {
 
         uint256 liquidityEth = (totalRaised * config.liquidityPct) / 10000;
         uint256 treasuryEth  = totalRaised - liquidityEth;
-
         uint256 liquidityZts = (liquidityEth * config.rate) / 1e18;
-        config.token.safeTransfer(config.liquidityWallet, liquidityZts);
 
+        // ZP-05: verifica balance suficiente antes de transferir
+        uint256 remainingZts = config.token.balanceOf(address(this));
+        if (remainingZts < liquidityZts) revert Presale_InsufficientBalance();
+
+        config.token.safeTransfer(config.liquidityWallet, liquidityZts);
         (bool okLiq, ) = payable(config.liquidityWallet).call{value: liquidityEth}("");
         if (!okLiq) revert Presale_TransferFailed();
 
@@ -286,9 +371,6 @@ contract ZenthisPresale is Ownable, ReentrancyGuard, Pausable {
 
         emit Finalized(totalRaised, liquidityEth, treasuryEth);
     }
-
-    /// @dev claimDeadline is set ONCE in finalize(). No setter — V3-L-02 fixed.
-    event ClaimDeadlineSet(uint256 deadline);
 
     // ── Claim ───────────────────────────────────────────────────────────────
     function claim() external nonReentrant {
@@ -303,8 +385,8 @@ contract ZenthisPresale is Ownable, ReentrancyGuard, Pausable {
         claimed[msg.sender] = true;
 
         uint256 ztsPurchased = (contribution[msg.sender] * config.rate) / 1e18;
-        uint256 totalBonus = _pendingBonus[msg.sender];       // snapshot (H-03)
-        uint256 flatBonus  = _pendingFlatBonus[msg.sender];   // snapshot (V3-I-01)
+        uint256 totalBonus = _pendingBonus[msg.sender];
+        uint256 flatBonus  = _pendingFlatBonus[msg.sender];
 
         uint256 remaining = config.bonusPoolSize > totalBonusClaimed
             ? config.bonusPoolSize - totalBonusClaimed
@@ -312,7 +394,6 @@ contract ZenthisPresale is Ownable, ReentrancyGuard, Pausable {
         uint256 tierBonus = totalBonus > flatBonus ? totalBonus - flatBonus : 0;
 
         if (totalBonus > remaining) {
-            // Scale proportionally
             uint256 ratio = (remaining * 1e18) / totalBonus;
             flatBonus  = (flatBonus * ratio) / 1e18;
             tierBonus  = (tierBonus * ratio) / 1e18;
@@ -345,16 +426,14 @@ contract ZenthisPresale is Ownable, ReentrancyGuard, Pausable {
     }
 
     // ── Refund ──────────────────────────────────────────────────────────────
-    /// @notice Users refund themselves after owner calls markFailed().
-    function refundMe() external onlyWhenFinalized nonReentrant {
+    function refundMe() external onlyWhenEnded nonReentrant {
         if (finalized) revert Presale_SoftCapMet();
         if (!failed) revert Presale_NotFailed();
         if (contribution[msg.sender] == 0) revert Presale_NothingToClaim();
         _refund(msg.sender);
     }
 
-    /// @notice Owner marks the presale as failed (only after end, soft cap not met).
-    function markFailed() external onlyOwner onlyWhenFinalized {
+    function markFailed() external onlyOwner onlyWhenEnded {
         if (finalized) revert Presale_SoftCapMet();
         if (failed) revert Presale_AlreadyFailed();
         if (totalRaised >= config.softCap) revert Presale_SoftCapMet();
@@ -362,21 +441,29 @@ contract ZenthisPresale is Ownable, ReentrancyGuard, Pausable {
         emit PresaleMarkedFailed();
     }
 
-    /// @notice Mass refund: skip addresses that reject ETH (V3-M-01).
-    ///         Non-blocking: a single hostile receive() does NOT DoS the rest.
+    /// @notice Rescue masivo con skip-on-failure + límite de batch (ZP-03 + ZP-09).
+    ///         No se procesan direcciones duplicadas (_rescueProcessed).
     function rescueUnclaimedEth(address[] calldata _users) external onlyOwner nonReentrant {
         if (!failed) revert Presale_NotFailed();
+        if (_users.length > MAX_RESCUE_BATCH) revert Presale_BatchTooLarge(); // ZP-09
+
         for (uint256 i = 0; i < _users.length; i++) {
             address user = _users[i];
+            // ZP-03: evitar doble procesamiento en batch
+            if (_rescueProcessed[user]) continue;
             if (contribution[user] == 0) continue;
+
+            _rescueProcessed[user] = true;
             uint256 amt = contribution[user];
             contribution[user] = 0;
+
             (bool ok, ) = payable(user).call{value: amt}("");
             if (ok) {
                 emit Refunded(user, amt);
             } else {
-                // Restore balance so they can retry or use refundMe()
+                // Restore + limpia flag para reintento vía refundMe()
                 contribution[user] = amt;
+                _rescueProcessed[user] = false;
                 emit RefundSkipped(user);
             }
         }
@@ -391,9 +478,6 @@ contract ZenthisPresale is Ownable, ReentrancyGuard, Pausable {
     }
 
     // ── Admin ───────────────────────────────────────────────────────────────
-    /// @notice Withdraw remaining ZTS after claim deadline, or if presale failed.
-    ///         V3-L-02: claimDeadline is set in finalize() and immutable.
-    ///         V3-L-03: in failed mode no gate needed (users take ETH, not ZTS).
     function withdrawUnusedTokens() external onlyOwner {
         if (!finalized && !failed) revert Presale_NotFinalizedOrFailed();
 
@@ -411,15 +495,15 @@ contract ZenthisPresale is Ownable, ReentrancyGuard, Pausable {
     function setLiquidityWallet(address _newWallet) external onlyOwner {
         if (finalized || failed) revert Presale_AlreadyFinalized();
         if (_newWallet == address(0)) revert Presale_ZeroAddress();
+        emit WalletUpdated("liquidity", config.liquidityWallet, _newWallet); // ZP-11
         config.liquidityWallet = _newWallet;
-        emit WalletUpdated("liquidity", _newWallet);
     }
 
     function setTreasuryWallet(address _newWallet) external onlyOwner {
         if (finalized || failed) revert Presale_AlreadyFinalized();
         if (_newWallet == address(0)) revert Presale_ZeroAddress();
+        emit WalletUpdated("treasury", config.treasuryWallet, _newWallet); // ZP-11
         config.treasuryWallet = _newWallet;
-        emit WalletUpdated("treasury", _newWallet);
     }
 
     function pause()  external onlyOwner { _pause(); }
@@ -458,16 +542,39 @@ contract ZenthisPresale is Ownable, ReentrancyGuard, Pausable {
         return (contribution[_user] * config.rate) / 1e18 + totalBonus;
     }
 
+    /// @notice ZTS de liquidez basado en totalRaised real
     function getLiquidityZtsAmount() external view returns (uint256) {
         uint256 liquidityEth = (totalRaised * config.liquidityPct) / 10000;
         return (liquidityEth * config.rate) / 1e18;
     }
 
+    /// @notice ZTS necesarios para financiar el contrato en escenario hardCap.
+    ///         ═══════════════════════════════════════════════════════════
+    ///         Ver diseño en docstring del contrato — NO es doble conteo.
+    ///         ═══════════════════════════════════════════════════════════
+    ///         Pool A: maxContribZts = hardCap × rate
+    ///                 → ZTS que los compradores reclaman (transfieren a sus wallets)
+    ///         Pool B: liqZts = (hardCap × liqPct / 10000) × rate
+    ///                 → ZTS enviados a liquidityWallet para LP match
+    ///         Pool C: bonusPoolSize → ZTS para airdrop flat + launch bonuses
+    ///
+    ///         Estos tres pools son ADITIVOS. Los compradores no se quedan
+    ///         sin sus ZTS por la transferencia a liquidez.
     function getRequiredZts() public view returns (uint256) {
         uint256 maxContribZts = (config.hardCap * config.rate) / 1e18;
         uint256 liqEth = (config.hardCap * config.liquidityPct) / 10000;
         uint256 liqZts = (liqEth * config.rate) / 1e18;
         return maxContribZts + config.bonusPoolSize + liqZts;
+    }
+
+    /// @notice Cobertura máxima teórica del bonus pool — ZP-04
+    ///         Si bonusPoolSize < maxTheoreticalBonus, algunos usuarios recibirán
+    ///         bonus escalados en claim(). Esto es intencional (pool limitado).
+    function getMaxTheoreticalBonus() external view returns (uint256) {
+        // Asume que hardCap se llena completamente con contribuidores de tier 4
+        uint256 maxContributors = config.hardCap / config.minBuy;
+        uint256 perUserMaxBonus = config.flatAirdrop + config.bonusTier4Reward;
+        return maxContributors * perUserMaxBonus;
     }
 
     function getRemainingBonusPool() external view returns (uint256) {

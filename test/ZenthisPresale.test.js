@@ -30,7 +30,7 @@ describe("ZenthisPresale", function () {
   async function deploy(opts = {}) {
     const block = await ethers.provider.getBlock("latest");
     const now = BigInt(block.timestamp);
-    const s = BigInt(opts.startTimeOffset ?? 0) + now;
+    const s = BigInt(opts.startTimeOffset ?? 2) + now;
     const e = s + BigInt(opts.duration ?? DURATION);
 
     const P = await ethers.getContractFactory("ZenthisPresale");
@@ -264,6 +264,8 @@ describe("ZenthisPresale", function () {
     it("should finalize when soft cap met", async function () {
       await presale.connect(users[0]).contribute(ethers.ZeroAddress, { value: ethers.parseEther("1") });
       await networkForwardTime(presale, 7*24*3600 + 1);
+      await presale.requestFinalize();
+      await networkForwardTime(presale, 48 * 3600 + 1);
       const liqBalBefore = await ethers.provider.getBalance(liqWallet.address);
       const treasuryBalBefore = await ethers.provider.getBalance(treasuryWallet.address);
       await expect(presale.finalize()).to.emit(presale, "Finalized");
@@ -281,7 +283,7 @@ describe("ZenthisPresale", function () {
 
     it("should revert finalize if soft cap not met", async function () {
       await networkForwardTime(presale, 7*24*3600 + 1);
-      await expect(presale.finalize()).to.be.revertedWithCustomError(presale, "Presale_SoftCapNotMet");
+      await expect(presale.requestFinalize()).to.be.revertedWithCustomError(presale, "Presale_SoftCapNotMet");
     });
   });
 
@@ -310,8 +312,7 @@ describe("ZenthisPresale", function () {
 
     it("should not refund after finalize", async function () {
       await presale.connect(users[0]).contribute(ethers.ZeroAddress, { value: ethers.parseEther("1") });
-      await networkForwardTime(presale, 7*24*3600 + 1);
-      await presale.finalize();
+      await networkForwardAndFinalize(presale);
       await expect(presale.connect(users[0]).refundMe())
         .to.be.revertedWithCustomError(presale, "Presale_SoftCapMet");
     });
@@ -533,6 +534,8 @@ async function networkForwardTime(contract, seconds) {
 
 async function networkForwardAndFinalize(contract) {
   await networkForwardTime(contract, 7*24*3600 + 1);
+  await contract.requestFinalize();
+  await networkForwardTime(contract, 48 * 3600 + 1);
   await contract.finalize();
 }
 
