@@ -38,8 +38,48 @@ function randInt(min, max) {
 
 // Generate a random ETH amount between 1 wei and 10 ETH
 function randEthAmount() {
-  const wei = BigInt(Math.floor(Math.random() * 1e19) + 1);
-  return wei;
+  return BigInt(Math.floor(Math.random() * 1e19) + 1);
+}
+
+/**
+ * Create an ETH swap and capture the swapId from the SwapCreated event.
+ * Returns { swapId, tx }
+ */
+async function createEthSwap(htlc, signer, recipient, hashlockVal, timelock, value) {
+  const tx = await htlc.connect(signer).newSwap(recipient, hashlockVal, timelock, { value });
+  const receipt = await tx.wait();
+  // SwapCreated(swapId, initiator, recipient, token, amount, hashlock, timelock)
+  const event = receipt.logs
+    .map((log) => {
+      try {
+        return htlc.interface.parseLog(log);
+      } catch {
+        return null;
+      }
+    })
+    .find((p) => p && p.name === "SwapCreated");
+  return event.args[0];
+}
+
+/**
+ * Create a token swap and capture the swapId from the SwapCreated event.
+ * Returns { swapId, tx }
+ */
+async function createTokenSwap(htlc, signer, recipient, tokenAddr, amount, hashlockVal, timelock) {
+  const tx = await htlc
+    .connect(signer)
+    .newSwapToken(recipient, tokenAddr, amount, hashlockVal, timelock);
+  const receipt = await tx.wait();
+  const event = receipt.logs
+    .map((log) => {
+      try {
+        return htlc.interface.parseLog(log);
+      } catch {
+        return null;
+      }
+    })
+    .find((p) => p && p.name === "SwapCreated");
+  return event.args[0];
 }
 
 describe("ZenthisHTLC — Fuzz Tests", function () {
@@ -71,17 +111,16 @@ describe("ZenthisHTLC — Fuzz Tests", function () {
       const now = await getTimestamp();
 
       for (let i = 0; i < 50; i++) {
-        const id = ethers.randomBytes(32);
         const pre = randomPreimage();
         const h = hashlock(pre);
         const tl = now + randInt(MIN_DELTA + 1, MAX_DELTA);
         const amount = randEthAmount();
 
-        await htlc.connect(initiator).newSwap(id, recipient.address, h, tl, { value: amount });
+        const swapId = await createEthSwap(htlc, initiator, recipient.address, h, tl, amount);
 
-        const swap = await htlc.getSwap(id);
+        const swap = await htlc.getSwap(swapId);
         expect(swap.status).to.equal(1n); // ACTIVE
-        expect(swap.amount).to.equal(amount); // no fee
+        expect(swap.amount).to.equal(amount); // no fee (feeBps=0)
         expect(swap.initiator).to.equal(initiator.address);
         expect(swap.recipient).to.equal(recipient.address);
       }
@@ -96,39 +135,36 @@ describe("ZenthisHTLC — Fuzz Tests", function () {
       for (let i = 0; i < 30; i++) {
         await ethers.provider.send("evm_mine"); // fresh block
         const now = await getTimestamp();
-        const id = ethers.randomBytes(32);
         const pre = randomPreimage();
         const h = hashlock(pre);
         const tl = now + MIN_DELTA + 5; // small safety buffer
 
-        await htlc.connect(initiator).newSwap(id, recipient.address, h, tl, { value: 100n });
-        expect((await htlc.getSwap(id)).status).to.equal(1n);
+        const swapId = await createEthSwap(htlc, initiator, recipient.address, h, tl, 100n);
+        expect((await htlc.getSwap(swapId)).status).to.equal(1n);
       }
     });
 
     it("should accept timelocks exactly at max boundary", async function () {
       for (let i = 0; i < 30; i++) {
         const now = await getTimestamp();
-        const id = ethers.randomBytes(32);
         const pre = randomPreimage();
         const h = hashlock(pre);
         const tl = now + MAX_DELTA; // exact maximum
 
-        await htlc.connect(initiator).newSwap(id, recipient.address, h, tl, { value: 100n });
-        expect((await htlc.getSwap(id)).status).to.equal(1n);
+        const swapId = await createEthSwap(htlc, initiator, recipient.address, h, tl, 100n);
+        expect((await htlc.getSwap(swapId)).status).to.equal(1n);
       }
     });
 
     it("should revert timelocks below minimum", async function () {
       for (let i = 0; i < 30; i++) {
         const now = await getTimestamp();
-        const id = ethers.randomBytes(32);
         const pre = randomPreimage();
         const h = hashlock(pre);
         const tl = now + MIN_DELTA - randInt(1, MIN_DELTA); // always below min
 
         await expect(
-          htlc.connect(initiator).newSwap(id, recipient.address, h, tl, { value: 100n }),
+          htlc.connect(initiator).newSwap(recipient.address, h, tl, { value: 100n }),
         ).to.be.revertedWith("HTLC: timelock too short");
       }
     });
@@ -136,13 +172,12 @@ describe("ZenthisHTLC — Fuzz Tests", function () {
     it("should revert timelocks above maximum", async function () {
       for (let i = 0; i < 30; i++) {
         const now = await getTimestamp();
-        const id = ethers.randomBytes(32);
         const pre = randomPreimage();
         const h = hashlock(pre);
         const tl = now + MAX_DELTA + randInt(1, 3600);
 
         await expect(
-          htlc.connect(initiator).newSwap(id, recipient.address, h, tl, { value: 100n }),
+          htlc.connect(initiator).newSwap(recipient.address, h, tl, { value: 100n }),
         ).to.be.revertedWith("HTLC: timelock too long");
       }
     });
@@ -161,15 +196,14 @@ describe("ZenthisHTLC — Fuzz Tests", function () {
         const expectedFee = (gross * BigInt(bps)) / 10000n;
         const expectedNet = gross - expectedFee;
 
-        const id = ethers.randomBytes(32);
         const pre = randomPreimage();
         const h = hashlock(pre);
         const now = await getTimestamp();
         const tl = now + 3600;
 
-        await htlc.connect(initiator).newSwap(id, recipient.address, h, tl, { value: gross });
+        const swapId = await createEthSwap(htlc, initiator, recipient.address, h, tl, gross);
 
-        const swap = await htlc.getSwap(id);
+        const swap = await htlc.getSwap(swapId);
         expect(swap.amount).to.equal(expectedNet);
 
         if (bps > 0) {
@@ -185,62 +219,73 @@ describe("ZenthisHTLC — Fuzz Tests", function () {
   describe("fuzz: redeem / refund lifecycle (30 runs)", function () {
     it("should always complete ETH lifecycle: create → redeem", async function () {
       for (let i = 0; i < 30; i++) {
-        const id = ethers.randomBytes(32);
         const pre = randomPreimage();
         const h = hashlock(pre);
         const now = await getTimestamp();
         const tl = now + randInt(MIN_DELTA + 1, MAX_DELTA);
 
-        await htlc
-          .connect(initiator)
-          .newSwap(id, recipient.address, h, tl, { value: ethers.parseEther("1") });
+        const swapId = await createEthSwap(
+          htlc,
+          initiator,
+          recipient.address,
+          h,
+          tl,
+          ethers.parseEther("1"),
+        );
 
-        await htlc.connect(recipient).redeem(id, pre);
+        await htlc.connect(recipient).redeem(swapId, pre);
 
-        const swap = await htlc.getSwap(id);
+        const swap = await htlc.getSwap(swapId);
         expect(swap.status).to.equal(2n); // REDEEMED
       }
     });
 
     it("should always complete ETH lifecycle: create → refund", async function () {
       for (let i = 0; i < 30; i++) {
-        const id = ethers.randomBytes(32);
         const pre = randomPreimage();
         const h = hashlock(pre);
         const now = await getTimestamp();
         const tl = now + MIN_DELTA + 5;
 
-        await htlc
-          .connect(initiator)
-          .newSwap(id, recipient.address, h, tl, { value: ethers.parseEther("1") });
+        const swapId = await createEthSwap(
+          htlc,
+          initiator,
+          recipient.address,
+          h,
+          tl,
+          ethers.parseEther("1"),
+        );
 
         await increaseTime(MIN_DELTA + 10);
 
-        await htlc.connect(initiator).refund(id);
+        await htlc.connect(initiator).refund(swapId);
 
-        const swap = await htlc.getSwap(id);
+        const swap = await htlc.getSwap(swapId);
         expect(swap.status).to.equal(3n); // REFUNDED
       }
     });
 
     it("should revert redeem with wrong preimage", async function () {
       for (let i = 0; i < 30; i++) {
-        const id = ethers.randomBytes(32);
         const pre = randomPreimage();
         const h = hashlock(pre);
-        const wrongPre = randomPreimage();
+        const wrongPre =
+          ethers.hexlify(ethers.randomBytes(32)) === ethers.hexlify(pre)
+            ? randomPreimage()
+            : randomPreimage();
         const now = await getTimestamp();
         const tl = now + 3600;
 
-        await htlc
-          .connect(initiator)
-          .newSwap(id, recipient.address, h, tl, { value: ethers.parseEther("1") });
+        const swapId = await createEthSwap(
+          htlc,
+          initiator,
+          recipient.address,
+          h,
+          tl,
+          ethers.parseEther("1"),
+        );
 
-        // Ensure wrongPre ≠ pre by regenerating if equal
-        const wrongPreFinal =
-          ethers.hexlify(wrongPre) === ethers.hexlify(pre) ? randomPreimage() : wrongPre;
-
-        await expect(htlc.connect(recipient).redeem(id, wrongPreFinal)).to.be.revertedWith(
+        await expect(htlc.connect(recipient).redeem(swapId, wrongPre)).to.be.revertedWith(
           "HTLC: invalid preimage",
         );
       }
@@ -254,7 +299,6 @@ describe("ZenthisHTLC — Fuzz Tests", function () {
     it("should handle any ERC-20 amount up to balance", async function () {
       for (let i = 0; i < 30; i++) {
         const now = await getTimestamp();
-        const id = ethers.randomBytes(32);
         const pre = randomPreimage();
         const h = hashlock(pre);
         const tl = now + randInt(MIN_DELTA + 1, MAX_DELTA);
@@ -269,13 +313,19 @@ describe("ZenthisHTLC — Fuzz Tests", function () {
         const finalAmount = amount > 0n ? amount : BigInt(10 ** 15);
 
         await token.connect(initiator).approve(await htlc.getAddress(), finalAmount);
-        await htlc
-          .connect(initiator)
-          .newSwapToken(id, recipient.address, await token.getAddress(), finalAmount, h, tl);
+        const swapId = await createTokenSwap(
+          htlc,
+          initiator,
+          recipient.address,
+          await token.getAddress(),
+          finalAmount,
+          h,
+          tl,
+        );
 
-        const swap = await htlc.getSwap(id);
+        const swap = await htlc.getSwap(swapId);
         expect(swap.status).to.equal(1n);
-        expect(swap.amount).to.equal(finalAmount);
+        expect(swap.amount).to.equal(finalAmount); // no fee (feeBps=0)
         expect(swap.token).to.equal(await token.getAddress());
       }
     });
@@ -295,14 +345,19 @@ describe("ZenthisHTLC — Fuzz Tests", function () {
 
         // Create 5 swaps
         for (let j = 0; j < 5; j++) {
-          ids.push(ethers.randomBytes(32));
           pres.push(randomPreimage());
           hashes.push(hashlock(pres[j]));
           const tl = now + randInt(MIN_DELTA + 1, MAX_DELTA);
 
-          await htlc.connect(initiator).newSwap(ids[j], recipient.address, hashes[j], tl, {
-            value: ethers.parseEther(String(j + 1)),
-          });
+          const swapId = await createEthSwap(
+            htlc,
+            initiator,
+            recipient.address,
+            hashes[j],
+            tl,
+            ethers.parseEther(String(j + 1)),
+          );
+          ids.push(swapId);
         }
 
         // Every swap is active and independent
@@ -328,31 +383,36 @@ describe("ZenthisHTLC — Fuzz Tests", function () {
   });
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // FUZZ: duplicate swapId
+  // FUZZ: nonce uniqueness — same params produce different swap IDs
   // ═══════════════════════════════════════════════════════════════════════════
-  describe("fuzz: duplicate swapId rejection", function () {
-    it("should always reject reused IDs regardless of params", async function () {
+  describe("fuzz: nonce uniqueness (20 runs)", function () {
+    it("should produce unique swap IDs for identical params", async function () {
       const now = await getTimestamp();
 
       for (let i = 0; i < 20; i++) {
-        const id = ethers.randomBytes(32);
         const pre = randomPreimage();
         const h = hashlock(pre);
         const tl = now + 3600;
 
-        // First use: should succeed
-        await htlc
-          .connect(initiator)
-          .newSwap(id, recipient.address, h, tl, { value: ethers.parseEther("1") });
+        const id1 = await createEthSwap(
+          htlc,
+          initiator,
+          recipient.address,
+          h,
+          tl,
+          ethers.parseEther("1"),
+        );
+        const id2 = await createEthSwap(
+          htlc,
+          initiator,
+          recipient.address,
+          h,
+          tl,
+          ethers.parseEther("2"),
+        );
 
-        // Second use with different params: should revert
-        const pre2 = randomPreimage();
-        const h2 = hashlock(pre2);
-        await expect(
-          htlc
-            .connect(initiator)
-            .newSwap(id, recipient.address, h2, tl, { value: ethers.parseEther("2") }),
-        ).to.be.revertedWith("HTLC: swap ID already used");
+        // Same caller + same params → different nonce → different swapId
+        expect(id1).not.to.equal(id2);
       }
     });
   });

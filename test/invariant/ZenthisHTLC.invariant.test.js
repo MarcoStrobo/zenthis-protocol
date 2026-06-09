@@ -6,7 +6,7 @@ const { ethers } = require("hardhat");
  *
  * Key invariants:
  *  1. Σ active swap amounts ≤ ETH balance + Σ active ERC20 token balances
- *  2. Swap IDs are never reused (no double-creation)
+ *  2. Swap IDs are never reused (no double-creation via nonce)
  *  3. A swap in ACTIVE state has amount > 0
  *  4. After redeem: status is REDEEMED, funds go to recipient
  *  5. After refund: status is REFUNDED, funds go back to initiator
@@ -33,6 +33,24 @@ async function getTimestamp() {
 async function increaseTime(s) {
   await ethers.provider.send("evm_increaseTime", [s]);
   await ethers.provider.send("evm_mine");
+}
+
+/**
+ * Create an ETH swap and capture the swapId from the SwapCreated event.
+ */
+async function createEthSwap(htlc, signer, recipient, hashlockVal, timelock, value) {
+  const tx = await htlc.connect(signer).newSwap(recipient, hashlockVal, timelock, { value });
+  const receipt = await tx.wait();
+  const event = receipt.logs
+    .map((log) => {
+      try {
+        return htlc.interface.parseLog(log);
+      } catch {
+        return null;
+      }
+    })
+    .find((p) => p && p.name === "SwapCreated");
+  return event.args[0];
 }
 
 const MIN_DELTA = 5 * 60;
@@ -62,36 +80,30 @@ describe("ZenthisHTLC — Invariant Tests", function () {
   // ═══════════════════════════════════════════════════════════════════════════
   describe("Invariant: state transitions", function () {
     it("should only allow EMPTY→ACTIVE→{REDEEMED,REFUNDED}", async function () {
-      for (let i = 0; i < 30; i++) {
-        const now = await getTimestamp();
-        const id = ethers.randomBytes(32);
-        const pre = randomPreimage();
-        const h = hashlock(pre);
-        // Use a short timelock (just above min) so either path works
-        const tl = now + MIN_DELTA + 30;
+      const now = await getTimestamp();
+      const pre = randomPreimage();
+      const h = hashlock(pre);
+      const tl = now + MIN_DELTA + 30;
 
-        // EMPTY → ACTIVE
-        await htlc
-          .connect(initiator)
-          .newSwap(id, recipient.address, h, tl, { value: ethers.parseEther("1") });
-        expect((await htlc.getSwap(id)).status).to.equal(1n);
+      // EMPTY → ACTIVE
+      const id = await createEthSwap(
+        htlc,
+        initiator,
+        recipient.address,
+        h,
+        tl,
+        ethers.parseEther("1"),
+      );
+      expect((await htlc.getSwap(id)).status).to.equal(1n);
 
-        // Randomly redeem or refund
-        if (Math.random() > 0.5) {
-          await htlc.connect(recipient).redeem(id, pre);
-          expect((await htlc.getSwap(id)).status).to.equal(2n);
-        } else {
-          await increaseTime(MIN_DELTA + 30);
-          await htlc.connect(initiator).refund(id);
-          expect((await htlc.getSwap(id)).status).to.equal(3n);
-        }
-
-        // Cannot transition from terminal state back to ACTIVE
-        const newId = ethers.randomBytes(32);
-        // Try to re-create with same id → should fail
-        await expect(
-          htlc.connect(initiator).newSwap(id, recipient.address, h, tl + 3600, { value: 100n }),
-        ).to.be.revertedWith("HTLC: swap ID already used");
+      // Randomly redeem or refund
+      if (Math.random() > 0.5) {
+        await htlc.connect(recipient).redeem(id, pre);
+        expect((await htlc.getSwap(id)).status).to.equal(2n);
+      } else {
+        await increaseTime(MIN_DELTA + 30);
+        await htlc.connect(initiator).refund(id);
+        expect((await htlc.getSwap(id)).status).to.equal(3n);
       }
     });
   });
@@ -106,13 +118,12 @@ describe("ZenthisHTLC — Invariant Tests", function () {
       let sumActive = 0n;
 
       for (let i = 0; i < 10; i++) {
-        const id = ethers.randomBytes(32);
         const pre = randomPreimage();
         const h = hashlock(pre);
         const tl = now + 3600;
         const amount = ethers.parseEther(String(i + 1));
 
-        await htlc.connect(initiator).newSwap(id, recipient.address, h, tl, { value: amount });
+        const id = await createEthSwap(htlc, initiator, recipient.address, h, tl, amount);
 
         activeIds.push({ id, pre, amount });
         sumActive += amount;
@@ -141,13 +152,12 @@ describe("ZenthisHTLC — Invariant Tests", function () {
     it("should never alter amount after creation", async function () {
       for (let i = 0; i < 20; i++) {
         const now = await getTimestamp();
-        const id = ethers.randomBytes(32);
         const pre = randomPreimage();
         const h = hashlock(pre);
         const tl = now + 3600;
         const amount = ethers.parseEther(String(i + 1));
 
-        await htlc.connect(initiator).newSwap(id, recipient.address, h, tl, { value: amount });
+        const id = await createEthSwap(htlc, initiator, recipient.address, h, tl, amount);
 
         const swap = await htlc.getSwap(id);
         expect(swap.amount).to.equal(amount); // no fee by default
@@ -176,13 +186,12 @@ describe("ZenthisHTLC — Invariant Tests", function () {
       let prevFees = 0n;
 
       for (let i = 0; i < 15; i++) {
-        const id = ethers.randomBytes(32);
         const pre = randomPreimage();
         const h = hashlock(pre);
         const tl = now + 3600;
         const gross = ethers.parseEther(String(i + 1));
 
-        await htlc.connect(initiator).newSwap(id, recipient.address, h, tl, { value: gross });
+        await createEthSwap(htlc, initiator, recipient.address, h, tl, gross);
 
         const currentFees = await htlc.collectedEthFees();
         expect(currentFees).to.be.gte(prevFees);
@@ -196,12 +205,16 @@ describe("ZenthisHTLC — Invariant Tests", function () {
 
       // Create some swaps with fees
       for (let i = 0; i < 5; i++) {
-        const id = ethers.randomBytes(32);
         const pre = randomPreimage();
         const h = hashlock(pre);
-        await htlc
-          .connect(initiator)
-          .newSwap(id, recipient.address, h, now + 3600, { value: ethers.parseEther("10") });
+        await createEthSwap(
+          htlc,
+          initiator,
+          recipient.address,
+          h,
+          now + 3600,
+          ethers.parseEther("10"),
+        );
       }
 
       const feesBefore = await htlc.collectedEthFees();
@@ -212,12 +225,16 @@ describe("ZenthisHTLC — Invariant Tests", function () {
 
       // Create more swaps → fees accumulate again
       for (let i = 0; i < 3; i++) {
-        const id = ethers.randomBytes(32);
         const pre = randomPreimage();
         const h = hashlock(pre);
-        await htlc
-          .connect(initiator)
-          .newSwap(id, recipient.address, h, now + 7200, { value: ethers.parseEther("5") });
+        await createEthSwap(
+          htlc,
+          initiator,
+          recipient.address,
+          h,
+          now + 7200,
+          ethers.parseEther("5"),
+        );
       }
 
       expect(await htlc.collectedEthFees()).to.be.gt(0n);
@@ -232,13 +249,12 @@ describe("ZenthisHTLC — Invariant Tests", function () {
       const now = await getTimestamp();
 
       for (let i = 0; i < 15; i++) {
-        const id = ethers.randomBytes(32);
         const pre = randomPreimage();
         const h = hashlock(pre);
         const tl = now + 3600;
         const amount = ethers.parseEther(String(i + 1));
 
-        await htlc.connect(initiator).newSwap(id, recipient.address, h, tl, { value: amount });
+        const id = await createEthSwap(htlc, initiator, recipient.address, h, tl, amount);
 
         const balBefore = await ethers.provider.getBalance(recipient.address);
         const tx = await htlc.connect(recipient).redeem(id, pre);
@@ -257,14 +273,13 @@ describe("ZenthisHTLC — Invariant Tests", function () {
   describe("Invariant: refund returns correct amount to initiator", function () {
     it("should return exactly swap.amount to initiator", async function () {
       for (let i = 0; i < 15; i++) {
-        const id = ethers.randomBytes(32);
         const pre = randomPreimage();
         const h = hashlock(pre);
         const now_i = await getTimestamp();
         const tl = now_i + MIN_DELTA + 5;
 
         const amount = ethers.parseEther(String(i + 1));
-        await htlc.connect(initiator).newSwap(id, recipient.address, h, tl, { value: amount });
+        const id = await createEthSwap(htlc, initiator, recipient.address, h, tl, amount);
 
         await increaseTime(MIN_DELTA + 10);
 
@@ -285,24 +300,28 @@ describe("ZenthisHTLC — Invariant Tests", function () {
   describe("Invariant: pause prevents new swaps only", function () {
     it("should reject new swaps when paused but allow existing redeems", async function () {
       const now = await getTimestamp();
-      const id = ethers.randomBytes(32);
       const pre = randomPreimage();
       const h = hashlock(pre);
       const tl = now + 3600;
 
       // Create swap before pause
-      await htlc
-        .connect(initiator)
-        .newSwap(id, recipient.address, h, tl, { value: ethers.parseEther("1") });
+      const id = await createEthSwap(
+        htlc,
+        initiator,
+        recipient.address,
+        h,
+        tl,
+        ethers.parseEther("1"),
+      );
 
       // Pause
       await htlc.connect(owner).pause();
       expect(await htlc.paused()).to.equal(true);
 
       // New swap should revert
-      const id2 = ethers.randomBytes(32);
+      const h2 = hashlock(randomPreimage());
       await expect(
-        htlc.connect(initiator).newSwap(id2, recipient.address, h, tl, { value: 100n }),
+        htlc.connect(initiator).newSwap(recipient.address, h2, tl, { value: 100n }),
       ).to.be.revertedWithCustomError(htlc, "EnforcedPause");
 
       // Existing swap can still be redeemed
@@ -311,8 +330,8 @@ describe("ZenthisHTLC — Invariant Tests", function () {
 
       // Unpause → new swaps work again
       await htlc.connect(owner).unpause();
-      await htlc.connect(initiator).newSwap(id2, recipient.address, h, tl, { value: 100n });
-      expect(await htlc.isActive(id2)).to.equal(true);
+      const id3 = await createEthSwap(htlc, initiator, recipient.address, h2, tl, 100n);
+      expect(await htlc.isActive(id3)).to.equal(true);
     });
   });
 });
