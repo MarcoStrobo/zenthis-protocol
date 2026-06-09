@@ -150,6 +150,8 @@ contract ZenthisPresale is Ownable2Step, ReentrancyGuard, Pausable {
 
     // ── Custom Errors ───────────────────────────────────────────────────────
     error Presale_ZeroAddress();
+    error Presale_ClaimDeadlineNotSet();  // ZP-15
+    error Presale_ClaimWindowActive();    // ZP-15
     error Presale_NotStarted();
     error Presale_Ended();
     error Presale_NotEnded();
@@ -342,9 +344,12 @@ contract ZenthisPresale is Ownable2Step, ReentrancyGuard, Pausable {
     /// @notice Paso 2: ejecutar finalización (solo tras timelock).
     ///         Transfiere ETH + ZTS de liquidez a liquidityWallet.
     ///         Incluye assert de balance suficiente (ZP-05).
+    ///
+    /// @dev ZP-14: softCap ya validado en requestFinalize() y totalRaised
+    ///      es monotónico (solo crece), por lo que la validación duplicada
+    ///      de softCap es código muerto y se ha eliminado.
     function finalize() external onlyOwner onlyWhenEnded {
         if (finalized)    revert Presale_AlreadyFinalized();
-        if (totalRaised < config.softCap) revert Presale_SoftCapNotMet();
 
         // ── Timelock check — ZP-01 ────────────────────────────────────
         if (finalizeReadyAt == 0 || block.timestamp < finalizeReadyAt)
@@ -433,11 +438,13 @@ contract ZenthisPresale is Ownable2Step, ReentrancyGuard, Pausable {
         _refund(msg.sender);
     }
 
+    /// @notice ZP-13: resetea finalizeReadyAt por si había un timelock pendiente
     function markFailed() external onlyOwner onlyWhenEnded {
         if (finalized) revert Presale_SoftCapMet();
         if (failed) revert Presale_AlreadyFailed();
         if (totalRaised >= config.softCap) revert Presale_SoftCapMet();
         failed = true;
+        finalizeReadyAt = 0; // ZP-13
         emit PresaleMarkedFailed();
     }
 
@@ -482,8 +489,8 @@ contract ZenthisPresale is Ownable2Step, ReentrancyGuard, Pausable {
         if (!finalized && !failed) revert Presale_NotFinalizedOrFailed();
 
         if (finalized) {
-            if (claimDeadline == 0) revert("Claim deadline not set");
-            if (block.timestamp < claimDeadline) revert("Claim window still active");
+            if (claimDeadline == 0) revert Presale_ClaimDeadlineNotSet();   // ZP-15
+            if (block.timestamp < claimDeadline) revert Presale_ClaimWindowActive(); // ZP-15
         }
 
         uint256 balance = config.token.balanceOf(address(this));
@@ -492,15 +499,17 @@ contract ZenthisPresale is Ownable2Step, ReentrancyGuard, Pausable {
         emit UnusedTokensWithdrawn(owner(), balance);
     }
 
+    /// @notice ZP-12: bloqueado también durante la ventana de timelock
     function setLiquidityWallet(address _newWallet) external onlyOwner {
-        if (finalized || failed) revert Presale_AlreadyFinalized();
+        if (finalized || failed || finalizeReadyAt != 0) revert Presale_AlreadyFinalized();
         if (_newWallet == address(0)) revert Presale_ZeroAddress();
         emit WalletUpdated("liquidity", config.liquidityWallet, _newWallet); // ZP-11
         config.liquidityWallet = _newWallet;
     }
 
+    /// @notice ZP-12: bloqueado también durante la ventana de timelock
     function setTreasuryWallet(address _newWallet) external onlyOwner {
-        if (finalized || failed) revert Presale_AlreadyFinalized();
+        if (finalized || failed || finalizeReadyAt != 0) revert Presale_AlreadyFinalized();
         if (_newWallet == address(0)) revert Presale_ZeroAddress();
         emit WalletUpdated("treasury", config.treasuryWallet, _newWallet); // ZP-11
         config.treasuryWallet = _newWallet;
