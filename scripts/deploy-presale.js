@@ -78,7 +78,7 @@ async function main() {
   if (!ethers.isAddress(liqWallet)) throw new Error(`Invalid PRESALE_LIQUIDITY_WALLET`);
   if (!ethers.isAddress(treasuryWallet)) throw new Error(`Invalid PRESALE_TREASURY_WALLET`);
 
-  const token = await ethers.getContractAt("ZENTHIS", tokenAddr);
+  const token = await ethers.getContractAt("ZenthisToken", tokenAddr);
 
   // ── [1/2] Deploy ZenthisPresale ────────────────────────────────
   console.log("📦 [1/2] Deploying ZenthisPresale...");

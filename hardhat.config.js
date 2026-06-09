@@ -32,11 +32,24 @@ module.exports = {
       accounts: process.env.DEPLOYER_PRIVATE_KEY ? [process.env.DEPLOYER_PRIVATE_KEY] : [],
       chainId:  421614,
     },
+    // ── Base Sepolia (testnet) ────────────────────────────────────────────────
+    baseSepolia: {
+      url:      process.env.BASE_SEPOLIA_RPC_URL || "https://sepolia.base.org",
+      accounts: process.env.DEPLOYER_PRIVATE_KEY ? [process.env.DEPLOYER_PRIVATE_KEY] : [],
+      chainId:  84532,
+    },
     // ── Mainnet ───────────────────────────────────────────────────────────────
     mainnet: {
       url:      process.env.MAINNET_RPC_URL || "",
       accounts: process.env.DEPLOYER_PRIVATE_KEY ? [process.env.DEPLOYER_PRIVATE_KEY] : [],
       chainId:  1,
+      gasPrice: "auto",
+    },
+    // ── Base (production) ─────────────────────────────────────────────────────
+    base: {
+      url:      process.env.BASE_RPC_URL || "",
+      accounts: process.env.DEPLOYER_PRIVATE_KEY ? [process.env.DEPLOYER_PRIVATE_KEY] : [],
+      chainId:  8453,
       gasPrice: "auto",
     },
   },
