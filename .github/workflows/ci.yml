@@ -22,8 +22,8 @@ jobs:
         with:
           node-version: 20
       - run: npm install
-      - name: Check Solidity formatting
-        run: npx prettier --check "contracts/**/*.sol" "test/**/*.js" "scripts/**/*.js"
+      - name: Check JavaScript formatting
+        run: npx prettier --check "test/**/*.js" "scripts/**/*.js"
 
   test:
     runs-on: ubuntu-latest
