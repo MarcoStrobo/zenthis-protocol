@@ -362,6 +362,7 @@ contract ZenthisPresale is Ownable2Step, ReentrancyGuard, Pausable {
             revert Presale_TimelockPending();
 
         finalized = true;
+        finalizeReadyAt = 0; // V6-L-02: limpia estado para herramientas de monitoreo
         claimDeadline = config.endTime + CLAIM_WINDOW;
         emit ClaimDeadlineSet(claimDeadline);
 
@@ -493,7 +494,7 @@ contract ZenthisPresale is Ownable2Step, ReentrancyGuard, Pausable {
     // ── Admin ───────────────────────────────────────────────────────────────
     /// @notice Retirar ZTS no usados tras finalize (post-claim window) o failed.
     /// @dev V4-L-01: misma ventana CLAIM_WINDOW en modo failed para mantener transparencia.
-    ///      V5-L-02: depositTokens() tiene restricción pre-start, no withdrawUnusedTokens.
+    /// @dev V6-I-03: depositTokens() no tiene restricción temporal (el owner decidió mantenerla flexible).
     function withdrawUnusedTokens() external onlyOwner {
         if (!finalized && !failed) revert Presale_NotFinalizedOrFailed();
 
@@ -511,25 +512,49 @@ contract ZenthisPresale is Ownable2Step, ReentrancyGuard, Pausable {
     }
 
     /// @notice Cambiar wallet de liquidez.
-    /// @dev ZP-12: bloqueado durante timelock salvo que el timelock ya haya expirado
-    ///      y finalize() haya fallado (V5-L-03: DoS recovery).
+    /// @dev ZP-12: bloqueado durante timelock salvo si finalize() falló tras expirar el timelock
+    ///      (V5-L-03: stuck recovery — ambas wallets son cambiables si la transferencia ETH
+    ///       revirtió, ya que Solidity revierte todo el estado de finalize()).
+    /// @dev V6-L-03: errores semánticos separados por estado.
     function setLiquidityWallet(address _newWallet) external onlyOwner {
-        // V5-L-03: permitir cambio si el timelock expiró pero finalize() falló
-        bool stuck = finalizeReadyAt != 0 && block.timestamp >= finalizeReadyAt && !finalized;
-        if (!stuck && (finalized || failed || finalizeReadyAt != 0)) revert Presale_AlreadyFinalized();
+        if (_isStuck()) {
+            // V5-L-03: finalize() falló tras timelock — permitir cambio para recuperación
+        } else if (finalized) {
+            revert Presale_AlreadyFinalized();
+        } else if (failed) {
+            revert Presale_AlreadyFailed();
+        } else if (finalizeReadyAt != 0) {
+            revert Presale_TimelockPending();
+        }
         if (_newWallet == address(0)) revert Presale_ZeroAddress();
         emit WalletUpdated("liquidity", config.liquidityWallet, _newWallet); // ZP-11
         config.liquidityWallet = _newWallet;
     }
 
-    /// @notice ZP-12: bloqueado también durante la ventana de timelock
-    /// @dev V5-L-03: misma lógica de stuck recovery que setLiquidityWallet
+    /// @notice ZP-12: bloqueado durante timelock, salvo stuck recovery.
+    /// @dev V5-L-03: misma lógica que setLiquidityWallet.
+    /// @dev V6-L-03: errores semánticos separados por estado.
     function setTreasuryWallet(address _newWallet) external onlyOwner {
-        bool stuck = finalizeReadyAt != 0 && block.timestamp >= finalizeReadyAt && !finalized;
-        if (!stuck && (finalized || failed || finalizeReadyAt != 0)) revert Presale_AlreadyFinalized();
+        if (_isStuck()) {
+            // V5-L-03: finalize() falló tras timelock
+        } else if (finalized) {
+            revert Presale_AlreadyFinalized();
+        } else if (failed) {
+            revert Presale_AlreadyFailed();
+        } else if (finalizeReadyAt != 0) {
+            revert Presale_TimelockPending();
+        }
         if (_newWallet == address(0)) revert Presale_ZeroAddress();
         emit WalletUpdated("treasury", config.treasuryWallet, _newWallet); // ZP-11
         config.treasuryWallet = _newWallet;
+    }
+
+    /// @dev Helper: ¿estamos en stuck recovery? (timelock expiró pero finalize() no completó)
+    ///      V5-L-03: esto ocurre si la transferencia ETH en finalize() revierte —
+    ///      Solidity revierte toda la transacción, pero la wallet que falló puede
+    ///      cambiarse para reintentar.
+    function _isStuck() internal view returns (bool) {
+        return finalizeReadyAt != 0 && block.timestamp >= finalizeReadyAt && !finalized;
     }
 
     /// @notice V4-I-03: deshabilitar renuncia de ownership en contrato de IDO
@@ -559,9 +584,11 @@ contract ZenthisPresale is Ownable2Step, ReentrancyGuard, Pausable {
         return _pendingFlatBonus[_user];
     }
 
-    /// @dev V5-I-03: usa snapshot en lugar de recomputar
+    /// @dev V6-M-01: guardia contra underflow (defensivo, el invariante siempre mantiene _pendingBonus >= _pendingFlatBonus)
     function getTierBonus(address _user) external view returns (uint256) {
-        return _pendingBonus[_user] - _pendingFlatBonus[_user];
+        uint256 total  = _pendingBonus[_user];
+        uint256 flat   = _pendingFlatBonus[_user];
+        return total > flat ? total - flat : 0;
     }
 
     function getClaimableAmount(address _user) external view returns (uint256) {
