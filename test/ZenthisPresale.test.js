@@ -527,7 +527,7 @@ describe("ZenthisPresale", function () {
       await networkForwardTime(presale, 7 * 24 * 3600 + 1);
       await expect(presale.connect(users[0]).claim()).to.be.revertedWithCustomError(
         presale,
-        "Presale_SoftCapNotMet",
+        "Presale_NotFinalized",
       );
     });
 

@@ -87,6 +87,7 @@ contract ZenthisPresale is Ownable2Step, ReentrancyGuard, Pausable {
     uint256 public constant MAX_RESCUE_BATCH = 200;
 
     /// @notice Máximo de direcciones por batch de whitelist (gas bound)
+    /// @custom:gas Target network: Base (L2). 500 direcciones están por debajo del límite de gas (~30M).
     uint256 public constant MAX_WHITELIST_BATCH = 500;
 
     // ── Structs ──────────────────────────────────────────────────────────────
@@ -167,6 +168,7 @@ contract ZenthisPresale is Ownable2Step, ReentrancyGuard, Pausable {
 
     // ── Events ──────────────────────────────────────────────────────────────
     event Contributed(address indexed user, uint256 amount, address indexed referrer);
+    event ReferralQualified(address indexed referrer, address indexed referee, uint256 totalQualified); // ZP-L-04
     event FinalizeRequested(uint256 readyAt);
     event Finalized(uint256 totalRaised, uint256 liquidityEth, uint256 treasuryEth);
     event Claimed(
@@ -190,6 +192,7 @@ contract ZenthisPresale is Ownable2Step, ReentrancyGuard, Pausable {
         uint256 tier2Eth, uint256 tier2Reward,
         uint256 tier3Eth, uint256 tier3Reward
     ); // V9
+    event BonusPoolWarning(uint256 actual, uint256 minimum); // ZP-I-03
 
     // ── Custom Errors ───────────────────────────────────────────────────────
     error Presale_ZeroAddress();
@@ -231,6 +234,7 @@ contract ZenthisPresale is Ownable2Step, ReentrancyGuard, Pausable {
     error Presale_BatchTooLargeWhiteList();   // V9
     error Presale_InvalidPhase();             // V9
     error Presale_ClaimWindowExpired();       // ZP-H-04
+    error Presale_NotFinalized();             // ZP-I-01
 
     // ── Constructor ─────────────────────────────────────────────────────────
     constructor(
@@ -261,8 +265,8 @@ contract ZenthisPresale is Ownable2Step, ReentrancyGuard, Pausable {
         if (address(_token) == address(0) || _liquidityWallet == address(0) || _treasuryWallet == address(0))
             revert Presale_ZeroAddress();
 
-        // ── Timing — ZP-07 ───────────────────────────────────────────
-        if (_startTime < block.timestamp) revert Presale_InvalidTimes();
+        // ── Timing — ZP-07 / ZP-L-01 ─────────────────────────────────
+        if (_startTime <= block.timestamp) revert Presale_InvalidTimes();
         if (_startTime >= _endTime)        revert Presale_InvalidTimes();
 
         // ── Rates & Caps ─────────────────────────────────────────────
@@ -277,6 +281,9 @@ contract ZenthisPresale is Ownable2Step, ReentrancyGuard, Pausable {
             _bonusTier1Eth > _bonusTier2Eth || _bonusTier2Eth > _bonusTier3Eth || _bonusTier3Eth > _bonusTier4Eth
             || _bonusTier1Reward > _bonusTier2Reward || _bonusTier2Reward > _bonusTier3Reward || _bonusTier3Reward > _bonusTier4Reward
         ) revert Presale_InvalidThreshold();
+        // ZP-I-03: validar que el bonus pool cubre el máximo teórico
+        uint256 theoreticalMin = (_hardCap / _minBuy) * (_flatAirdrop + _bonusTier4Reward);
+        if (_bonusPoolSize < theoreticalMin) emit BonusPoolWarning(_bonusPoolSize, theoreticalMin);
 
         config = PresaleConfig({
             token: _token,
@@ -344,6 +351,8 @@ contract ZenthisPresale is Ownable2Step, ReentrancyGuard, Pausable {
     // ── Whitelist Management — V9 ──────────────────────────────────────────
 
     /// @notice Añadir direcciones a una fase de whitelist.
+    /// @dev INSERT-ONLY: las direcciones ya whitelisted se omiten.
+    ///      Para cambiar la fase de un usuario existente, usar updateWhitelistPhase().
     /// @param users Array de direcciones a añadir
     /// @param phase Fase (1 = Phase1, 2 = Phase2)
     /// @dev Las direcciones ya whitelisted se omiten sin revertir el batch.
@@ -403,8 +412,8 @@ contract ZenthisPresale is Ownable2Step, ReentrancyGuard, Pausable {
 
     /// @notice Configurar parámetros de bonus para Phase 2.
     ///         Solo puede llamarse antes de que empiece la presale.
-    /// @dev Si no se llama, Phase 2 usa los mismos parámetros que Phase 1
-    ///      (compatibilidad hacia atrás).
+    /// @dev ZP-M-03: puede llamarse múltiples veces antes de startTime para corregir
+    ///      errores pre-lanzamiento. Tras startTime está bloqueada permanentemente.
     function setPhase2Config(
         uint256 _flatAirdrop,
         uint256 _tier1Eth, uint256 _tier1Reward,
@@ -484,6 +493,8 @@ contract ZenthisPresale is Ownable2Step, ReentrancyGuard, Pausable {
                 _refereeAlreadyCounted[_user] = true;
                 qualifiedReferrals[referrer] += 1;
                 totalReferralQualified += 1;
+                // ZP-L-04: evento de referido calificado
+                emit ReferralQualified(referrer, _user, qualifiedReferrals[referrer]);
             }
         }
 
@@ -546,7 +557,8 @@ contract ZenthisPresale is Ownable2Step, ReentrancyGuard, Pausable {
         if (failed) revert Presale_SoftCapNotMet();
         if (!finalized) {
             if (block.timestamp <= config.endTime) revert Presale_NotEnded();
-            revert Presale_SoftCapNotMet();
+            // ZP-I-01: error semántico dedicado para UX
+            revert Presale_NotFinalized();
         }
         // ZP-H-04: validar claimDeadline para evitar error genérico post-withdraw
         if (claimDeadline == 0) revert Presale_ClaimDeadlineNotSet();
@@ -588,6 +600,7 @@ contract ZenthisPresale is Ownable2Step, ReentrancyGuard, Pausable {
 
         uint8 phase = whitelistPhase[_user];
 
+        // ZP-I-02: fase explícita para future-proofing
         if (phase == 1) {
             // Phase 1: usa PresaleConfig (2,000 flat + 4 tiers)
             flatBonus = config.flatAirdrop;
@@ -600,7 +613,7 @@ contract ZenthisPresale is Ownable2Step, ReentrancyGuard, Pausable {
             } else if (contrib >= config.bonusTier1Eth) {
                 tierBonus = config.bonusTier1Reward;
             }
-        } else {
+        } else if (phase == 2) {
             // Phase 2: usa Phase2BonusConfig (1,000 flat + 3 tiers)
             flatBonus = phase2.flatAirdrop;
             if (contrib >= phase2.bonusTier3Eth) {
@@ -611,6 +624,7 @@ contract ZenthisPresale is Ownable2Step, ReentrancyGuard, Pausable {
                 tierBonus = phase2.bonusTier1Reward;
             }
         }
+        // ZP-I-02: any future/unexpected phase returns (0,0)
         return (flatBonus, tierBonus);
     }
 
@@ -811,14 +825,20 @@ contract ZenthisPresale is Ownable2Step, ReentrancyGuard, Pausable {
         return maxContribZts + config.bonusPoolSize + liqZts;
     }
 
+    /// @notice ZTS mínimos requeridos para el escenario softCap (útil para planificación)
+    /// @dev ZP-M-01: complementa getRequiredZts() con un escenario realista mínimo.
+    function getMinimumRequiredZts() external view returns (uint256) {
+        uint256 minContribZts = (config.softCap * config.rate) / 1e18;
+        uint256 liqEth = (config.softCap * config.liquidityPct) / 10000;
+        uint256 liqZts = (liqEth * config.rate) / 1e18;
+        return minContribZts + config.bonusPoolSize + liqZts;
+    }
+
     /// @notice [DEPRECATED] Usar getMaxTheoreticalBonusPhase1() o getMaxTheoreticalBonusPhase2().
     ///         Esta función solo considera Phase 1 y puede inducir a error.
-    ///         (V10-L-02)
-    function getMaxTheoreticalBonus() external view returns (uint256) {
-        // Asume que hardCap se llena completamente con contribuidores de tier 4
-        uint256 maxContributors = config.hardCap / config.minBuy;
-        uint256 perUserMaxBonus = config.flatAirdrop + config.bonusTier4Reward;
-        return maxContributors * perUserMaxBonus;
+    ///         (V10-L-02, ZP-L-03)
+    function getMaxTheoreticalBonus() external pure returns (uint256) {
+        revert("use getMaxTheoreticalBonusPhase1 or Phase2");
     }
 
     function getRemainingBonusPool() external view returns (uint256) {
