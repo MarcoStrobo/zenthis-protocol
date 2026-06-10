@@ -237,7 +237,6 @@ contract ZenthisPresale is Ownable2Step, ReentrancyGuard, Pausable {
     error Presale_ClaimWindowExpired();       // ZP-H-04
     error Presale_NotFinalized();             // ZP-I-01
     error Presale_AlreadyStarted();            // L-01
-    error Presale_AlreadyContributed();       // H-01, M-01
 
     // ── Constructor ─────────────────────────────────────────────────────────
     constructor(
@@ -387,8 +386,8 @@ contract ZenthisPresale is Ownable2Step, ReentrancyGuard, Pausable {
         for (uint256 i = 0; i < users.length; i++) {
             address user = users[i];
             if (whitelistPhase[user] != newPhase) {
-                // H-01: bloquear cambio si ya contribuyó (snapshot inmutable)
-                if (contribution[user] >= config.minBuy) revert Presale_AlreadyContributed();
+                // H-01: saltar si ya contribuyó (snapshot inmutable, evitar DoS batch)
+                if (contribution[user] >= config.minBuy) continue;
                 whitelistPhase[user] = newPhase;
                 emit WhitelistUpdated(user, newPhase);
             }
@@ -404,8 +403,8 @@ contract ZenthisPresale is Ownable2Step, ReentrancyGuard, Pausable {
         for (uint256 i = 0; i < users.length; i++) {
             address user = users[i];
             if (whitelistPhase[user] != 0) {
-                // M-01: bloquear si ya contribuyó
-                if (contribution[user] >= config.minBuy) revert Presale_AlreadyContributed();
+                // M-01: saltar si ya contribuyó (evitar DoS batch)
+                if (contribution[user] >= config.minBuy) continue;
                 whitelistPhase[user] = 0;
                 emit WhitelistUpdated(user, 0);
             }
@@ -427,6 +426,9 @@ contract ZenthisPresale is Ownable2Step, ReentrancyGuard, Pausable {
             _tier1Eth > _tier2Eth || _tier2Eth > _tier3Eth
             || _tier1Reward > _tier2Reward || _tier2Reward > _tier3Reward
         ) revert Presale_InvalidThreshold();
+        // Observación CertiK: validar que Phase 2 no supere el bonusPoolSize
+        uint256 p2TheoreticalMin = (config.hardCap / config.minBuy) * (_flatAirdrop + _tier3Reward);
+        if (p2TheoreticalMin > config.bonusPoolSize) revert Presale_BonusPoolTooSmall();
         phase2 = Phase2BonusConfig({
             flatAirdrop: _flatAirdrop,
             bonusTier1Eth: _tier1Eth,
