@@ -21,8 +21,9 @@ import "@openzeppelin/contracts/utils/Pausable.sol";
 ///       Additions vs v8:
 ///       ◾ whitelistPhase[user] — 0=none, 1=Phase1, 2=Phase2
 ///       ◾ addToWhitelist() / removeFromWhitelist() — batch management
+///       ◾ updateWhitelistPhase() — atomic phase change (V10-L-01)
 ///       ◾ Phase2Params struct — separate flat airdrop + 3 bonus tiers for Phase 2
-///       ◾ _contribute() now requires whitelisted address
+///       ◾ _contribute() now requires whitelisted address (same-phase referrals)
 ///       ◾ _computeBonus() uses phase-specific parameters
 ///
 ///       ═════════════════════════════════════════════════════════════════════
@@ -360,17 +361,22 @@ contract ZenthisPresale is Ownable2Step, ReentrancyGuard, Pausable {
         }
     }
 
-    /// @notice Actualizar la fase de una o más direcciones atómicamente (V9-L-01).
+    /// @notice Actualizar la fase de una o más direcciones atómicamente (V10-L-01).
     ///         Reemplaza removeFromWhitelist + addToWhitelist por una sola TX.
+    ///         Solo emite eventos si el estado cambia realmente.
     /// @param users Array de direcciones a actualizar
     /// @param newPhase Nueva fase (1 o 2; 0 = deswhitelistear)
     function updateWhitelistPhase(address[] calldata users, uint8 newPhase) external onlyOwner {
         if (users.length == 0) revert Presale_BatchEmpty();
         if (users.length > MAX_WHITELIST_BATCH) revert Presale_BatchTooLargeWhiteList();
         if (newPhase > 2) revert Presale_InvalidPhase();
+        // V10-L-01: consistente con addToWhitelist
+        if (newPhase == 2 && !phase2Configured) revert Presale_InvalidPhase();
         for (uint256 i = 0; i < users.length; i++) {
-            whitelistPhase[users[i]] = newPhase;
-            emit WhitelistUpdated(users[i], newPhase);
+            if (whitelistPhase[users[i]] != newPhase) {
+                whitelistPhase[users[i]] = newPhase;
+                emit WhitelistUpdated(users[i], newPhase);
+            }
         }
     }
 
@@ -780,9 +786,9 @@ contract ZenthisPresale is Ownable2Step, ReentrancyGuard, Pausable {
         return maxContribZts + config.bonusPoolSize + liqZts;
     }
 
-    /// @notice Cobertura máxima teórica del bonus pool — ZP-04
-    ///         Si bonusPoolSize < maxTheoreticalBonus, algunos usuarios recibirán
-    ///         bonus escalados en claim(). Esto es intencional (pool limitado).
+    /// @notice [DEPRECATED] Usar getMaxTheoreticalBonusPhase1() o getMaxTheoreticalBonusPhase2().
+    ///         Esta función solo considera Phase 1 y puede inducir a error.
+    ///         (V10-L-02)
     function getMaxTheoreticalBonus() external view returns (uint256) {
         // Asume que hardCap se llena completamente con contribuidores de tier 4
         uint256 maxContributors = config.hardCap / config.minBuy;
