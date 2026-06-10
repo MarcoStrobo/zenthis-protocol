@@ -147,6 +147,7 @@ contract ZenthisPresale is Ownable2Step, ReentrancyGuard, Pausable {
 
     /// @dev V9-M-01: flag para detectar Phase 2 sin configurar
     bool public phase2Configured;
+    bool private _bonusPoolExhausted; // V17: pool agotado, nuevas contribuciones sin bonus
 
     /// @dev Fecha tras la cual finalize() puede ejecutarse (set en requestFinalize)
     uint256 public finalizeReadyAt;
@@ -186,6 +187,7 @@ contract ZenthisPresale is Ownable2Step, ReentrancyGuard, Pausable {
     event WalletUpdated(string walletType, address indexed oldWallet, address indexed newWallet); // ZP-11
     event RefundSkipped(address indexed user);
     event ClaimDeadlineSet(uint256 deadline); // ZP-08: movido aquí
+    event BonusPoolExhausted(); // V17: se agotó el pool, contribuciones continúan sin bonus
     event WhitelistUpdated(address indexed user, uint8 phase); // V9
     event Phase2ConfigSet(
         uint256 flatAirdrop,
@@ -283,11 +285,6 @@ contract ZenthisPresale is Ownable2Step, ReentrancyGuard, Pausable {
             _bonusTier1Eth > _bonusTier2Eth || _bonusTier2Eth > _bonusTier3Eth || _bonusTier3Eth > _bonusTier4Eth
             || _bonusTier1Reward > _bonusTier2Reward || _bonusTier2Reward > _bonusTier3Reward || _bonusTier3Reward > _bonusTier4Reward
         ) revert Presale_InvalidThreshold();
-        // C-01: redondeo hacia arriba — ceil(hardCap / minBuy)
-        uint256 maxContributors = (_hardCap + _minBuy - 1) / _minBuy;
-        uint256 theoreticalMin = maxContributors * (_flatAirdrop + _bonusTier4Reward);
-        if (_bonusPoolSize < theoreticalMin) revert Presale_BonusPoolTooSmall();
-
         config = PresaleConfig({
             token: _token,
             rate: _rate,
@@ -427,10 +424,6 @@ contract ZenthisPresale is Ownable2Step, ReentrancyGuard, Pausable {
             _tier1Eth > _tier2Eth || _tier2Eth > _tier3Eth
             || _tier1Reward > _tier2Reward || _tier2Reward > _tier3Reward
         ) revert Presale_InvalidThreshold();
-        // C-01: redondeo hacia arriba — ceil(hardCap / minBuy)
-        uint256 maxContributors = (config.hardCap + config.minBuy - 1) / config.minBuy;
-        uint256 p2TheoreticalMin = maxContributors * (_flatAirdrop + _tier3Reward);
-        if (p2TheoreticalMin > config.bonusPoolSize) revert Presale_BonusPoolTooSmall();
         phase2 = Phase2BonusConfig({
             flatAirdrop: _flatAirdrop,
             bonusTier1Eth: _tier1Eth,
@@ -482,6 +475,10 @@ contract ZenthisPresale is Ownable2Step, ReentrancyGuard, Pausable {
             uint256 poolRemaining = config.bonusPoolSize > totalReservedBonus
                 ? config.bonusPoolSize - totalReservedBonus
                 : 0;
+            if (!_bonusPoolExhausted && poolRemaining == 0) {
+                _bonusPoolExhausted = true;
+                emit BonusPoolExhausted();
+            }
             if (increase > poolRemaining) {
                 // Escalar: el pool no cubre el tier completo
                 uint256 ratio = (poolRemaining * 1e18) / increase;

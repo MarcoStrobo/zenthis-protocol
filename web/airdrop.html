@@ -3,11 +3,11 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Zenthis Whitelist — Guaranteed IDO Allocation</title>
-  <meta name="description" content="First 500 get guaranteed IDO allocation at $0.10 + 2,000 $ZEN airdrop. No lottery." />
+  <title>Zenthis Pre-Launch — Phase 2</title>
+  <meta name="description" content="Phase 2 Pre-Launch — up to 1,000 $ZEN airdrop with IDO purchase. No lottery." />
   <link rel="icon" type="image/png" href="assets/favicon.png" />
-  <meta property="og:title" content="Zenthis Whitelist — 10,000,000 ZENTHIS" />
-  <meta property="og:description" content="First 500 get guaranteed IDO allocation + 2,000 $ZEN airdrop. No lottery. No points farming." />
+  <meta property="og:title" content="Zenthis Pre-Launch — Phase 2" />
+  <meta property="og:description" content="Phase 2 Pre-Launch — up to 1,000 $ZEN airdrop with IDO purchase. No lottery. No points farming." />
   <meta property="og:image" content="https://zenthisprotocol.xyz/assets/og-airdrop.png" />
   <meta property="og:image:width" content="1200" />
   <meta property="og:image:height" content="630" />
@@ -88,7 +88,6 @@
     .btn-submit:hover { opacity: 0.85; }
     .btn-submit:disabled { opacity: 0.5; cursor: not-allowed; }
     .form-disclaimer { font-size: 0.75rem; color: var(--muted); margin-top: 10px; text-align: center; }
-    .reg-spots-badge { display: inline-block; background: rgba(245,158,11,0.12); border: 1px solid rgba(245,158,11,0.35); color: var(--yellow); padding: 5px 14px; border-radius: 20px; font-size: 0.78rem; font-weight: 600; margin-bottom: 16px; }
 
     /* Dashboard (after registration) */
     .dash-card { background: var(--surface); border: 1px solid rgba(16,185,129,0.25); border-radius: 16px; padding: 28px; max-width: 560px; margin: 0 auto 40px; text-align: left; display: none; }
@@ -171,7 +170,7 @@
       </a>
       <div class="nav-links-right">
         <a href="index.html" class="nav-back">&larr; Back to site</a>
-        <a href="#mainRegCard" class="btn-primary">Claim Spot</a>
+        <a href="#mainRegCard" class="btn-primary">Register Now</a>
       </div>
     </div>
   </nav>
@@ -180,43 +179,35 @@
   <section class="hero">
     <div class="hero-badge">
       <span class="badge-dot"></span>
-      IDO launches when 500 WL reached &middot; Register now
+      Phase 2 — Pre-Launch Live &middot; Register now
     </div>
     <h1>
-      Secure Your <span class="gradient-text">Guaranteed Allocation</span><br/>
-      Before It's Gone
+      <span class="gradient-text">Phase 2 Pre-Launch</span><br/>
+      Is Now Open
     </h1>
     <p class="hero-sub">
-      The whitelist is your ticket to buy $ZEN at <strong>$0.10</strong> before the public sale.
-      First 500 get <strong>priority IDO allocation + 2,000 $ZEN</strong> at TGE.
-      No raffles. No lottery. Just register.
+      Get up to <strong>1,000 $ZEN</strong> airdrop with your IDO purchase.
+      Phase 1 (2,000 $ZEN max) has closed — Phase 2 rewards are half.
+      Register below, then buy during the IDO.
     </p>
 
     <!-- Live counters -->
     <div class="campaign-strip">
       <div class="cstat">
         <div class="cstat-value" id="statTotal" style="color:#a78bfa">--</div>
-        <div class="cstat-label">Whitelist spots filled</div>
+        <div class="cstat-label">Pre-Launch registrations</div>
       </div>
       <div class="cstat-divider"></div>
       <div class="cstat">
-        <div class="cstat-value" style="color:#10b981;" id="statRemaining">500</div>
-        <div class="cstat-label">Spots remaining</div>
-      </div>
-      <div class="cstat-divider"></div>
-      <div class="cstat">
-        <div class="cstat-value" style="color:#f59e0b;">2,000</div>
-        <div class="cstat-label">$ZEN airdrop per wallet</div>
+        <div class="cstat-value" style="color:#f59e0b;">1,000</div>
+        <div class="cstat-label">Max $ZEN airdrop (Phase 2)</div>
       </div>
     </div>
 
     <!-- Registration card -->
     <div class="reg-card" id="mainRegCard">
-      <div class="reg-spots-badge" id="formSpotsBadge">
-        &#x26A0; Only <span id="formSpotsLeft">500</span> spots available
-      </div>
       <div class="reg-card-header">
-        <h3>&#x1F3AB; Claim Your Whitelist Spot</h3>
+        <h3>&#x1F3AB; Join the Pre-Launch List</h3>
         <p>Enter your details below. 30 seconds, no wallet connect required.</p>
       </div>
 
@@ -241,16 +232,16 @@
               pattern="^0x[0-9a-fA-F]{40}$" title="Valid Ethereum address starting with 0x" />
             <div class="form-hint">Where you'll receive your $ZEN at TGE. Can add later.</div>
           </div>
-          <button type="submit" class="btn-submit" id="regSubmitBtn">Secure My Spot &#x2192;</button>
+          <button type="submit" class="btn-submit" id="regSubmitBtn">Join Pre-Launch &#x2192;</button>
           <div class="form-disclaimer">
-            No KYC. No wallet signature. We only use this to notify you when the IDO launches.
+            No KYC. No wallet signature. We use this to notify you when the IDO date is confirmed.
           </div>
         </form>
       </div>
 
       <div class="form-success" id="regSuccess" style="display:none; text-align:center; padding: 16px 0;">
         <div style="font-size:2.5rem;margin-bottom:8px;">&#x2705;</div>
-        <h3 style="font-weight:700;margin-bottom:6px;">You're on the whitelist!</h3>
+        <h3 style="font-weight:700;margin-bottom:6px;">You're in Phase 2!</h3>
         <p style="color:var(--muted);font-size:0.9rem;">Check your dashboard below for your referral link and bonus tasks.</p>
       </div>
     </div>
@@ -261,8 +252,8 @@
       <div>
         <div class="honest-title">Why we do it differently</div>
         <div class="honest-text">
-          Most crypto airdrops reward wallet connections and social farming — a system that attracts bots,
-          Sybil attacks, and zero real users. Zenthis rewards real early adopters with guaranteed allocation.
+          Phase 1 (2,000 $ZEN max) is closed. Phase 2 (1,000 $ZEN max) is live now.
+          The earlier you join, the more you earn. Latecomers get less — that's the point.
           No points farming. No "maybe" airdrops. You register, you get in.
         </div>
       </div>
@@ -274,15 +265,15 @@
     <div class="dash-header">
       <div class="dash-check">&#x2714;</div>
       <div>
-        <h3>You're Whitelisted &#x1F389;</h3>
+        <h3>You're in Phase 2 &#x1F389;</h3>
         <p>Share your link. Earn bonuses. Get more $ZEN.</p>
       </div>
-      <span class="dash-tier early" id="dashTierBadge" style="margin-left:auto;">Early Adopter</span>
+      <span class="dash-tier early" id="dashTierBadge" style="margin-left:auto;">Pre-Launch</span>
     </div>
 
     <div class="dash-stats">
       <div class="dash-stat">
-        <div class="dash-stat-val" id="dashPoints">2,000</div>
+        <div class="dash-stat-val" id="dashPoints">1,000</div>
         <div class="dash-stat-lbl">Your $ZEN Points</div>
       </div>
       <div class="dash-stat">
@@ -290,12 +281,12 @@
         <div class="dash-stat-lbl">People referred</div>
       </div>
       <div class="dash-stat">
-        <div class="dash-stat-val yellow" id="dashEarlyBird">Yes</div>
-        <div class="dash-stat-lbl">Early Bird</div>
+        <div class="dash-stat-val yellow" id="dashEarlyBird">Phase 2</div>
+        <div class="dash-stat-lbl">Your Phase</div>
       </div>
       <div class="dash-stat">
-        <div class="dash-stat-val" style="font-size:0.85rem;" id="dashAlloc">Priority $50-$100</div>
-        <div class="dash-stat-lbl">Est. IDO allocation</div>
+        <div class="dash-stat-val" style="font-size:0.85rem;" id="dashAlloc">$300 min</div>
+        <div class="dash-stat-lbl">Min. IDO purchase</div>
       </div>
     </div>
 
@@ -379,10 +370,10 @@
       <a class="boost-item" id="boostTweet" href="#" target="_blank" rel="noopener">
         <span class="boost-icon">&#x1F4AC;</span>
         <span class="boost-info">
-          <span class="boost-name">Tweet about the whitelist</span>
+          <span class="boost-name">Tweet about the pre-launch</span>
           <span class="boost-desc">Post your referral link on X/Twitter — paste URL in dashboard</span>
         </span>
-        <span class="boost-pts">+1,000 pts</span>
+        <span class="boost-pts">+500 pts</span>
         <span class="boost-check">&#x2713;</span>
       </a>
 
@@ -392,7 +383,7 @@
           <span class="boost-name">Join the Telegram community</span>
           <span class="boost-desc">Join the group — then verify with /id in dashboard above</span>
         </span>
-        <span class="boost-pts">+500 pts</span>
+        <span class="boost-pts">+250 pts</span>
         <span class="boost-check">&#x2713;</span>
       </a>
     </div>
@@ -405,24 +396,24 @@
 
     <div class="faq-list">
       <div class="faq-item">
-        <div class="faq-q" onclick="toggleFaq(this)">What is the Zenthis whitelist? <span class="faq-arrow">&#x25BE;</span></div>
-        <div class="faq-a">The whitelist guarantees you an allocation in the Zenthis IDO on PinkSale. Instead of competing in a public FCFS sale, whitelisted addresses get priority access to buy $ZEN at $0.10 before anyone else. First 500 registered get guaranteed allocation.</div>
+        <div class="faq-q" onclick="toggleFaq(this)">What is the Phase 2 Pre-Launch? <span class="faq-arrow">&#x25BE;</span></div>
+        <div class="faq-a">Phase 2 is the second wave of the Zenthis IDO whitelist. Phase 1 (2,000 $ZEN max) has closed. Phase 2 offers up to 1,000 $ZEN airdrop with a $300+ IDO purchase. Registering is free — you only pay if you participate in the IDO.</div>
       </div>
       <div class="faq-item">
         <div class="faq-q" onclick="toggleFaq(this)">Do I need to pay anything? <span class="faq-arrow">&#x25BE;</span></div>
-        <div class="faq-a">No. Registering for the whitelist is completely free. You only pay if you choose to participate in the IDO when it launches on PinkSale.</div>
+        <div class="faq-a">No. Registering for Phase 2 is completely free. You only pay if you choose to participate in the IDO when it launches.</div>
       </div>
       <div class="faq-item">
         <div class="faq-q" onclick="toggleFaq(this)">When does the IDO launch? <span class="faq-arrow">&#x25BE;</span></div>
-        <div class="faq-a">The IDO launches on PinkSale once we reach 500 whitelist registrations. The faster the community grows, the sooner it launches. We'll email all registered users the moment the date is confirmed.</div>
+        <div class="faq-a">Date TBA. Registered wallets will be notified via email and Telegram when the IDO date is confirmed.</div>
       </div>
       <div class="faq-item">
-        <div class="faq-q" onclick="toggleFaq(this)">Is the 2,000 $ZEN airdrop real? <span class="faq-arrow">&#x25BE;</span></div>
-        <div class="faq-a">Yes. Every whitelisted user receives 2,000 $ZEN at TGE with 100% unlock and no vesting. The airdrop pool is 10M ZENTHIS (10% of total supply), distributed equally among all whitelisted participants.</div>
+        <div class="faq-q" onclick="toggleFaq(this)">How much $ZEN can I get in Phase 2? <span class="faq-arrow">&#x25BE;</span></div>
+        <div class="faq-a">Up to 1,000 $ZEN, depending on your IDO purchase: $300 → 250 ZTS, $1,000 → 500 ZTS, $2,000+ → 1,000 ZTS. Plus referral bonuses stack on top. Phase 1 offered up to 2,000 $ZEN — that phase is closed.</div>
       </div>
       <div class="faq-item">
         <div class="faq-q" onclick="toggleFaq(this)">What is Zenthis Protocol? <span class="faq-arrow">&#x25BE;</span></div>
-        <div class="faq-a">Zenthis is a cross-chain DEX that uses HTLC (Hashed TimeLock Contracts) for atomic swaps — no bridges, no custodians, no wrapped tokens. Trade native assets directly across chains with full self-custody.</div>
+        <div class="faq-a">Zenthis is a cross-chain protocol that uses HTLC (Hashed TimeLock Contracts) for atomic swaps — no bridges, no custodians, no wrapped tokens. Trade native assets directly across chains with full self-custody.</div>
       </div>
     </div>
   </section>
@@ -434,13 +425,13 @@
       <a href="whitepaper.html">Whitepaper</a> &middot;
       <a href="https://twitter.com/zenthis_io" target="_blank" rel="noopener">X/Twitter</a> &middot;
       <a href="https://t.me/zenthisprotocol" target="_blank" rel="noopener">Telegram</a> &middot;
-      <a href="https://discord.gg/e9AtG2dY" target="_blank" rel="noopener">Discord</a>
+      <a href="https://discord.gg/B3Zz7fQzJj" target="_blank" rel="noopener">Discord</a>
     </p>
     <p>&copy; 2026 Zenthis Protocol &middot; Not financial advice.</p>
   </footer>
 
   <!-- Floating share badge -->
-  <a href="#dashCard" id="refFloater">&#x1F3C6; Share &amp; Earn more $ZEN</a>
+  <a href="#dashCard" id="refFloater">&#x1F3C6; Share &amp; earn bonus ZTS</a>
 
   <!-- FAQ toggle -->
   <script>
@@ -470,12 +461,6 @@
         ['statTotal', 'heroWlCount', 'wlLiveCounter'].forEach(function(i) {
           var e = document.getElementById(i); if (e) e.textContent = c;
         });
-        var r = document.getElementById('statRemaining');
-        if (r) r.textContent = Math.max(0, 500 - c);
-        var f = document.getElementById('formSpotsLeft');
-        if (f) f.textContent = Math.max(0, 500 - c);
-        var b = document.getElementById('formSpotsBadge');
-        if (b && c >= 500) b.style.display = 'none';
       } catch(_) {}
     }
 
@@ -485,7 +470,6 @@
       var sn = await getDoc(r);
       if (sn.exists()) return { error: 'duplicate', data: sn.data() };
       var rc = localStorage.getItem('zth_ref') || null;
-      var t = window._totalParticipants || 0;
       var mc = k.replace(/[^a-z0-9]/g, '').slice(0, 8).toUpperCase();
       var d = {
         email: k,
@@ -493,27 +477,27 @@
         wallet: (wallet || '').toLowerCase().trim(),
         refCode: mc,
         referredBy: rc || null,
-        earlyBird: t < 500,
+        phase: 2,
         telegramId: '',
         telegramVerified: false,
         tweetUrl: '',
         tweetVerified: false,
         refCount: 0,
-        basePoints: 2000,
+        basePoints: 1000,
         registeredAt: serverTimestamp()
       };
       // Fields for firestore-send-email extension
       d.to = k;
       d.message = {
-        subject: 'You are on the Zenthis Whitelist',
+        subject: 'You are in the Zenthis Phase 2 Pre-Launch',
         html: '<div style="font-family:Arial,sans-serif;max-width:500px;margin:0 auto;padding:20px">' +
-          '<h1 style="color:#7c3aed">Welcome to Zenthis</h1>' +
+          '<h1 style="color:#7c3aed">Welcome to Zenthis Phase 2</h1>' +
           '<p>Hi <strong>@' + (twitter || '').replace(/^@/, '') + '</strong>,</p>' +
-          '<p>Your spot on the whitelist is <strong>confirmed</strong>. Here is your referral link to share:</p>' +
+          '<p>Your Phase 2 Pre-Launch registration is <strong>confirmed</strong>. Here is your referral link to share:</p>' +
           '<p style="background:#f4f4f4;padding:12px;border-radius:6px;font-family:monospace;word-break:break-all">zenthisprotocol.xyz/airdrop?ref=' + mc + '</p>' +
           '<p><strong>What you get:</strong></p>' +
-          '<ul><li>Guaranteed IDO allocation at $0.10</li><li>2,000 $ZEN airdrop at TGE (100% unlocked)</li><li>No vesting, no KYC</li></ul>' +
-          '<p>The IDO launches when we reach 500 whitelist signups. Share your link to speed it up!</p>' +
+          '<ul><li>Up to 1,000 $ZEN airdrop with IDO purchase</li><li>Guaranteed IDO allocation at $0.10</li><li>No KYC</li></ul>' +
+          '<p>The IDO date will be announced soon. Share your link to earn referral bonuses!</p>' +
           '<p style="margin-top:24px;color:#888;font-size:12px">Zenthis Protocol &middot; Not financial advice.</p>' +
           '</div>'
       };
@@ -552,7 +536,6 @@
         var d = doc(db, 'waitlist', email.toLowerCase().trim());
         var sn = await getDoc(d);
         if (!sn.exists()) return { error: 'not_found' };
-        // Call Firebase Function to verify membership
         var resp = await fetch('https://zenthisprotocol.xyz/verifyTelegram', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -586,34 +569,28 @@
   <!-- App logic -->
   <script>
     // ========== EMAILJS CONFIRMATION ==========
-    // 1. Sign up FREE: https://emailjs.com
-    // 2. Add your Gmail as Email Service → get SERVICE ID
-    // 3. Create template with: to_email, to_name, ref_link, twitter, wallet, spots_left
-    // 4. Fill in your keys below:
-    var _EMAILJS_KEY = 'YOUR_PUBLIC_KEY';    // ← Replace with your Public Key
-    var _EMAILJS_SVC = 'YOUR_SERVICE_ID';   // ← Replace with your Service ID
-    var _EMAILJS_TPL = 'YOUR_TEMPLATE_ID';  // ← Replace with your Template ID
+    var _EMAILJS_KEY = 'YOUR_PUBLIC_KEY';
+    var _EMAILJS_SVC = 'YOUR_SERVICE_ID';
+    var _EMAILJS_TPL = 'YOUR_TEMPLATE_ID';
     if (_EMAILJS_KEY !== 'YOUR_PUBLIC_KEY') emailjs.init(_EMAILJS_KEY);
 
     function sendConfirmationEmail(userData, refLink) {
       if (_EMAILJS_KEY === 'YOUR_PUBLIC_KEY') { console.log('EmailJS not configured — skipping email'); return; }
-      var spots = Math.max(0, 500 - (window._totalParticipants || 0));
       emailjs.send(_EMAILJS_SVC, _EMAILJS_TPL, {
         to_email: userData.email,
         to_name: '@' + userData.twitter,
         ref_link: refLink,
         twitter: '@' + userData.twitter,
         wallet: userData.wallet || 'Not provided',
-        spots_left: spots + ' spots remaining',
-        airdrop_amount: '2,000 $ZEN',
-        ido_price: '$0.10'
+        airdrop_amount: 'Up to 1,000 $ZEN',
+        ido_price: '$0.10',
+        phase: 'Phase 2'
       }).then(function() {
         console.log('Confirmation email sent to ' + userData.email);
       }).catch(function(err) {
         console.warn('EmailJS error:', err);
       });
     }
-    // ========== END EMAILJS ==========
 
     async function submitRegistration(e) {
       e.preventDefault();
@@ -636,15 +613,14 @@
       }
       if (fbError || !ud) {
         alert('Registration failed. Error: ' + (fbError ? fbError.message : 'Could not connect to Firebase. Check your connection and try again.'));
-        btn.textContent = 'Secure My Spot →';
+        btn.textContent = 'Join Pre-Launch →';
         btn.disabled = false;
         return;
       }
       if (ud.error === 'duplicate') {
-        alert('This email is already registered on the whitelist. You\'re already in! If you lost your dashboard, enter your email below to restore it.');
-        btn.textContent = 'Secure My Spot →';
+        alert('This email is already registered. Use the dashboard restore button below.');
+        btn.textContent = 'Join Pre-Launch →';
         btn.disabled = false;
-        // Show restore field
         var existing = document.getElementById('regRestore');
         if (!existing) {
           var restore = document.createElement('div');
@@ -675,13 +651,13 @@
       var rs = ud.refCount || 0;
       var tgv = ud.telegramVerified || false;
       var twv = ud.tweetVerified || false;
-      var tot = 2000 + (rs * 1000) + (tgv ? 500 : 0) + (twv ? 1000 : 0);
+      var tot = 1000 + (rs * 500) + (tgv ? 250 : 0) + (twv ? 500 : 0);
       window._currentRefLink = rl;
       window._currentRefCode = rc;
 
       var bd = document.getElementById('dashTierBadge');
       if (bd) {
-        var tn = 'Early Adopter';
+        var tn = 'Phase 2';
         if (rs >= 25) { tn = 'Whale'; bd.className = 'dash-tier whale'; }
         else if (rs >= 10) tn = 'Gold';
         else if (rs >= 3) tn = 'Silver';
@@ -692,10 +668,9 @@
       var el = document.getElementById('dashPoints'); if (el) el.textContent = tot;
       el = document.getElementById('dashRefLink'); if (el) el.textContent = rl;
       el = document.getElementById('dashRefCount'); if (el) el.textContent = rs;
-      el = document.getElementById('dashEarlyBird'); if (el) el.textContent = ud.earlyBird ? 'Yes' : 'No';
-      el = document.getElementById('dashAlloc'); if (el) el.textContent = 'Priority $50-$100 min';
+      el = document.getElementById('dashEarlyBird'); if (el) el.textContent = 'Phase 2';
+      el = document.getElementById('dashAlloc'); if (el) el.textContent = '$300 min';
 
-      // Restore verification state
       if (tgv) setTgVerified();
       if (twv) setTwVerified();
       if (ud.tweetUrl) {
@@ -709,7 +684,6 @@
       updateShareButtons(rl);
     };
 
-    // Restore dashboard for returning users
     window.restoreDashboard = async function(email) {
       var ud = null;
       if (typeof window._fbLoadUser === 'function') {
@@ -729,7 +703,6 @@
       }
     };
 
-    // Telegram verification
     window.verifyTelegram = async function() {
       var tid = document.getElementById('tgUserId').value.trim();
       if (!tid || !/^\d{5,15}$/.test(tid)) { alert('Enter your numeric Telegram user ID (get it by sending /id to @zenthis_bot).'); return; }
@@ -745,10 +718,6 @@
       if (result && result.verified) {
         window._userData.telegramVerified = true;
         window._userData.telegramId = tid;
-        localStorage.setItem('zenthis_registration', JSON.stringify({
-          email: window._userData.email, twitter: window._userData.twitter, wallet: window._userData.wallet || '',
-          refCode: window._userData.refCode, ts: Date.now()
-        }));
         setTgVerified();
         recalcPoints();
       } else {
@@ -756,7 +725,6 @@
       }
     };
 
-    // Save tweet URL
     window.saveTweetUrl = async function() {
       var tu = document.getElementById('twTweetUrl').value.trim();
       if (!tu || !tu.match(/https:\/\/(twitter\.com|x\.com)\/\w+\/status\/\d+/i)) {
@@ -797,7 +765,7 @@
       if (!ud) return;
       var tgv = ud.telegramVerified || false;
       var twv = ud.tweetVerified || ud.tweetUrl || false;
-      var tot = 2000 + ((ud.refCount || 0) * 1000) + (tgv ? 500 : 0) + (twv ? 1000 : 0);
+      var tot = 1000 + ((ud.refCount || 0) * 500) + (tgv ? 250 : 0) + (twv ? 500 : 0);
       var el = document.getElementById('dashPoints'); if (el) el.textContent = tot;
     }
 
@@ -810,10 +778,10 @@
     function updateShareButtons(rl) {
       var x = document.getElementById('dashShareX');
       if (x) x.href = 'https://twitter.com/intent/tweet?text=' + encodeURIComponent(
-        'I just secured guaranteed allocation in the @zenthis_io IDO whitelist!\n\nPriority allocation + 2,000 $ZEN airdrop. First 500 only.\n\nJoin: ' + rl + '\n\n#Zenthis #IDO #DeFi'
+        'I just joined the @zenthis_io Phase 2 Pre-Launch!\n\nUp to 1,000 $ZEN airdrop with IDO purchase.\n\nJoin: ' + rl + '\n\n#Zenthis #IDO #PreLaunch'
       );
       var tg = document.getElementById('dashShareTg');
-      if (tg) tg.href = 'https://t.me/share/url?url=' + encodeURIComponent(rl) + '&text=' + encodeURIComponent('Zenthis IDO guaranteed allocation + airdrop! Join now.');
+      if (tg) tg.href = 'https://t.me/share/url?url=' + encodeURIComponent(rl) + '&text=' + encodeURIComponent('Zenthis Phase 2 Pre-Launch — up to 1,000 $ZEN airdrop! Join now.');
     }
 
     window.dashCopyRef = function() {
@@ -830,10 +798,8 @@
     window.dashShareTg = function(e) { /* handled via href */ };
     window.markBoostDone = markBoostDone;
 
-    // Bind form
     document.getElementById('mainRegForm').addEventListener('submit', submitRegistration);
 
-    // Restore session
     (function() {
       var s = localStorage.getItem('zenthis_registration');
       if (!s) return;
@@ -842,7 +808,6 @@
         if (d.email) {
           document.getElementById('regForm').style.display = 'none';
           document.getElementById('regSuccess').style.display = 'block';
-          // Fetch full data from Firestore to get verification state
           if (typeof window._fbLoadUser === 'function') {
             window._fbLoadUser(d.email).then(function(ud) {
               if (ud) { window._userData = ud; window.renderDashboard(ud); }
@@ -855,7 +820,6 @@
       } catch(_) {}
     })();
 
-    // Floating badge visibility
     (function() {
       var f = document.getElementById('refFloater');
       if (!f) return;
