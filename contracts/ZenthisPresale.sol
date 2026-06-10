@@ -130,6 +130,10 @@ contract ZenthisPresale is Ownable2Step, ReentrancyGuard, Pausable {
     }
 
     // ── State ───────────────────────────────────────────────────────────────
+    // ── Phase windows (V17) ──────────────────────────────────────
+    uint256 public phase1EndTime; // Fin de ventana exclusiva Phase 1
+    
+    // ── Config ───────────────────────────────────────────────────
     PresaleConfig public config;
     Phase2BonusConfig public phase2; // V9: Phase 2 bonus params
     bool public finalized;
@@ -263,7 +267,8 @@ contract ZenthisPresale is Ownable2Step, ReentrancyGuard, Pausable {
         uint256 _bonusTier3Reward,
         uint256 _bonusTier4Eth,
         uint256 _bonusTier4Reward,
-        uint256 _referralMinContribution
+        uint256 _referralMinContribution,
+        uint256 _phase1EndTime
     ) Ownable(msg.sender) {
         // ── Addresses ────────────────────────────────────────────────
         if (address(_token) == address(0) || _liquidityWallet == address(0) || _treasuryWallet == address(0))
@@ -272,6 +277,7 @@ contract ZenthisPresale is Ownable2Step, ReentrancyGuard, Pausable {
         // ── Timing — ZP-07 / ZP-L-01 ─────────────────────────────────
         if (_startTime <= block.timestamp) revert Presale_InvalidTimes();
         if (_startTime >= _endTime)        revert Presale_InvalidTimes();
+        if (_phase1EndTime <= _startTime || _phase1EndTime > _endTime) revert Presale_InvalidTimes(); // V17
 
         // ── Rates & Caps ─────────────────────────────────────────────
         if (_rate == 0)                    revert Presale_InvalidRate();
@@ -309,6 +315,7 @@ contract ZenthisPresale is Ownable2Step, ReentrancyGuard, Pausable {
             bonusTier4Reward: _bonusTier4Reward,
             referralMinContribution: _referralMinContribution
         });
+        phase1EndTime = _phase1EndTime; // V17
     }
 
     // ── Modifiers ───────────────────────────────────────────────────────────
@@ -455,6 +462,13 @@ contract ZenthisPresale is Ownable2Step, ReentrancyGuard, Pausable {
 
         // V9: Verificar whitelist
         if (whitelistPhase[_user] == 0) revert Presale_NotWhitelisted();
+        // V17: Ventanas de fase — Phase 1 exclusiva hasta phase1EndTime
+        if (block.timestamp < phase1EndTime) {
+            if (whitelistPhase[_user] != 1) revert Presale_NotWhitelisted();
+        } else {
+            // Después de phase1EndTime: solo Phase 2 (salvo que ya contribuyera en Phase 1)
+            if (whitelistPhase[_user] == 1 && contribution[_user] == 0) revert Presale_NotWhitelisted();
+        }
 
         if (_referrer != address(0) && referrerOf[_user] == address(0)) {
             if (_referrer == _user) revert Presale_SelfReferral();

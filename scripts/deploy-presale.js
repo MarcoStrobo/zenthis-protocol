@@ -115,6 +115,7 @@ async function main() {
     bonusTier4Eth,
     bonusTier4Reward,
     referralMinEth,
+    BigInt(requireEnv("PRESALE_PHASE1_END_TIME")), // V17
   );
   await presale.waitForDeployment();
   const presaleAddr = await presale.getAddress();

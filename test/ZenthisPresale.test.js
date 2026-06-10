@@ -57,6 +57,7 @@ describe("ZenthisPresale", function () {
       opts.b4e ?? BT4_ETH,
       opts.b4r ?? BT4_REW,
       opts.rm ?? REF_MIN,
+      opts.p1e ?? s + BigInt(opts.duration ?? DURATION) / 2n // V17: phase1EndTime = mitad de la presale por defecto
     );
     await p.waitForDeployment();
     return p;
@@ -133,6 +134,7 @@ describe("ZenthisPresale", function () {
         BT4_ETH,
         BT4_REW,
         REF_MIN,
+        s + BigInt(DURATION) / 2n, // phase1EndTime
       ];
       const testCases = [
         { desc: "zero token", args: [ethers.ZeroAddress, ...args.slice(1)] },
@@ -180,6 +182,7 @@ describe("ZenthisPresale", function () {
           BT4_ETH,
           BT4_REW,
           REF_MIN,
+          s + BigInt(DURATION) / 2n, // phase1EndTime
         ),
       ).to.be.revertedWithCustomError(P, "Presale_InvalidThreshold");
     });
