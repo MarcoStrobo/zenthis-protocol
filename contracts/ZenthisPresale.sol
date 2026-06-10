@@ -230,6 +230,7 @@ contract ZenthisPresale is Ownable2Step, ReentrancyGuard, Pausable {
     error Presale_BatchEmpty();               // V9
     error Presale_BatchTooLargeWhiteList();   // V9
     error Presale_InvalidPhase();             // V9
+    error Presale_ClaimWindowExpired();       // ZP-H-04
 
     // ── Constructor ─────────────────────────────────────────────────────────
     constructor(
@@ -364,18 +365,24 @@ contract ZenthisPresale is Ownable2Step, ReentrancyGuard, Pausable {
     /// @notice Actualizar la fase de una o más direcciones atómicamente (V10-L-01).
     ///         Reemplaza removeFromWhitelist + addToWhitelist por una sola TX.
     ///         Solo emite eventos si el estado cambia realmente.
-    /// @param users Array de direcciones a actualizar
-    /// @param newPhase Nueva fase (1 o 2; 0 = deswhitelistear)
+    /// @dev HIGH: si el usuario ya ha contribuido, se recomputa su bonus snapshot
+    ///      con la nueva fase para evitar asimetrías (ZP-H-03).
     function updateWhitelistPhase(address[] calldata users, uint8 newPhase) external onlyOwner {
         if (users.length == 0) revert Presale_BatchEmpty();
         if (users.length > MAX_WHITELIST_BATCH) revert Presale_BatchTooLargeWhiteList();
         if (newPhase > 2) revert Presale_InvalidPhase();
-        // V10-L-01: consistente con addToWhitelist
         if (newPhase == 2 && !phase2Configured) revert Presale_InvalidPhase();
         for (uint256 i = 0; i < users.length; i++) {
-            if (whitelistPhase[users[i]] != newPhase) {
-                whitelistPhase[users[i]] = newPhase;
-                emit WhitelistUpdated(users[i], newPhase);
+            address user = users[i];
+            if (whitelistPhase[user] != newPhase) {
+                whitelistPhase[user] = newPhase;
+                // HIGH: recomputar bonus si ya contribuyó
+                if (contribution[user] >= config.minBuy) {
+                    (uint256 flatBonus, uint256 tierBonus) = _computeBonus(user);
+                    _pendingFlatBonus[user] = flatBonus;
+                    _pendingBonus[user] = flatBonus + tierBonus;
+                }
+                emit WhitelistUpdated(user, newPhase);
             }
         }
     }
@@ -451,10 +458,25 @@ contract ZenthisPresale is Ownable2Step, ReentrancyGuard, Pausable {
         contribution[_user] += msg.value;
         totalRaised += msg.value;
 
-        // Snapshot bonus at contribution time (no race)
+        // ZP-C-01: Snapshot bonus con verificación de pool
         (uint256 flatBonus, uint256 tierBonus) = _computeBonus(_user);
+        uint256 newBonus = flatBonus + tierBonus;
+        uint256 oldBonus = _pendingBonus[_user];
+        if (newBonus > oldBonus) {
+            uint256 increase = newBonus - oldBonus;
+            uint256 remaining = config.bonusPoolSize > totalBonusClaimed
+                ? config.bonusPoolSize - totalBonusClaimed
+                : 0;
+            if (increase > remaining) {
+                // Escalar: el pool no cubre el tier completo
+                uint256 ratio = (remaining * 1e18) / increase;
+                flatBonus = oldBonus != 0 ? _pendingFlatBonus[_user] + (flatBonus * ratio) / 1e18 : (flatBonus * ratio) / 1e18;
+                newBonus = oldBonus + remaining;
+                tierBonus = newBonus > flatBonus ? newBonus - flatBonus : 0;
+            }
+        }
         _pendingFlatBonus[_user] = flatBonus;
-        _pendingBonus[_user] = flatBonus + tierBonus;
+        _pendingBonus[_user] = newBonus;
 
         address referrer = referrerOf[_user];
         if (referrer != address(0)) {
@@ -526,6 +548,9 @@ contract ZenthisPresale is Ownable2Step, ReentrancyGuard, Pausable {
             if (block.timestamp <= config.endTime) revert Presale_NotEnded();
             revert Presale_SoftCapNotMet();
         }
+        // ZP-H-04: validar claimDeadline para evitar error genérico post-withdraw
+        if (claimDeadline == 0) revert Presale_ClaimDeadlineNotSet();
+        if (block.timestamp >= claimDeadline) revert Presale_ClaimWindowExpired();
         if (claimed[msg.sender]) revert Presale_AlreadyClaimed();
         if (contribution[msg.sender] == 0) revert Presale_NothingToClaim();
 
@@ -623,7 +648,7 @@ contract ZenthisPresale is Ownable2Step, ReentrancyGuard, Pausable {
             uint256 amt = contribution[user];
             contribution[user] = 0;
 
-            (bool ok, ) = payable(user).call{value: amt}("");
+            (bool ok, ) = payable(user).call{value: amt, gas: 10000}("");
             if (ok) {
                 emit Refunded(user, amt);
             } else {
