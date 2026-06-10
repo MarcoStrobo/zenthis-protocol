@@ -8,6 +8,11 @@ artifacts/
 cache/
 coverage/
 coverage.json
+
+# ── Temp files ───────────────────────────────────────────────────
+temp_*
+*.txt
+raw*
 typechain-types/
 
 # ── Node dependencies ─────────────────────────────────────────────────────
