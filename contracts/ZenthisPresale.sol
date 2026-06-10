@@ -283,8 +283,9 @@ contract ZenthisPresale is Ownable2Step, ReentrancyGuard, Pausable {
             _bonusTier1Eth > _bonusTier2Eth || _bonusTier2Eth > _bonusTier3Eth || _bonusTier3Eth > _bonusTier4Eth
             || _bonusTier1Reward > _bonusTier2Reward || _bonusTier2Reward > _bonusTier3Reward || _bonusTier3Reward > _bonusTier4Reward
         ) revert Presale_InvalidThreshold();
-        // ZP-I-03: validar que el bonus pool cubre el máximo teórico
-        uint256 theoreticalMin = (_hardCap / _minBuy) * (_flatAirdrop + _bonusTier4Reward);
+        // C-01: redondeo hacia arriba — ceil(hardCap / minBuy)
+        uint256 maxContributors = (_hardCap + _minBuy - 1) / _minBuy;
+        uint256 theoreticalMin = maxContributors * (_flatAirdrop + _bonusTier4Reward);
         if (_bonusPoolSize < theoreticalMin) revert Presale_BonusPoolTooSmall();
 
         config = PresaleConfig({
@@ -426,8 +427,9 @@ contract ZenthisPresale is Ownable2Step, ReentrancyGuard, Pausable {
             _tier1Eth > _tier2Eth || _tier2Eth > _tier3Eth
             || _tier1Reward > _tier2Reward || _tier2Reward > _tier3Reward
         ) revert Presale_InvalidThreshold();
-        // Observación CertiK: validar que Phase 2 no supere el bonusPoolSize
-        uint256 p2TheoreticalMin = (config.hardCap / config.minBuy) * (_flatAirdrop + _tier3Reward);
+        // C-01: redondeo hacia arriba — ceil(hardCap / minBuy)
+        uint256 maxContributors = (config.hardCap + config.minBuy - 1) / config.minBuy;
+        uint256 p2TheoreticalMin = maxContributors * (_flatAirdrop + _tier3Reward);
         if (p2TheoreticalMin > config.bonusPoolSize) revert Presale_BonusPoolTooSmall();
         phase2 = Phase2BonusConfig({
             flatAirdrop: _flatAirdrop,
@@ -853,14 +855,14 @@ contract ZenthisPresale is Ownable2Step, ReentrancyGuard, Pausable {
 
     /// @notice V9-L-03: bonus máximo teórico para Phase 1
     function getMaxTheoreticalBonusPhase1() external view returns (uint256) {
-        uint256 maxContributors = config.hardCap / config.minBuy;
+        uint256 maxContributors = (config.hardCap + config.minBuy - 1) / config.minBuy;
         return maxContributors * (config.flatAirdrop + config.bonusTier4Reward);
     }
 
     /// @notice V9-L-03: bonus máximo teórico para Phase 2
     function getMaxTheoreticalBonusPhase2() external view returns (uint256) {
         if (!phase2Configured) return 0;
-        uint256 maxContributors = config.hardCap / config.minBuy;
+        uint256 maxContributors = (config.hardCap + config.minBuy - 1) / config.minBuy;
         return maxContributors * (phase2.flatAirdrop + phase2.bonusTier3Reward);
     }
 
