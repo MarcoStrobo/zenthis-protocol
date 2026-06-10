@@ -138,6 +138,7 @@ contract ZenthisPresale is Ownable2Step, ReentrancyGuard, Pausable {
     uint256 public totalRaised;
     uint256 public totalClaimed;
     uint256 public totalBonusClaimed;
+    uint256 public totalReservedBonus; // H-02: bonus reservado en contribución
     uint256 public totalReferralQualified;
     bool public funded;
 
@@ -235,6 +236,7 @@ contract ZenthisPresale is Ownable2Step, ReentrancyGuard, Pausable {
     error Presale_InvalidPhase();             // V9
     error Presale_ClaimWindowExpired();       // ZP-H-04
     error Presale_NotFinalized();             // ZP-I-01
+    error Presale_AlreadyContributed();       // H-01, M-01
 
     // ── Constructor ─────────────────────────────────────────────────────────
     constructor(
@@ -384,13 +386,9 @@ contract ZenthisPresale is Ownable2Step, ReentrancyGuard, Pausable {
         for (uint256 i = 0; i < users.length; i++) {
             address user = users[i];
             if (whitelistPhase[user] != newPhase) {
+                // H-01: bloquear cambio si ya contribuyó (snapshot inmutable)
+                if (contribution[user] >= config.minBuy) revert Presale_AlreadyContributed();
                 whitelistPhase[user] = newPhase;
-                // HIGH: recomputar bonus si ya contribuyó
-                if (contribution[user] >= config.minBuy) {
-                    (uint256 flatBonus, uint256 tierBonus) = _computeBonus(user);
-                    _pendingFlatBonus[user] = flatBonus;
-                    _pendingBonus[user] = flatBonus + tierBonus;
-                }
                 emit WhitelistUpdated(user, newPhase);
             }
         }
@@ -403,9 +401,12 @@ contract ZenthisPresale is Ownable2Step, ReentrancyGuard, Pausable {
         if (users.length == 0) revert Presale_BatchEmpty();
         if (users.length > MAX_WHITELIST_BATCH) revert Presale_BatchTooLargeWhiteList();
         for (uint256 i = 0; i < users.length; i++) {
-            if (whitelistPhase[users[i]] != 0) {
-                whitelistPhase[users[i]] = 0;
-                emit WhitelistUpdated(users[i], 0);
+            address user = users[i];
+            if (whitelistPhase[user] != 0) {
+                // M-01: bloquear si ya contribuyó
+                if (contribution[user] >= config.minBuy) revert Presale_AlreadyContributed();
+                whitelistPhase[user] = 0;
+                emit WhitelistUpdated(user, 0);
             }
         }
     }
@@ -467,22 +468,23 @@ contract ZenthisPresale is Ownable2Step, ReentrancyGuard, Pausable {
         contribution[_user] += msg.value;
         totalRaised += msg.value;
 
-        // ZP-C-01: Snapshot bonus con verificación de pool
+        // ZP-C-01 / H-02: Snapshot bonus con reserva global
         (uint256 flatBonus, uint256 tierBonus) = _computeBonus(_user);
         uint256 newBonus = flatBonus + tierBonus;
         uint256 oldBonus = _pendingBonus[_user];
         if (newBonus > oldBonus) {
             uint256 increase = newBonus - oldBonus;
-            uint256 remaining = config.bonusPoolSize > totalBonusClaimed
-                ? config.bonusPoolSize - totalBonusClaimed
+            uint256 poolRemaining = config.bonusPoolSize > totalReservedBonus
+                ? config.bonusPoolSize - totalReservedBonus
                 : 0;
-            if (increase > remaining) {
+            if (increase > poolRemaining) {
                 // Escalar: el pool no cubre el tier completo
-                uint256 ratio = (remaining * 1e18) / increase;
+                uint256 ratio = (poolRemaining * 1e18) / increase;
                 flatBonus = oldBonus != 0 ? _pendingFlatBonus[_user] + (flatBonus * ratio) / 1e18 : (flatBonus * ratio) / 1e18;
-                newBonus = oldBonus + remaining;
+                newBonus = oldBonus + poolRemaining;
                 tierBonus = newBonus > flatBonus ? newBonus - flatBonus : 0;
             }
+            totalReservedBonus += newBonus - oldBonus;
         }
         _pendingFlatBonus[_user] = flatBonus;
         _pendingBonus[_user] = newBonus;
@@ -643,6 +645,7 @@ contract ZenthisPresale is Ownable2Step, ReentrancyGuard, Pausable {
         if (totalRaised >= config.softCap) revert Presale_SoftCapMet();
         failed = true;
         finalizeReadyAt = 0; // ZP-13
+        totalReservedBonus = 0; // H-02: resetear reservas en fallo
         emit PresaleMarkedFailed();
     }
 
