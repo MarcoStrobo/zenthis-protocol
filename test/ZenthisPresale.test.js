@@ -77,7 +77,7 @@ describe("ZenthisPresale", function () {
 
     // V9: whitelist all test users + owner + treasury (referrers) in Phase 1
     if (users.length > 0) {
-      const wl = users.map(u => u.address);
+      const wl = users.map((u) => u.address);
       wl.push(owner.address, treasuryWallet.address);
       await presale.addToWhitelist(wl, 1);
     }

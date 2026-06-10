@@ -123,7 +123,9 @@ async function main() {
   // ── Configure Phase 2 params (v9) ─────────────────────────────
   console.log("   ⚙  Setting Phase 2 bonus params...");
   await (await presale.setPhase2Config(p2Flat, p2T1E, p2T1R, p2T2E, p2T2R, p2T3E, p2T3R)).wait();
-  console.log(`   ✓ Phase 2: flat=${ethers.formatEther(p2Flat)} ZTS, tiers=[${ethers.formatEther(p2T1R)},${ethers.formatEther(p2T2R)},${ethers.formatEther(p2T3R)}] ZTS`);
+  console.log(
+    `   ✓ Phase 2: flat=${ethers.formatEther(p2Flat)} ZTS, tiers=[${ethers.formatEther(p2T1R)},${ethers.formatEther(p2T2R)},${ethers.formatEther(p2T3R)}] ZTS`,
+  );
 
   // ── [2/2] Fund presale with ZTS ────────────────────────────────
   const required = await presale.getRequiredZts();
