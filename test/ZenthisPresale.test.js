@@ -74,6 +74,13 @@ describe("ZenthisPresale", function () {
     const required = await presale.getRequiredZts();
     await token.transfer(pAddr, required);
     await presale.depositTokens();
+
+    // V9: whitelist all test users + owner + treasury (referrers) in Phase 1
+    if (users.length > 0) {
+      const wl = users.map(u => u.address);
+      wl.push(owner.address, treasuryWallet.address);
+      await presale.addToWhitelist(wl, 1);
+    }
   });
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -221,6 +228,7 @@ describe("ZenthisPresale", function () {
       const pAddr = await p2.getAddress();
       await token.transfer(pAddr, await p2.getRequiredZts());
       await p2.depositTokens();
+      await p2.addToWhitelist([users[0].address], 1);
       await p2.connect(users[0]).contribute(ethers.ZeroAddress, { value: ethers.parseEther("49") });
       await expect(
         p2.connect(users[0]).contribute(ethers.ZeroAddress, { value: ethers.parseEther("2") }),
@@ -292,6 +300,7 @@ describe("ZenthisPresale", function () {
       const required = await p2.getRequiredZts();
       await token.transfer(pAddr, required);
       await p2.depositTokens();
+      await p2.addToWhitelist([users[0].address, owner.address], 1);
       const u = users[0];
       await p2.connect(u).contribute(owner.address, { value: ethers.parseEther("1") });
       expect(await p2.qualifiedReferrals(owner.address)).to.equal(0);
@@ -367,6 +376,7 @@ describe("ZenthisPresale", function () {
       const pFAddr = await pF.getAddress();
       await token.transfer(pFAddr, await pF.getRequiredZts());
       await pF.depositTokens();
+      await pF.addToWhitelist([users[0].address], 1);
       await pF
         .connect(users[0])
         .contribute(ethers.ZeroAddress, { value: ethers.parseEther("0.5") });
@@ -402,6 +412,7 @@ describe("ZenthisPresale", function () {
       const pFAddr = await pF.getAddress();
       await token.transfer(pFAddr, await pF.getRequiredZts());
       await pF.depositTokens();
+      await pF.addToWhitelist([users[0].address], 1);
       await pF
         .connect(users[0])
         .contribute(ethers.ZeroAddress, { value: ethers.parseEther("0.5") });
@@ -462,6 +473,7 @@ describe("ZenthisPresale", function () {
       const required = await p2.getRequiredZts();
       await token.transfer(pAddr, required);
       await p2.depositTokens();
+      await p2.addToWhitelist([users[0].address], 1);
 
       await p2.connect(users[0]).contribute(ethers.ZeroAddress, { value: ONE_ETH });
       await networkForwardAndFinalize(p2);

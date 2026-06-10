@@ -7,13 +7,26 @@ import "@openzeppelin/contracts/access/Ownable2Step.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/utils/Pausable.sol";
 
-/// @title ZenthisPresale — IDO with flat whitelist airdrop + IDO Launch Bonus + referrals
-/// @notice ETH → ZTS presale. Every contributor who meets minBuy gets a flat airdrop
+/// @title ZenthisPresale v9 — IDO with whitelist phases + flat airdrop + IDO Launch Bonus + referrals
+/// @notice ETH → ZTS presale. Every whitelisted contributor who meets minBuy gets a flat airdrop
 ///         + an IDO Launch Bonus tier based on contribution size.
+///
+///         Two whitelist phases for purchase access + bonus differentiation.
 ///         Referral qualifications tracked on-chain; milestone rewards are off-chain.
 ///
 /// @dev  ═════════════════════════════════════════════════════════════════════
-///       DESIGN NOTES
+///       V9 — WHITELIST PHASES
+///       ═════════════════════════════════════════════════════════════════════
+///
+///       Additions vs v8:
+///       ◾ whitelistPhase[user] — 0=none, 1=Phase1, 2=Phase2
+///       ◾ addToWhitelist() / removeFromWhitelist() — batch management
+///       ◾ Phase2Params struct — separate flat airdrop + 3 bonus tiers for Phase 2
+///       ◾ _contribute() now requires whitelisted address
+///       ◾ _computeBonus() uses phase-specific parameters
+///
+///       ═════════════════════════════════════════════════════════════════════
+///       DESIGN NOTES (v8 inheritance)
 ///       ═════════════════════════════════════════════════════════════════════
 ///
 ///       ◾ Flat airdrop: set per-user ZTS (e.g. 2,000) for contributors ≥ minBuy
@@ -72,7 +85,23 @@ contract ZenthisPresale is Ownable2Step, ReentrancyGuard, Pausable {
     /// @notice Máximo de direcciones por llamada rescueUnclaimedEth() — ZP-09
     uint256 public constant MAX_RESCUE_BATCH = 200;
 
+    /// @notice Máximo de direcciones por batch de whitelist (gas bound)
+    uint256 public constant MAX_WHITELIST_BATCH = 500;
+
     // ── Structs ──────────────────────────────────────────────────────────────
+
+    /// @notice Configuración de bonus para Phase 2 (flat airdrop reducido + 3 tiers)
+    ///         Phase 1 usa los valores de PresaleConfig (flatAirdrop + 4 tiers)
+    struct Phase2BonusConfig {
+        uint256 flatAirdrop;       // e.g. 1,000 ZTS
+        uint256 bonusTier1Eth;     // $300
+        uint256 bonusTier1Reward;  // 250 ZTS
+        uint256 bonusTier2Eth;     // $1,000
+        uint256 bonusTier2Reward;  // 500 ZTS
+        uint256 bonusTier3Eth;     // $2,000
+        uint256 bonusTier3Reward;  // 1,000 ZTS
+    }
+
     struct PresaleConfig {
         IERC20 token;
         uint256 rate;         // ZTS tokens per 1 ETH (1e18 precision)
@@ -100,6 +129,7 @@ contract ZenthisPresale is Ownable2Step, ReentrancyGuard, Pausable {
 
     // ── State ───────────────────────────────────────────────────────────────
     PresaleConfig public config;
+    Phase2BonusConfig public phase2; // V9: Phase 2 bonus params
     bool public finalized;
     bool public failed;
 
@@ -108,6 +138,9 @@ contract ZenthisPresale is Ownable2Step, ReentrancyGuard, Pausable {
     uint256 public totalBonusClaimed;
     uint256 public totalReferralQualified;
     bool public funded;
+
+    // V9: Whitelist by phase — 0 = not whitelisted, 1 = Phase 1, 2 = Phase 2
+    mapping(address => uint8) public whitelistPhase;
 
     /// @dev Fecha tras la cual finalize() puede ejecutarse (set en requestFinalize)
     uint256 public finalizeReadyAt;
@@ -146,6 +179,8 @@ contract ZenthisPresale is Ownable2Step, ReentrancyGuard, Pausable {
     event WalletUpdated(string walletType, address indexed oldWallet, address indexed newWallet); // ZP-11
     event RefundSkipped(address indexed user);
     event ClaimDeadlineSet(uint256 deadline); // ZP-08: movido aquí
+    event WhitelistUpdated(address indexed user, uint8 phase); // V9
+    event Phase2ConfigSet(); // V9
 
     // ── Custom Errors ───────────────────────────────────────────────────────
     error Presale_ZeroAddress();
@@ -182,6 +217,11 @@ contract ZenthisPresale is Ownable2Step, ReentrancyGuard, Pausable {
     error Presale_TimelockPending();
     error Presale_InsufficientBalance();       // ZP-05
     error Presale_RenounceDisabled();          // V5-M-01
+    error Presale_NotWhitelisted();           // V9
+    error Presale_BatchEmpty();               // V9
+    error Presale_BatchTooLargeWhiteList();   // V9
+    error Presale_InvalidPhase();             // V9
+    error Presale_AlreadyWhitelisted();       // V9
 
     // ── Constructor ─────────────────────────────────────────────────────────
     constructor(
@@ -292,6 +332,66 @@ contract ZenthisPresale is Ownable2Step, ReentrancyGuard, Pausable {
         emit ContractFunded(required);
     }
 
+    // ── Whitelist Management — V9 ──────────────────────────────────────────
+
+    /// @notice Añadir direcciones a una fase de whitelist.
+    /// @param users Array de direcciones a añadir
+    /// @param phase Fase (1 = Phase1, 2 = Phase2)
+    /// @dev Las direcciones ya whitelisted se omiten sin revertir el batch.
+    ///      MAX_WHITELIST_BATCH limita el tamaño del array por gas.
+    function addToWhitelist(address[] calldata users, uint8 phase) external onlyOwner {
+        if (users.length == 0) revert Presale_BatchEmpty();
+        if (users.length > MAX_WHITELIST_BATCH) revert Presale_BatchTooLargeWhiteList();
+        if (phase != 1 && phase != 2) revert Presale_InvalidPhase();
+        for (uint256 i = 0; i < users.length; i++) {
+            if (whitelistPhase[users[i]] == 0) {
+                whitelistPhase[users[i]] = phase;
+                emit WhitelistUpdated(users[i], phase);
+            }
+        }
+    }
+
+    /// @notice Eliminar direcciones de la whitelist.
+    /// @param users Array de direcciones a eliminar
+    /// @dev Las direcciones no whitelisted se omiten sin revertir.
+    function removeFromWhitelist(address[] calldata users) external onlyOwner {
+        if (users.length == 0) revert Presale_BatchEmpty();
+        if (users.length > MAX_WHITELIST_BATCH) revert Presale_BatchTooLargeWhiteList();
+        for (uint256 i = 0; i < users.length; i++) {
+            if (whitelistPhase[users[i]] != 0) {
+                whitelistPhase[users[i]] = 0;
+                emit WhitelistUpdated(users[i], 0);
+            }
+        }
+    }
+
+    /// @notice Configurar parámetros de bonus para Phase 2.
+    ///         Solo puede llamarse antes de que empiece la presale.
+    /// @dev Si no se llama, Phase 2 usa los mismos parámetros que Phase 1
+    ///      (compatibilidad hacia atrás).
+    function setPhase2Config(
+        uint256 _flatAirdrop,
+        uint256 _tier1Eth, uint256 _tier1Reward,
+        uint256 _tier2Eth, uint256 _tier2Reward,
+        uint256 _tier3Eth, uint256 _tier3Reward
+    ) external onlyOwner {
+        if (block.timestamp >= config.startTime) revert Presale_NotStarted();
+        if (
+            _tier1Eth > _tier2Eth || _tier2Eth > _tier3Eth
+            || _tier1Reward > _tier2Reward || _tier2Reward > _tier3Reward
+        ) revert Presale_InvalidThreshold();
+        phase2 = Phase2BonusConfig({
+            flatAirdrop: _flatAirdrop,
+            bonusTier1Eth: _tier1Eth,
+            bonusTier1Reward: _tier1Reward,
+            bonusTier2Eth: _tier2Eth,
+            bonusTier2Reward: _tier2Reward,
+            bonusTier3Eth: _tier3Eth,
+            bonusTier3Reward: _tier3Reward
+        });
+        emit Phase2ConfigSet();
+    }
+
     // ── Contribute ──────────────────────────────────────────────────────────
     function contribute(address _referrer) external payable
         nonReentrant whenNotPaused duringPresale onlyWhenFunded
@@ -308,8 +408,13 @@ contract ZenthisPresale is Ownable2Step, ReentrancyGuard, Pausable {
         if (contribution[_user] + msg.value > config.maxBuy) revert Presale_AboveMaxBuy();
         if (totalRaised + msg.value > config.hardCap) revert Presale_AboveHardCap();
 
+        // V9: Verificar whitelist
+        if (whitelistPhase[_user] == 0) revert Presale_NotWhitelisted();
+
         if (_referrer != address(0) && referrerOf[_user] == address(0)) {
             if (_referrer == _user) revert Presale_SelfReferral();
+            // El referrer debe estar whitelisted (misma o distinta fase)
+            if (whitelistPhase[_referrer] == 0) revert Presale_NotWhitelisted();
             referrerOf[_user] = _referrer;
         }
 
@@ -425,15 +530,31 @@ contract ZenthisPresale is Ownable2Step, ReentrancyGuard, Pausable {
     function _computeBonus(address _user) internal view returns (uint256 flatBonus, uint256 tierBonus) {
         uint256 contrib = contribution[_user];
         if (contrib < config.minBuy) return (0, 0);
-        flatBonus = config.flatAirdrop;
-        if (contrib >= config.bonusTier4Eth) {
-            tierBonus = config.bonusTier4Reward;
-        } else if (contrib >= config.bonusTier3Eth) {
-            tierBonus = config.bonusTier3Reward;
-        } else if (contrib >= config.bonusTier2Eth) {
-            tierBonus = config.bonusTier2Reward;
-        } else if (contrib >= config.bonusTier1Eth) {
-            tierBonus = config.bonusTier1Reward;
+
+        uint8 phase = whitelistPhase[_user];
+
+        if (phase == 1) {
+            // Phase 1: usa PresaleConfig (2,000 flat + 4 tiers)
+            flatBonus = config.flatAirdrop;
+            if (contrib >= config.bonusTier4Eth) {
+                tierBonus = config.bonusTier4Reward;
+            } else if (contrib >= config.bonusTier3Eth) {
+                tierBonus = config.bonusTier3Reward;
+            } else if (contrib >= config.bonusTier2Eth) {
+                tierBonus = config.bonusTier2Reward;
+            } else if (contrib >= config.bonusTier1Eth) {
+                tierBonus = config.bonusTier1Reward;
+            }
+        } else {
+            // Phase 2: usa Phase2BonusConfig (1,000 flat + 3 tiers)
+            flatBonus = phase2.flatAirdrop;
+            if (contrib >= phase2.bonusTier3Eth) {
+                tierBonus = phase2.bonusTier3Reward;
+            } else if (contrib >= phase2.bonusTier2Eth) {
+                tierBonus = phase2.bonusTier2Reward;
+            } else if (contrib >= phase2.bonusTier1Eth) {
+                tierBonus = phase2.bonusTier1Reward;
+            }
         }
         return (flatBonus, tierBonus);
     }
