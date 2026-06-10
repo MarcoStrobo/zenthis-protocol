@@ -193,7 +193,6 @@ contract ZenthisPresale is Ownable2Step, ReentrancyGuard, Pausable {
         uint256 tier2Eth, uint256 tier2Reward,
         uint256 tier3Eth, uint256 tier3Reward
     ); // V9
-    event BonusPoolWarning(uint256 actual, uint256 minimum); // ZP-I-03
 
     // ── Custom Errors ───────────────────────────────────────────────────────
     error Presale_ZeroAddress();
@@ -213,6 +212,7 @@ contract ZenthisPresale is Ownable2Step, ReentrancyGuard, Pausable {
     error Presale_InvalidThreshold();
     error Presale_NotFunded();
     error Presale_AlreadyFunded();
+    error Presale_BonusPoolTooSmall();        // M-01
     error Presale_InvalidRate();
     error Presale_InvalidCaps();
     error Presale_InvalidLimits();
@@ -236,6 +236,7 @@ contract ZenthisPresale is Ownable2Step, ReentrancyGuard, Pausable {
     error Presale_InvalidPhase();             // V9
     error Presale_ClaimWindowExpired();       // ZP-H-04
     error Presale_NotFinalized();             // ZP-I-01
+    error Presale_AlreadyStarted();            // L-01
     error Presale_AlreadyContributed();       // H-01, M-01
 
     // ── Constructor ─────────────────────────────────────────────────────────
@@ -285,7 +286,7 @@ contract ZenthisPresale is Ownable2Step, ReentrancyGuard, Pausable {
         ) revert Presale_InvalidThreshold();
         // ZP-I-03: validar que el bonus pool cubre el máximo teórico
         uint256 theoreticalMin = (_hardCap / _minBuy) * (_flatAirdrop + _bonusTier4Reward);
-        if (_bonusPoolSize < theoreticalMin) emit BonusPoolWarning(_bonusPoolSize, theoreticalMin);
+        if (_bonusPoolSize < theoreticalMin) revert Presale_BonusPoolTooSmall();
 
         config = PresaleConfig({
             token: _token,
@@ -421,7 +422,7 @@ contract ZenthisPresale is Ownable2Step, ReentrancyGuard, Pausable {
         uint256 _tier2Eth, uint256 _tier2Reward,
         uint256 _tier3Eth, uint256 _tier3Reward
     ) external onlyOwner {
-        if (block.timestamp >= config.startTime) revert Presale_NotStarted();
+        if (block.timestamp >= config.startTime) revert Presale_AlreadyStarted(); // L-01
         if (
             _tier1Eth > _tier2Eth || _tier2Eth > _tier3Eth
             || _tier1Reward > _tier2Reward || _tier2Reward > _tier3Reward
@@ -589,6 +590,7 @@ contract ZenthisPresale is Ownable2Step, ReentrancyGuard, Pausable {
 
         uint256 totalZts = ztsPurchased + totalBonus;
         totalBonusClaimed += totalBonus;
+        totalReservedBonus -= totalBonus; // H-02: decrementar reserva
         totalClaimed += totalZts;
 
         config.token.safeTransfer(msg.sender, totalZts);
@@ -795,12 +797,8 @@ contract ZenthisPresale is Ownable2Step, ReentrancyGuard, Pausable {
 
     function getClaimableAmount(address _user) external view returns (uint256) {
         if (claimed[_user] || !finalized || failed) return 0;
-        uint256 totalBonus = _pendingBonus[_user];
-        uint256 remaining = config.bonusPoolSize > totalBonusClaimed
-            ? config.bonusPoolSize - totalBonusClaimed
-            : 0;
-        if (totalBonus > remaining) totalBonus = remaining;
-        return (contribution[_user] * config.rate) / 1e18 + totalBonus;
+        // M-02: devolver bonus reservado directamente (pool check ya ocurrió en contribución)
+        return (contribution[_user] * config.rate) / 1e18 + _pendingBonus[_user];
     }
 
     /// @notice ZTS de liquidez basado en totalRaised real
@@ -845,8 +843,9 @@ contract ZenthisPresale is Ownable2Step, ReentrancyGuard, Pausable {
     }
 
     function getRemainingBonusPool() external view returns (uint256) {
-        return config.bonusPoolSize > totalBonusClaimed
-            ? config.bonusPoolSize - totalBonusClaimed
+        // I-06: usar totalReservedBonus en lugar de totalBonusClaimed
+        return config.bonusPoolSize > totalReservedBonus
+            ? config.bonusPoolSize - totalReservedBonus
             : 0;
     }
 
