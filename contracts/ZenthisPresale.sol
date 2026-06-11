@@ -390,6 +390,7 @@ contract ZenthisPresale is Ownable2Step, ReentrancyGuard, Pausable {
         if (users.length > MAX_WHITELIST_BATCH) revert Presale_BatchTooLargeWhiteList();
         if (newPhase > 2) revert Presale_InvalidPhase();
         if (newPhase == 2 && !phase2Configured) revert Presale_InvalidPhase();
+        if (block.timestamp >= config.startTime) revert Presale_AlreadyStarted(); // V9-M-01
         for (uint256 i = 0; i < users.length; i++) {
             address user = users[i];
             if (whitelistPhase[user] != newPhase) {
@@ -407,6 +408,7 @@ contract ZenthisPresale is Ownable2Step, ReentrancyGuard, Pausable {
     function removeFromWhitelist(address[] calldata users) external onlyOwner {
         if (users.length == 0) revert Presale_BatchEmpty();
         if (users.length > MAX_WHITELIST_BATCH) revert Presale_BatchTooLargeWhiteList();
+        if (block.timestamp >= config.startTime) revert Presale_AlreadyStarted(); // V9-M-01
         for (uint256 i = 0; i < users.length; i++) {
             address user = users[i];
             if (whitelistPhase[user] != 0) {
