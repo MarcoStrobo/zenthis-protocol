@@ -184,16 +184,6 @@ contract ZenthisToken is ERC20, ERC20Permit, ERC20Votes, Ownable, ReentrancyGuar
         emit FeesDeposited(msg.value, rewardPerTokenStored);
     }
 
-    // ── Burn ────────────────────────────────────────────────────────────────────
-
-    /// @notice Permanently remove ZTS tokens from circulation.
-    /// @dev Reverts on zero amount to avoid wasting gas on no-op burns.
-    /// @param amount Quantity of tokens to burn. Must be > 0.
-    function burn(uint256 amount) external {
-        if (amount == 0) revert ZeroAmount();
-        _burn(msg.sender, amount);
-    }
-
     // ── Receive ─────────────────────────────────────────────────────────────────
     /// @notice Direct ETH sends are always rejected.
     /// @dev ETH must go through depositFees() to be tracked in totalFeesDeposited.

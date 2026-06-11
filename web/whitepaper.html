@@ -54,7 +54,7 @@
         <a class="toc-link" href="#tokenomics">4. Token Economics</a>
         <a class="toc-link toc-sub" href="#token-utility">4.1 Token Utility</a>
         <a class="toc-link toc-sub" href="#token-distribution">4.2 IDO Parameters &amp; Distribution</a>
-        <a class="toc-link toc-sub" href="#token-burn">4.3 Deflationary Mechanics</a>
+
         <a class="toc-link" href="#security">5. Security Model</a>
         <a class="toc-link toc-sub" href="#security-audits">5.1 Audits</a>
         <a class="toc-link toc-sub" href="#security-multisig">5.2 Upgrade Governance</a>
@@ -94,7 +94,7 @@
           Zenthis is a non-custodial, cross-chain liquidity protocol that enables atomic swaps between heterogeneous blockchains in 3–5 seconds without relying on centralized bridges or trusted intermediaries. By combining Hash Time-Locked Contracts (HTLCs), a lightweight decentralized validator network, and a unified virtual order book, Zenthis eliminates the capital inefficiency and security risks endemic to the current bridge-based cross-chain ecosystem.
         </p>
         <p>
-          The ZENTHIS token provides governance rights, staking rewards from protocol fees, and participates in a deflationary burn mechanism tied to swap volume. Total supply is capped at 100 million tokens with zero inflation after Year 1.
+          The ZENTHIS token provides governance rights and staking rewards from protocol fees. Every swap generates revenue that flows directly to token holders who stake. Total supply is capped at 100 million tokens — zero inflation, no burn required.
         </p>
         <div class="wp-callout">
           <strong>Key design properties:</strong> (1) Cross-chain settlement target: 3–5 seconds. (2) Zero bridge custodians — atomic by construction. (3) 0.10% flat fee. (4) Independent security audit scheduled pre-mainnet. (5) Open whitepaper — community review welcome.
@@ -302,9 +302,9 @@
             <p>Stakers receive a pro-rata share of the <strong>0.10% protocol fee</strong> on every swap. Fee distribution occurs in real time per block.</p>
           </div>
           <div class="utility-card">
-            <div class="utility-icon">🔥</div>
-            <h4>Deflationary Burn</h4>
-            <p>A protocol-controlled buy-back-and-burn mechanism uses a fixed percentage of fee revenue to permanently remove ZENTHIS from circulation.</p>
+            <div class="utility-icon">💰</div>
+            <h4>Revenue Share from Fees</h4>
+            <p>Every swap on Zenthis generates a 0.10% protocol fee. 80-90% of that fee is distributed directly to ZTS stakers. More volume = more revenue for holders. No burn necessary — the value is in the yield.</p>
           </div>
           <div class="utility-card">
             <div class="utility-icon">⚖</div>
@@ -378,13 +378,6 @@
         </div>
         <p class="wp-caption" style="margin-top:12px;">Table 3 — Token distribution and vesting schedule. TGE date: TBA. Day-1 actual sell pressure: 9.5M tokens (9.5% of supply), down from 21.5% in the original design.</p>
 
-        <h3 class="wp-h3" id="token-burn">4.3 Deflationary Mechanics</h3>
-        <p>
-          Inflation is zero after Year 1. From TGE onwards, the only change to circulating supply comes from the buy-back-and-burn program. At projected Year 1 volume, we estimate a <strong>2–5% annual reduction</strong> in circulating supply. This rate scales non-linearly with volume growth.
-        </p>
-        <div class="wp-callout callout-info">
-          <strong>Example:</strong> At $1M daily swap volume (realistic early-stage target), protocol fees generate $1,000/day. If 20% of fees is allocated to buybacks, approximately $200 of ZENTHIS is removed from circulation daily. This rate scales linearly with volume growth.
-        </div>
       </section>
 
       <hr class="wp-divider" />
@@ -481,7 +474,7 @@
           <div class="wp-rm-row completed">
             <div class="wp-rm-period">Q1–Q2 2026</div>
             <div class="wp-rm-content">
-              <strong>Foundation</strong> — Whitepaper v2.3 published. Protocol architecture fully specified. Testnet swap UI live (wallet connect, live prices, 6 chains). Whitelist system launched. Community building started.
+              <strong>Foundation Phase</strong> — Whitepaper v2.3 published. Protocol architecture fully specified. Testnet swap UI live (wallet connect, live prices, 6 chains). Whitelist system launched. Community building started.
             </div>
             <div class="wp-rm-status done">Done</div>
           </div>
@@ -533,7 +526,7 @@
           </div>
         </div>
         <p>
-          Zenthis operates under the <strong>Zenthis Foundation</strong>, a non-profit entity registered in Switzerland, providing legal oversight and managing the ecosystem treasury under token governance.
+          Zenthis is a community-driven, open-source protocol. No central entity controls the protocol — governance is designed to transition fully on-chain through the ZENTHIS token after launch.
         </p>
       </section>
 
