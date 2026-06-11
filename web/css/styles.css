@@ -1062,7 +1062,7 @@ thead .col-solvx {
   transition: width .8s ease;
 }
 .tbar-fill.circulating { background: linear-gradient(to right, var(--purple), var(--cyan)); }
-.tbar-fill.burned { background: var(--red); margin-left: 2px; }
+
 .tbar-val { font-size: .75rem; color: var(--text-muted); width: 200px; flex-shrink: 0; }
 
 .tbar-legend { display: flex; gap: 20px; font-size: .78rem; color: var(--text-dim); }
@@ -1074,7 +1074,7 @@ thead .col-solvx {
   vertical-align: middle;
 }
 .tbar-dot.circulating { background: var(--purple); }
-.tbar-dot.burned { background: var(--red); }
+
 
 /* ─── CHAINS ─── */
 .phases { display: flex; flex-direction: column; gap: 32px; }
