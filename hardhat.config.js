@@ -54,8 +54,27 @@ module.exports = {
     },
   },
   etherscan: {
-    // Etherscan API v2 — single key covers all networks
+    // Etherscan API v2 — single key + chainid covers all 60+ chains
+    // https://docs.etherscan.io/v2-migration
     apiKey: process.env.ETHERSCAN_API_KEY || "",
+    customChains: [
+      {
+        network: "base",
+        chainId: 8453,
+        urls: {
+          apiURL: "https://api.etherscan.io/v2/api?chainid=8453",
+          browserURL: "https://basescan.org",
+        },
+      },
+      {
+        network: "baseSepolia",
+        chainId: 84532,
+        urls: {
+          apiURL: "https://api.etherscan.io/v2/api?chainid=84532",
+          browserURL: "https://sepolia.basescan.org",
+        },
+      },
+    ],
   },
   gasReporter: {
     enabled: process.env.REPORT_GAS === "true",
