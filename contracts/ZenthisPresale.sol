@@ -7,7 +7,7 @@ import "@openzeppelin/contracts/access/Ownable2Step.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/utils/Pausable.sol";
 
-/// @title ZenthisPresale v18 — IDO with whitelist phases + flat airdrop + IDO Launch Bonus + referrals
+/// @title ZenthisPresale v20 — IDO with whitelist phases + flat airdrop + IDO Launch Bonus + referrals
 /// @notice ETH → ZTS presale. Every whitelisted contributor who meets minBuy gets a flat airdrop
 ///         + an IDO Launch Bonus tier based on contribution size.
 ///
@@ -193,6 +193,7 @@ contract ZenthisPresale is Ownable2Step, ReentrancyGuard, Pausable {
     event ClaimDeadlineSet(uint256 deadline); // ZP-08: movido aquí
     event BonusPoolExhausted(); // V17: se agotó el pool, contribuciones continúan sin bonus
     event WhitelistUpdated(address indexed user, uint8 phase); // V9
+    event Phase1EndTimeUpdated(uint256 newEndTime); // V20: V9-L-02
     event Phase2ConfigSet(
         uint256 flatAirdrop,
         uint256 tier1Eth, uint256 tier1Reward,
@@ -417,6 +418,16 @@ contract ZenthisPresale is Ownable2Step, ReentrancyGuard, Pausable {
         }
     }
 
+    /// @notice Ajustar phase1EndTime antes del inicio de la presale.
+    /// @dev V9-L-02: solo modificable antes de startTime. Una vez arrancada la presale
+    ///      el valor es inmutable para mantener la predictibilidad de las ventanas.
+    function setPhase1EndTime(uint256 _newTime) external onlyOwner {
+        if (block.timestamp >= config.startTime) revert Presale_AlreadyStarted();
+        if (_newTime <= config.startTime || _newTime > config.endTime) revert Presale_InvalidTimes();
+        phase1EndTime = _newTime;
+        emit Phase1EndTimeUpdated(_newTime);
+    }
+
     /// @notice Configurar parámetros de bonus para Phase 2.
     ///         Solo puede llamarse antes de que empiece la presale.
     /// @dev ZP-M-03: puede llamarse múltiples veces antes de startTime para corregir
@@ -473,7 +484,11 @@ contract ZenthisPresale is Ownable2Step, ReentrancyGuard, Pausable {
 
         if (_referrer != address(0) && referrerOf[_user] == address(0)) {
             if (_referrer == _user) revert Presale_SelfReferral();
-            // V9-M-02: referrals intra-fase para evitar asimetrías off-chain
+            // V9-M-02: referrals intra-fase — se validan al momento de la contribución.
+            // referrerOf es inmutable tras asignarse. Si la fase del referrer cambia
+            // posteriormente (vía updateWhitelistPhase), el registro on-chain queda
+            // como evidencia de la fase en el momento del referral. Sistemas off-chain
+            // deben usar el bloque del evento ReferralQualified para determinar la fase.
             if (whitelistPhase[_referrer] != whitelistPhase[_user]) revert Presale_InvalidPhase();
             referrerOf[_user] = _referrer;
         }
@@ -814,8 +829,13 @@ contract ZenthisPresale is Ownable2Step, ReentrancyGuard, Pausable {
 
     function getClaimableAmount(address _user) external view returns (uint256) {
         if (claimed[_user] || !finalized || failed) return 0;
-        // M-02: devolver bonus reservado directamente (pool check ya ocurrió en contribución)
-        return (contribution[_user] * config.rate) / 1e18 + _pendingBonus[_user];
+        // V9-L-04: aplicar cap del pool en la view para defensa en profundidad
+        uint256 bonus = _pendingBonus[_user];
+        uint256 remaining = config.bonusPoolSize > totalBonusClaimed
+            ? config.bonusPoolSize - totalBonusClaimed
+            : 0;
+        if (bonus > remaining) bonus = remaining;
+        return (contribution[_user] * config.rate) / 1e18 + bonus;
     }
 
     /// @notice ZTS de liquidez basado en totalRaised real
