@@ -57,7 +57,7 @@ describe("ZenthisPresale", function () {
       opts.b4e ?? BT4_ETH,
       opts.b4r ?? BT4_REW,
       opts.rm ?? REF_MIN,
-      opts.p1e ?? s + BigInt(opts.duration ?? DURATION) / 2n // V17: phase1EndTime = mitad de la presale por defecto
+      opts.p1e ?? s + BigInt(opts.duration ?? DURATION) / 2n, // V17: phase1EndTime = mitad de la presale por defecto
     );
     await p.waitForDeployment();
     return p;
