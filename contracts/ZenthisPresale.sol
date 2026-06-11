@@ -490,18 +490,18 @@ contract ZenthisPresale is Ownable2Step, ReentrancyGuard, Pausable {
             uint256 poolRemaining = config.bonusPoolSize > totalReservedBonus
                 ? config.bonusPoolSize - totalReservedBonus
                 : 0;
-            totalReservedBonus += newBonus - oldBonus;
-            // V9-M-03: verificar agotamiento del bonus pool DESPUÉS de actualizar la reserva
-            if (!_bonusPoolExhausted && totalReservedBonus >= config.bonusPoolSize) {
-                _bonusPoolExhausted = true;
-                emit BonusPoolExhausted();
-            }
             if (increase > poolRemaining) {
                 // Escalar: el pool no cubre el tier completo
                 uint256 ratio = (poolRemaining * 1e18) / increase;
                 flatBonus = oldBonus != 0 ? _pendingFlatBonus[_user] + (flatBonus * ratio) / 1e18 : (flatBonus * ratio) / 1e18;
                 newBonus = oldBonus + poolRemaining;
                 tierBonus = newBonus > flatBonus ? newBonus - flatBonus : 0;
+            }
+            // V18-H-01: incrementar DESPUÉS del escalado, con el valor real asignado
+            totalReservedBonus += newBonus - oldBonus;
+            if (!_bonusPoolExhausted && totalReservedBonus >= config.bonusPoolSize) {
+                _bonusPoolExhausted = true;
+                emit BonusPoolExhausted();
             }
         }
         _pendingFlatBonus[_user] = flatBonus;
