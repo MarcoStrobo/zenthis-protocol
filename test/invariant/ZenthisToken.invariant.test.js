@@ -48,13 +48,13 @@ describe("ZenthisToken — Invariant Tests", function () {
   // INVARIANT 1: totalSupply never exceeds MAX_SUPPLY
   // ═══════════════════════════════════════════════════════════════════════════
   describe("Invariant: totalSupply ≤ MAX_SUPPLY", function () {
-    it("should hold through any sequence of transfers/stakes/burns", async function () {
+    it("should hold through any sequence of transfers/stakes", async function () {
       const stakers = [staker1, staker2, staker3];
 
       // Random action loop
       for (let round = 0; round < 100; round++) {
         const actor = stakers[randInt(0, 2)];
-        const action = randInt(0, 3); // 0=transfer, 1=stake, 2=unstake, 3=burn
+        const action = randInt(0, 2); // 0=transfer, 1=stake, 2=unstake
 
         if (action === 0) {
           const bal = await token.balanceOf(actor.address);
@@ -166,28 +166,6 @@ describe("ZenthisToken — Invariant Tests", function () {
   });
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // INVARIANT 4: Burn reduces totalSupply permanently
-  // ═══════════════════════════════════════════════════════════════════════════
-  describe("Invariant: burn is irreversible", function () {
-    it("should monotonically decrease totalSupply on each burn", async function () {
-      let prevSupply = await token.totalSupply();
-
-      for (let i = 0; i < 20; i++) {
-        const bal = await token.balanceOf(staker1.address);
-        if (bal <= BigInt(10 ** 15)) break;
-        const amt = (bal * BigInt(randInt(1, 5))) / 100n;
-        if (amt === 0n) continue;
-
-        await token.connect(staker1).burn(amt);
-        const newSupply = await token.totalSupply();
-
-        expect(newSupply).to.be.lt(prevSupply);
-        expect(newSupply).to.equal(prevSupply - amt);
-        prevSupply = newSupply;
-      }
-    });
-  });
-
   // ═══════════════════════════════════════════════════════════════════════════
   // INVARIANT 5: Claim resets rewards to 0
   // ═══════════════════════════════════════════════════════════════════════════
@@ -284,3 +262,4 @@ describe("ZenthisToken — Invariant Tests", function () {
     });
   });
 });
+

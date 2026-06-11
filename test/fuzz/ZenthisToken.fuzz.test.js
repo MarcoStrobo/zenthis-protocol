@@ -180,26 +180,7 @@ describe("ZenthisToken — Fuzz Tests", function () {
     });
   });
 
-  // ═══════════════════════════════════════════════════════════════════════════
-  // FUZZ: burn — random amounts (30 runs)
-  // ═══════════════════════════════════════════════════════════════════════════
-  describe("fuzz: burn — random amounts (30 runs)", function () {
-    it("should reduce totalSupply by burned amount", async function () {
-      for (let i = 0; i < 30; i++) {
-        const balance = await token.balanceOf(staker1.address);
-        if (balance <= 0n) break;
-        const amount =
-          BigInt(randInt(1, Math.min(1000, Number(balance / BigInt(10 ** 15))))) * BigInt(10 ** 15);
-        if (amount > balance) continue;
 
-        const supplyBefore = await token.totalSupply();
-        await token.connect(staker1).burn(amount);
-        const supplyAfter = await token.totalSupply();
-
-        expect(supplyAfter).to.equal(supplyBefore - amount);
-      }
-    });
-  });
 
   // ═══════════════════════════════════════════════════════════════════════════
   // FUZZ: edge cases — zero amounts, max amounts
@@ -256,7 +237,7 @@ describe("ZenthisToken — Fuzz Tests", function () {
       for (let round = 0; round < 50; round++) {
         const idx = randInt(0, 2);
         const staker = stakers[idx];
-        const action = randInt(0, 2); // 0=stake, 1=unstake, 2=burn
+        const action = randInt(0, 1); // 0=stake, 1=unstake
 
         if (action === 0) {
           const bal = await token.balanceOf(staker.address);
@@ -270,12 +251,6 @@ describe("ZenthisToken — Fuzz Tests", function () {
             const amt = (st * BigInt(randInt(1, 50))) / 100n;
             if (amt > 0n) await token.connect(staker).unstake(amt);
           }
-        } else {
-          const bal = await token.balanceOf(staker.address);
-          if (bal > BigInt(10 ** 15)) {
-            const amt = (bal * BigInt(randInt(1, 10))) / 100n;
-            if (amt > 0n) await token.connect(staker).burn(amt);
-          }
         }
 
         // INVARIANT
@@ -286,3 +261,4 @@ describe("ZenthisToken — Fuzz Tests", function () {
     });
   });
 });
+

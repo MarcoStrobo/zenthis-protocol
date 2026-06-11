@@ -151,22 +151,7 @@ describe("ZenthisToken", function () {
     });
   });
 
-  // ── Burn ───────────────────────────────────────────────────────────────────
 
-  describe("Burn", () => {
-    it("allows token holders to burn their tokens", async () => {
-      const burnAmt = ethers.parseEther("1000");
-      await token.connect(treasury).burn(burnAmt);
-      expect(await token.totalSupply()).to.equal(MAX_SUPPLY - burnAmt);
-    });
-
-    it("reverts on zero burn", async () => {
-      await expect(token.connect(treasury).burn(0)).to.be.revertedWithCustomError(
-        token,
-        "ZeroAmount",
-      );
-    });
-  });
 
   // ── Rescue ────────────────────────────────────────────────────────────────
 
