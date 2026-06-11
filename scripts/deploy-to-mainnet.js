@@ -261,10 +261,10 @@ async function main() {
     net === "arbitrumOne"
       ? "arbiscan.io"
       : net === "base"
-        ? "basescan.org"
-        : net === "mainnet"
-          ? "etherscan.io"
-          : `${net}.etherscan.io`;
+      ? "basescan.org"
+      : net === "mainnet"
+      ? "etherscan.io"
+      : `${net}.etherscan.io`;
 
   console.log(`
   1. VERIFY (${verifyUrl}):

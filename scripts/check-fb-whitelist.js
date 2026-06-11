@@ -17,8 +17,11 @@ async function main() {
 
   console.log(`\n📊 TOTAL: ${docs.length} registros en waitlist\n`);
 
-  let phase1 = 0, phase2 = 0, noPhase = 0;
-  let withWallet = 0, withoutWallet = 0;
+  let phase1 = 0,
+    phase2 = 0,
+    noPhase = 0;
+  let withWallet = 0,
+    withoutWallet = 0;
 
   for (const { id, data } of docs) {
     const phase = data.phase;
@@ -59,48 +62,40 @@ async function main() {
 
   console.log(`\n📤 Phase 2 wallets con wallet: ${phase2Wallets.length}`);
   console.log(`📤 Phase 1 wallets con wallet: ${phase1Wallets.length}`);
-  
+
   // Sample wallets
   if (phase2Wallets.length > 0) {
     console.log(`\n🔍 Muestra Phase 2 (${Math.min(5, phase2Wallets.length)}):`);
-    phase2Wallets.slice(0, 5).forEach(w => console.log(`   ${w}`));
+    phase2Wallets.slice(0, 5).forEach((w) => console.log(`   ${w}`));
   }
   if (phase1Wallets.length > 0) {
     console.log(`\n🔍 Muestra Phase 1 (${Math.min(5, phase1Wallets.length)}):`);
-    phase1Wallets.slice(0, 5).forEach(w => console.log(`   ${w}`));
+    phase1Wallets.slice(0, 5).forEach((w) => console.log(`   ${w}`));
   }
 
   // === Export CSV for on-chain whitelist ===
   const fs = require("fs");
   const path = require("path");
-  
+
   const outDir = path.join(__dirname, "..", "whitelist");
 
   // Phase 2 (deduplicated)
   const uniq2 = [...new Set(phase2Wallets)];
-  fs.writeFileSync(
-    path.join(outDir, "phase2_wallets.txt"),
-    uniq2.join("\n"),
-    "utf8"
-  );
+  fs.writeFileSync(path.join(outDir, "phase2_wallets.txt"), uniq2.join("\n"), "utf8");
   fs.writeFileSync(
     path.join(outDir, "phase2_wallets.json"),
     JSON.stringify(uniq2, null, 2),
-    "utf8"
+    "utf8",
   );
   console.log(`\n✅ Phase 2: ${uniq2.length} wallets únicas → whitelist/phase2_wallets.*`);
 
   // Phase 1 (deduplicated)
   const uniq1 = [...new Set(phase1Wallets)];
-  fs.writeFileSync(
-    path.join(outDir, "phase1_wallets.txt"),
-    uniq1.join("\n"),
-    "utf8"
-  );
+  fs.writeFileSync(path.join(outDir, "phase1_wallets.txt"), uniq1.join("\n"), "utf8");
   fs.writeFileSync(
     path.join(outDir, "phase1_wallets.json"),
     JSON.stringify(uniq1, null, 2),
-    "utf8"
+    "utf8",
   );
   console.log(`✅ Phase 1: ${uniq1.length} wallets únicas → whitelist/phase1_wallets.*`);
 }
