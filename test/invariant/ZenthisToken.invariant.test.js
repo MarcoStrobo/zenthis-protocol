@@ -262,4 +262,3 @@ describe("ZenthisToken — Invariant Tests", function () {
     });
   });
 });
-

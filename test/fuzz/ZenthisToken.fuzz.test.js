@@ -180,8 +180,6 @@ describe("ZenthisToken — Fuzz Tests", function () {
     });
   });
 
-
-
   // ═══════════════════════════════════════════════════════════════════════════
   // FUZZ: edge cases — zero amounts, max amounts
   // ═══════════════════════════════════════════════════════════════════════════
@@ -261,4 +259,3 @@ describe("ZenthisToken — Fuzz Tests", function () {
     });
   });
 });
-
