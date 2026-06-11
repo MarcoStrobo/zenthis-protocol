@@ -7,7 +7,7 @@ import "@openzeppelin/contracts/access/Ownable2Step.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/utils/Pausable.sol";
 
-/// @title ZenthisPresale v9 — IDO with whitelist phases + flat airdrop + IDO Launch Bonus + referrals
+/// @title ZenthisPresale v18 — IDO with whitelist phases + flat airdrop + IDO Launch Bonus + referrals
 /// @notice ETH → ZTS presale. Every whitelisted contributor who meets minBuy gets a flat airdrop
 ///         + an IDO Launch Bonus tier based on contribution size.
 ///
@@ -282,6 +282,7 @@ contract ZenthisPresale is Ownable2Step, ReentrancyGuard, Pausable {
         // ── Rates & Caps ─────────────────────────────────────────────
         if (_rate == 0)                    revert Presale_InvalidRate();
         if (_softCap > _hardCap)           revert Presale_InvalidCaps();
+        if (_softCap == 0)                 revert Presale_InvalidCaps(); // V9-L-01
         if (_minBuy == 0)                  revert Presale_InvalidMinBuy(); // ZP-06
         if (_minBuy > _maxBuy)             revert Presale_InvalidLimits();
         if (_liquidityPct > 10000)         revert Presale_InvalidPct();
@@ -466,7 +467,7 @@ contract ZenthisPresale is Ownable2Step, ReentrancyGuard, Pausable {
         if (block.timestamp < phase1EndTime) {
             if (whitelistPhase[_user] != 1) revert Presale_NotWhitelisted();
         } else {
-            // Después de phase1EndTime: solo Phase 2 (salvo que ya contribuyera en Phase 1)
+            // V17: ventana abierta — Phase 2 + Phase 1 con contribución previa (V9-I-02)
             if (whitelistPhase[_user] == 1 && contribution[_user] == 0) revert Presale_NotWhitelisted();
         }
 
@@ -489,7 +490,9 @@ contract ZenthisPresale is Ownable2Step, ReentrancyGuard, Pausable {
             uint256 poolRemaining = config.bonusPoolSize > totalReservedBonus
                 ? config.bonusPoolSize - totalReservedBonus
                 : 0;
-            if (!_bonusPoolExhausted && poolRemaining == 0) {
+            totalReservedBonus += newBonus - oldBonus;
+            // V9-M-03: verificar agotamiento del bonus pool DESPUÉS de actualizar la reserva
+            if (!_bonusPoolExhausted && totalReservedBonus >= config.bonusPoolSize) {
                 _bonusPoolExhausted = true;
                 emit BonusPoolExhausted();
             }
@@ -500,7 +503,6 @@ contract ZenthisPresale is Ownable2Step, ReentrancyGuard, Pausable {
                 newBonus = oldBonus + poolRemaining;
                 tierBonus = newBonus > flatBonus ? newBonus - flatBonus : 0;
             }
-            totalReservedBonus += newBonus - oldBonus;
         }
         _pendingFlatBonus[_user] = flatBonus;
         _pendingBonus[_user] = newBonus;
@@ -855,6 +857,11 @@ contract ZenthisPresale is Ownable2Step, ReentrancyGuard, Pausable {
     ///         (V10-L-02, ZP-L-03)
     function getMaxTheoreticalBonus() external pure returns (uint256) {
         revert("use getMaxTheoreticalBonusPhase1 or Phase2");
+    }
+
+    /// @notice V9-M-03: flag público de agotamiento del bonus pool
+    function isBonusPoolExhausted() external view returns (bool) {
+        return _bonusPoolExhausted;
     }
 
     function getRemainingBonusPool() external view returns (uint256) {
