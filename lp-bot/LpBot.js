@@ -14,6 +14,8 @@
  * hardhat deployments (see test/LpBot.test.js).
  */
 
+const { sha256 } = require("ethers");
+
 const SECONDS = 1;
 
 const DEFAULTS = {
@@ -47,6 +49,7 @@ class LpBot {
     config = {},
     log = console.log,
     alert = () => {},
+    relay = null,
   }) {
     this.A = htlcA;
     this.B = htlcB;
@@ -54,6 +57,7 @@ class LpBot {
     this.store = state;
     this.cfg = { ...DEFAULTS, ...config };
     this.log = log;
+    this.relay = relay; // optional { claims(): Promise<{hashlock, preimage}[]> } for gasless user claims
     this.alert = alert; // (message) => void; called for events needing attention
     this.s = this.store.load();
     if (!this.s.swaps) this.s.swaps = {};
@@ -96,8 +100,59 @@ class LpBot {
   // -- main loop step
   async tick() {
     await this._scanChainA();
+    await this._processRelay();
     await this._progressSwaps();
     await this._checkBalance();
+  }
+
+  /**
+   * getLogs with an adaptive range: public RPCs often reject wide ranges (e.g. >= 500 blocks).
+   * On failure the chunk is halved (down to 10 blocks) and the smaller size is remembered.
+   */
+  async _logs(contract, filter, from, to) {
+    const out = [];
+    let step = this.cfg.maxBlockRange;
+    let cur = from;
+    while (cur <= to) {
+      const end = Math.min(cur + step - 1, to);
+      try {
+        out.push(...(await contract.queryFilter(filter, cur, end)));
+        cur = end + 1;
+      } catch (e) {
+        if (step <= 10) throw e;
+        step = Math.floor(step / 2);
+        this.cfg.maxBlockRange = step;
+      }
+    }
+    return out;
+  }
+
+  /**
+   * Gasless claim for users: redeem the lock we made on B on their behalf (redeem pays the
+   * recipient regardless of caller). The preimage is validated against the stored hashlock.
+   */
+  async _processRelay() {
+    if (!this.relay) return;
+    let claims;
+    try {
+      claims = await this.relay.claims();
+    } catch (e) {
+      this.log(`[relay] poll failed: ${e.message}`);
+      return;
+    }
+    for (const c of claims) {
+      const rec = Object.values(this.s.swaps).find((x) => x.hashlock === c.hashlock);
+      if (!rec || rec.status !== "locked" || (rec.relayAttempts || 0) >= 3) continue;
+      if (typeof c.preimage !== "string" || sha256(c.preimage) !== rec.hashlock) continue;
+      rec.relayAttempts = (rec.relayAttempts || 0) + 1;
+      try {
+        if (await this.B.isActive(rec.idB)) await (await this.B.redeem(rec.idB, c.preimage)).wait();
+        this.log(`[relay-redeemed] B:${rec.idB}`);
+      } catch (e) {
+        this.log(`[relay] redeem B ${rec.idB}: ${e.shortMessage || e.message}`);
+      }
+      this._save();
+    }
   }
 
   async _checkBalance() {
@@ -125,7 +180,7 @@ class LpBot {
     const filter = this.A.filters.SwapCreated(null, null, this.lp);
     while (from <= safe) {
       const to = Math.min(from + this.cfg.maxBlockRange - 1, safe);
-      const events = await this.A.queryFilter(filter, from, to);
+      const events = await this._logs(this.A, filter, from, to);
       for (const ev of events) await this._handleNewSwap(ev);
       this.s.cursorA = to;
       this._save();
@@ -196,7 +251,13 @@ class LpBot {
   }
 
   async _progressLocked(rec) {
-    const evs = await this.B.queryFilter(this.B.filters.SwapRedeemed(rec.idB), rec.blockB || 0);
+    const latestB = await this.B.runner.provider.getBlockNumber();
+    const evs = await this._logs(
+      this.B,
+      this.B.filters.SwapRedeemed(rec.idB),
+      rec.blockB || 0,
+      latestB,
+    );
     if (evs.length) {
       rec.preimage = evs[0].args.preimage;
       rec.status = "revealed";

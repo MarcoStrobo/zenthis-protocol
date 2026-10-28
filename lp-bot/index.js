@@ -62,32 +62,62 @@ async function main() {
     }).catch((e) => console.error("alert webhook failed:", e.message));
   };
 
-  const state = fileState(path.join(__dirname, process.env.LP_STATE_FILE || "state.json"));
-  const s = state.load();
-  if (s.cursorA === undefined && process.env.LP_START_BLOCK_A)
-    state.save({ ...s, cursorA: Number(process.env.LP_START_BLOCK_A) - 1 });
+  // Gasless-claim mailbox (ntfy.sh topic shared with the web app). One cursor per bot.
+  const relayUrl = process.env.LP_RELAY_URL;
+  const mkRelay = () => {
+    if (!relayUrl) return null;
+    let since = "30m";
+    return {
+      async claims() {
+        const res = await fetch(`${relayUrl}/json?poll=1&since=${since}`);
+        if (!res.ok) throw new Error(`relay HTTP ${res.status}`);
+        const out = [];
+        for (const line of (await res.text()).split("\n").filter(Boolean)) {
+          const ev = JSON.parse(line);
+          if (ev.time) since = String(ev.time);
+          if (ev.event === "message") {
+            try {
+              out.push(JSON.parse(ev.message));
+            } catch {}
+          }
+        }
+        return out;
+      },
+    };
+  };
 
-  const bot = new LpBot({
-    htlcA,
-    htlcB,
-    lpAddress: wallet.address,
-    state,
-    config: cfg,
-    alert,
-    log: (m) => console.log(new Date().toISOString(), m),
-  });
+  const mk = (A, B, file, tag) =>
+    new LpBot({
+      htlcA: A,
+      htlcB: B,
+      lpAddress: wallet.address,
+      state: fileState(path.join(__dirname, file)),
+      config: cfg,
+      alert,
+      relay: mkRelay(),
+      log: (m) => console.log(new Date().toISOString(), `[${tag}]`, m),
+    });
+
+  // Bidirectional: A->B and B->A, in the same process. Ticks run one after another
+  // so the shared LP wallet never sends two transactions on one chain at once.
+  const bots = [mk(htlcA, htlcB, process.env.LP_STATE_FILE || "state.json", "A>B")];
+  if (process.env.LP_BIDIRECTIONAL !== "0") {
+    bots.push(mk(htlcB, htlcA, "state-reverse.json", "B>A"));
+  }
 
   const pollMs = Number(process.env.LP_POLL_MS || 15_000);
-  console.log(`LP ${wallet.address} | A=${await htlcA.getAddress()} B=${await htlcB.getAddress()}`);
   console.log(
-    `balances A=${ethers.formatEther(
-      await provA.getBalance(wallet.address),
-    )} B=${ethers.formatEther(await provB.getBalance(wallet.address))}`,
+    `LP ${wallet.address} | A=${await htlcA.getAddress()} B=${await htlcB.getAddress()} | routes=${bots.length}`,
+  );
+  console.log(
+    `balances A=${ethers.formatEther(await provA.getBalance(wallet.address))} B=${ethers.formatEther(
+      await provB.getBalance(wallet.address),
+    )}`,
   );
 
   for (;;) {
     try {
-      await bot.tick();
+      for (const bot of bots) await bot.tick();
     } catch (e) {
       console.error(new Date().toISOString(), "tick error:", e.shortMessage || e.message);
     }
