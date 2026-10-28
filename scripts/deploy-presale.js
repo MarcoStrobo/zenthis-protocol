@@ -239,6 +239,7 @@ async function main() {
       bonusTier4Eth,
       bonusTier4Reward,
       referralMinEth,
+      BigInt(requireEnv("PRESALE_PHASE1_END_TIME")),
     ];
     try {
       await run("verify:verify", { address: presaleAddr, constructorArguments: args });
