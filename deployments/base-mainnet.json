@@ -1,0 +1,24 @@
+{
+  "network": "base",
+  "chainId": "8453",
+  "note": "Reconstructed from on-chain reads on 2026-10-28 (source: Solvx working copy).",
+  "contracts": {
+    "ZenthisToken": "0xCFAeB3678DbC479e26Fd87C2cA7eD0a264f1F6a6",
+    "ZenthisPresale": "0x50425684634F9AF37D1dE14Bb1140057C421b656"
+  },
+  "safe": {
+    "address": "0x06C691900069c44B0c312179Fc1AfeAdc71Bc717",
+    "threshold": 2,
+    "owners": [
+      "0x2C54Fd8D7E87b07b0b8b116F22cD06Bcc200E35c",
+      "0x80a662887A616D09cFc5079005164c6f6EDDFe13"
+    ],
+    "controls": ["ZenthisToken (owner)"]
+  },
+  "state": {
+    "presaleZtsBalance": "20300000",
+    "presaleTotalRaised": "0",
+    "presaleFunded": false,
+    "deployerZtsBalance": "65637000"
+  }
+}
