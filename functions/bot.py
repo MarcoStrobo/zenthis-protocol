@@ -315,7 +315,7 @@ FAQ = {
     "referidos|referral": "👥 *Referidos*: 3→500, 10→2,500, 25→6,000 $ZTS. Top 10→50,000 $ZTS.",
     "kyc|documento|identidad": "🔓 *Sin KYC*. Solo wallet + email.",
     "equipo|team|anonimo|fundadores": "👤 *Equipo anónimo*. El código open-source habla por sí mismo.",
-    "auditoria|audit|seguridad": "🛡️ Interna completada (10 hallazgos). Externa en progreso. Contratos verificados Sepolia.",
+    "auditoria|audit|seguridad": "🛡️ Revisión interna completada (no es auditoría externa). Auditoría externa pendiente antes de mainnet. Contratos verificados en Sepolia.",
     "cadenas|chains|ethereum|solana": "⛓️ Ethereum (Sepolia) + Solana próximamente. Solidity + Rust.",
     "whitepaper|white paper": "📄 [zenthisprotocol.xyz/whitepaper](https://zenthisprotocol.xyz/whitepaper)",
     "roadmap|fases|futuro": "🗺️ F1: Contratos+testnet • F2: IDO+TGE • F3: DEX UI+SDK • F4: Governance+OTC",

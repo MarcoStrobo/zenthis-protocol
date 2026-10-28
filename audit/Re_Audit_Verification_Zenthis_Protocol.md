@@ -12,9 +12,9 @@ Status: ✅ ALL FINDINGS CONFIRMED FIXED
 | :------------------- | :----------------------------------------------------------- |
 | **Client**           | Zenthis Protocol / SolvX                                     |
 | **Date**             | 5 June 2026                                                  |
-| **Auditor**          | Vega Security (Independent)                                  |
+| **Reviewer**         | Vega Security (unverified; treated as internal review)       |
 | **Methodology**      | Line-by-line code review + test execution + storage layout analysis |
-| **Original Report**  | `Certik_Style_Audit_Zenthis_Protocol.md` (2026-06-05)       |
+| **Original Report**  | `Internal_Security_Review_Zenthis_Protocol_Final.md` (2026-06-05)       |
 | **Repository**       | https://github.com/MarcoStrobo/zenthis-protocol              |
 | **Commit**           | `c836b18` (latest)                                           |
 
@@ -353,6 +353,6 @@ On mainnet, `MULTISIG_ADDRESS=0xf9C31EBAEFED9b3103bB3A19f20172A55fdEB01A` will b
 
 ---
 
-*Report prepared by Vega Security on 5 June 2026.*
+*Internal re-verification, 5 June 2026. Not an external audit.*
 
 *Repository: https://github.com/MarcoStrobo/zenthis-protocol*
