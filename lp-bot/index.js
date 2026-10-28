@@ -47,6 +47,21 @@ async function main() {
     cfg.maxOpenExposure = ethers.parseEther(process.env.LP_MAX_EXPOSURE_ETH);
   if (process.env.LP_CONFIRMATIONS) cfg.confirmations = Number(process.env.LP_CONFIRMATIONS);
 
+  if (process.env.LP_MIN_BALANCE_B_ETH)
+    cfg.minBalanceB = ethers.parseEther(process.env.LP_MIN_BALANCE_B_ETH);
+
+  // Optional alerts: POST the message to any webhook (ntfy.sh topic, Discord/Slack-style URL).
+  const hook = process.env.LP_ALERT_WEBHOOK;
+  const alert = (msg) => {
+    console.error(new Date().toISOString(), "[ALERT]", msg);
+    if (!hook) return;
+    fetch(hook, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ content: `Zenthis LP: ${msg}`, text: `Zenthis LP: ${msg}` }),
+    }).catch((e) => console.error("alert webhook failed:", e.message));
+  };
+
   const state = fileState(path.join(__dirname, process.env.LP_STATE_FILE || "state.json"));
   const s = state.load();
   if (s.cursorA === undefined && process.env.LP_START_BLOCK_A)
@@ -58,6 +73,7 @@ async function main() {
     lpAddress: wallet.address,
     state,
     config: cfg,
+    alert,
     log: (m) => console.log(new Date().toISOString(), m),
   });
 

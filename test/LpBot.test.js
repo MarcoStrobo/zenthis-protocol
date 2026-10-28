@@ -139,4 +139,19 @@ describe("LpBot — atomic swap liquidity provider", () => {
     await htlcA.connect(deployer).refund(idA); // anyone may trigger; Alice gets funds back
     expect(await ethers.provider.getBalance(alice.address)).to.equal(before + AMOUNT);
   });
+
+  it("raises alerts: failed B lock and low LP balance on B", async () => {
+    const alerts = [];
+    await htlcB.connect(deployer).pause();
+    bot = mkBot({ minBalanceB: ethers.parseEther("1000000") });
+    bot.alert = (m) => alerts.push(m);
+    await aliceLocksOnA();
+    await bot.tick();
+    expect(alerts.some((m) => m.includes("Could not lock on B"))).to.equal(true);
+    expect(alerts.some((m) => m.includes("balance on chain B is low"))).to.equal(true);
+
+    const before = alerts.length;
+    await bot.tick(); // low-balance alert is throttled by the cooldown
+    expect(alerts.length).to.equal(before);
+  });
 });

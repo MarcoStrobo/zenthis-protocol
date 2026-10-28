@@ -25,6 +25,8 @@ const DEFAULTS = {
   minRemainingA: 90 * 60 * SECONDS, // required (TA - now) to accept a swap
   confirmations: 2, // blocks to wait on chain A before acting
   maxBlockRange: 2000, // eth_getLogs chunk size
+  minBalanceB: 0n, // wei; alert when the LP balance on chain B drops below this (0 = off)
+  alertCooldown: 3600, // seconds between repeated low-balance alerts
 };
 
 class LpBot {
@@ -37,13 +39,22 @@ class LpBot {
    * @param {object} [o.config]                  overrides for DEFAULTS
    * @param {(msg:string)=>void} [o.log]
    */
-  constructor({ htlcA, htlcB, lpAddress, state, config = {}, log = console.log }) {
+  constructor({
+    htlcA,
+    htlcB,
+    lpAddress,
+    state,
+    config = {},
+    log = console.log,
+    alert = () => {},
+  }) {
     this.A = htlcA;
     this.B = htlcB;
     this.lp = lpAddress.toLowerCase();
     this.store = state;
     this.cfg = { ...DEFAULTS, ...config };
     this.log = log;
+    this.alert = alert; // (message) => void; called for events needing attention
     this.s = this.store.load();
     if (!this.s.swaps) this.s.swaps = {};
     if (!this.s.hashlocks) this.s.hashlocks = [];
@@ -86,6 +97,21 @@ class LpBot {
   async tick() {
     await this._scanChainA();
     await this._progressSwaps();
+    await this._checkBalance();
+  }
+
+  async _checkBalance() {
+    if (this.cfg.minBalanceB <= 0n) return;
+    const bal = await this.B.runner.provider.getBalance(this.lp);
+    const now = Math.floor(Date.now() / 1000);
+    if (
+      bal < this.cfg.minBalanceB &&
+      now - (this.s.lastLowBalance || 0) >= this.cfg.alertCooldown
+    ) {
+      this.s.lastLowBalance = now;
+      this.alert(`LP balance on chain B is low: ${bal} wei (min ${this.cfg.minBalanceB})`);
+      this._save();
+    }
   }
 
   async _scanChainA() {
@@ -152,6 +178,7 @@ class LpBot {
       rec.status = "failed";
       rec.reason = `lock on B failed: ${e.shortMessage || e.message}`;
       this.log(`[fail] ${idA} ${rec.reason}`);
+      this.alert(`Could not lock on B for swap ${idA}: ${rec.reason}`);
     }
     this._save();
   }
@@ -193,6 +220,7 @@ class LpBot {
     if (nowA >= rec.timelockA) {
       rec.status = "missed"; // should never happen given the safety margin; alert!
       this.log(`[ALERT] missed redeem window on A for ${rec.idA}`);
+      this.alert(`Missed redeem window on A for swap ${rec.idA}`);
       return;
     }
     try {
