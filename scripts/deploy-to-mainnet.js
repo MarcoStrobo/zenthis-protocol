@@ -274,8 +274,8 @@ async function main() {
 
   2. TRANSFER OWNERSHIP TO GNOSIS SAFE (${process.env.GNOSIS_SAFE_ADDRESS || "NOT SET"}):
      ZenthisToken  → token.transferOwnership(GNOSIS_SAFE_ADDR)
-     ZenthisVesting → vesting.transferOwnership(GNOSIS_SAFE_ADDR)
-     ZenthisHTLC   → htlc.transferOwnership(GNOSIS_SAFE_ADDR)
+     ZenthisVesting → vesting.transferOwnership(GNOSIS_SAFE_ADDR)  (Ownable2Step: the Safe must then call acceptOwnership())
+     ZenthisHTLC   → htlc.transferOwnership(GNOSIS_SAFE_ADDR)  (Ownable2Step: the Safe must then call acceptOwnership())
 
   3. SAVED:
      ${deployPath}

@@ -25,6 +25,8 @@ const DEFAULTS = {
   maxOpenExposure: 5n * 10n ** 18n, // sum of B-side amounts currently locked
   maxOpenPerInitiator: 2n * 10n ** 17n, // wei per initiator address (limits capital-lock griefing)
   reconcileGrace: 600, // seconds before an unconfirmed B lock is declared failed
+  largeAmount: 5n * 10n ** 16n, // wei: swaps at or above this wait for largeConfirmations (LP-03)
+  largeConfirmations: 20, // blocks on chain A before locking funds for a large swap
   safetyMargin: 60 * 60 * SECONDS, // TA - TB
   minRemainingA: 90 * 60 * SECONDS, // required (TA - now) to accept a swap
   confirmations: 2, // blocks to wait on chain A before acting
@@ -186,7 +188,22 @@ class LpBot {
     while (from <= safe) {
       const to = Math.min(from + this.cfg.maxBlockRange - 1, safe);
       const events = await this._logs(this.A, filter, from, to);
-      for (const ev of events) await this._handleNewSwap(ev);
+      // LP-03: a large swap is only acted on once it is buried deeper, so a shallow L2 reorg
+      // cannot leave us with a lock on B and nothing on A. The cursor stays before it.
+      let deferredFrom = null;
+      for (const ev of events) {
+        const large = BigInt(ev.args.amount) >= this.cfg.largeAmount;
+        if (large && ev.blockNumber > latest - this.cfg.largeConfirmations) {
+          if (deferredFrom === null) deferredFrom = ev.blockNumber;
+          continue;
+        }
+        await this._handleNewSwap(ev);
+      }
+      if (deferredFrom !== null) {
+        this.s.cursorA = deferredFrom - 1; // already-handled events are skipped on rescan
+        this._save();
+        return;
+      }
       this.s.cursorA = to;
       this._save();
       from = to + 1;

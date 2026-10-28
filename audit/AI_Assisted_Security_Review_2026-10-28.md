@@ -22,8 +22,8 @@ Report type: AI-assisted INTERNAL review. NOT an independent audit. Not affiliat
 |----------|:-----:|:----------------:|:---------------:|
 | Critical | 2 | 2 (repo side; credentials must still be rotated) | 0 |
 | High | 3 | 2 | 1 |
-| Medium | 9 | 2 (1 fixed, 1 mitigated) | 7 |
-| Low | 9 | 2 (1 fixed, 1 mitigated) | 7 |
+| Medium | 9 | 6 (4 fixed, 2 mitigated) | 3 |
+| Low | 9 | 5 (4 fixed, 1 mitigated) | 4 |
 | Informational | 4 | – | 4 |
 
 - **`ZenthisHTLC` core logic: no critical or high issue found.** Slither reports no High/Medium
@@ -35,7 +35,7 @@ Report type: AI-assisted INTERNAL review. NOT an independent audit. Not affiliat
 - Deployed mainnet contracts (`ZenthisToken`, closed `ZenthisPresale`) are immutable; their findings
   are mitigations/disclosures, not patches.
 
-Test status after this review: **258 tests passing** (251 existing + 7 audit PoCs), Prettier clean.
+Test status after remediation: **263 tests passing**, Prettier clean. `ZenthisHTLC` v2 and the LP bot were redeployed/restarted on Base Sepolia and Arbitrum Sepolia and a full swap was re-run through the UI (see section 10).
 
 ## 2. Scope
 
@@ -71,23 +71,23 @@ the repository), economic/tokenomics review, legal review.
 | OPS-03 | High | ~86% of ZTS supply sits in a hot EOA whose key is in plaintext | Open |
 | UI-01 | High | Claim step did not authenticate the LP's destination lock | Fixed |
 | LP-01 | High | Ambiguous RPC failures could cause a double lock or lost state | Fixed |
-| HTLC-01 | Medium | Owner can change the fee instantly; no max-fee protection for users | Open |
-| HTLC-02 | Medium | Fee-on-transfer / rebasing tokens make the pool insolvent | Open |
-| HTLC-03 | Medium | `refund()` can be bricked by a contract that rejects ETH | Open |
+| HTLC-01 | Medium | Owner can change the fee instantly; no max-fee protection for users | Fixed (v2: `newSwapProtected`) |
+| HTLC-02 | Medium | Fee-on-transfer / rebasing tokens make the pool insolvent | Fixed (v2: received-balance check) |
+| HTLC-03 | Medium | `refund()` can be bricked by a contract that rejects ETH | Fixed (v2: deferred refund + `withdrawPendingRefund`) |
 | ZTS-01 | Medium | Staking reward sniping (stake, claim, unstake around `depositFees`) | Open (token immutable) |
 | LP-02 | Medium | Capital-lock griefing against the LP | Mitigated |
-| LP-03 | Medium | L2 reorg / finality risk with low confirmations | Acknowledged |
+| LP-03 | Medium | L2 reorg / finality risk with low confirmations | Mitigated (large swaps wait for more blocks) |
 | WEB-01 | Medium | Frontend and LP share one trust domain (secret generated in the browser) | Acknowledged |
 | WEB-02 | Medium | ethers loaded at runtime from a public CDN | Fixed |
 | WEB-03 | Medium | Gasless-claim relay is a public ntfy.sh topic | Acknowledged |
-| HTLC-04 | Low | Protocol fee is not returned on refund | Open (design) |
+| HTLC-04 | Low | Protocol fee is not returned on refund | Accepted (design, disclosed) |
 | ZTS-02 | Low | `withdrawStuckETH` can never return force-sent ETH after claims | Open (token immutable) |
 | ZTS-03 | Low | `rescueERC20` uses `transfer` (non-standard tokens not rescuable) | Open |
-| VEST-01 | Low | `totalAllocated` never decreases: new schedules blocked after releases | Open (not deployed) |
-| VEST-02 | Low | Beneficiary cannot be changed; lost key locks the allocation | Open |
-| GEN-01 | Low | `Ownable` instead of `Ownable2Step` (HTLC, Token, Vesting) | Open |
+| VEST-01 | Low | `totalAllocated` never decreases: new schedules blocked after releases | Fixed |
+| VEST-02 | Low | Beneficiary cannot be changed; lost key locks the allocation | Fixed (`transferBeneficiary`) |
+| GEN-01 | Low | `Ownable` instead of `Ownable2Step` (HTLC, Token, Vesting) | Fixed for HTLC and Vesting (Token is immutable) |
 | WEB-04 | Low | Landing page claimed a live presale, a waitlist counter and dead links | Fixed |
-| WEB-05 | Low | Swap secrets in `localStorage`; no CSP | Mitigated (headers); CSP open |
+| WEB-05 | Low | Swap secrets in `localStorage`; no CSP | Mitigated (headers + CSP; `unsafe-inline` still needed) |
 | LP-04 | Low | LP private key in a plaintext `.env` | Acknowledged |
 | PRE-01 | Info | Presale tokens were transferred, not deposited: `funded` stayed false | Closed (presale closed) |
 | SL-01 | Info | Slither `reentrancy-eth` in `rescueUnclaimedEth` is a false positive | – |
@@ -153,23 +153,27 @@ become `uncertain` and are reconciled from the receipt/logs, never re-sent; unre
 failed only after a grace period with an alert; state file written atomically (tmp + rename); exposure
 counts in-flight locks. Covered by new tests (ambiguous RPC, no double lock).
 
-### HTLC-01 — Owner can change the fee instantly (Medium) — Open
+### HTLC-01 — Owner can change the fee instantly (Medium) — Fixed in v2
 `setFeeBps` takes effect immediately (cap 5%). A user who signed a swap quoted at 0.20% can be charged up
 to 5% by a front-running owner transaction; `newSwap` has no `maxFeeBps` argument. **PoC:**
 `HTLC-01` in `test/audit/AuditFindings.test.js`.
-**Recommendation (v2):** add a `maxFeeBps` parameter to `newSwap`/`newSwapToken`, or put fee changes
-behind a timelock; keep the owner a multisig.
+**Fix (v2):** `newSwapProtected(recipient, hashlock, timelock, maxFeeBps)` and `newSwapTokenProtected(...)`
+revert if the current fee exceeds the user's maximum; the web app now always uses them with the quoted fee.
+The original `newSwap`/`newSwapToken` remain for compatibility and still apply the current fee. Keep the owner a multisig.
 
-### HTLC-02 — Fee-on-transfer and rebasing tokens make the pool insolvent (Medium) — Open
+### HTLC-02 — Fee-on-transfer and rebasing tokens make the pool insolvent (Medium) — Fixed in v2
 `newSwapToken` credits `amount` without measuring the received balance. With a token that burns 10% on
 transfer the contract records 100 but holds 90; the last redeemer of that token reverts and `refund`
 also fails. The limitation is documented in the NatSpec but not enforced. **PoC:** `HTLC-02`.
-**Recommendation:** measure `balanceAfter - balanceBefore` and revert on mismatch, or use a token allowlist.
+**Fix (v2):** `newSwapToken` measures the balance actually received and reverts with
+`HTLC: unsupported token (fee-on-transfer)` unless it equals `amount`. (Slither flags the intentional strict
+equality; it is the check itself.)
 
-### HTLC-03 — `refund()` can be bricked by an ETH-rejecting initiator (Medium) — Open
+### HTLC-03 — `refund()` can be bricked by an ETH-rejecting initiator (Medium) — Fixed in v2
 If the initiator is a contract whose `receive()` reverts, `refund` reverts forever with
 `HTLC: ETH refund failed`; the swap stays active and the ETH is locked. **PoC:** `HTLC-03`.
-**Recommendation:** let the initiator set a refund address, or credit a pull-payment balance when the push fails.
+**Fix (v2):** when the push fails, `refund()` marks the swap refunded and credits `pendingEthRefunds`; the
+initiator withdraws to any address with `withdrawPendingRefund(to)`. Nothing can be locked by a reverting wallet.
 
 ### ZTS-01 — Staking reward sniping (Medium) — Open (token is immutable)
 `stake`/`unstake` have no lock or cooldown and `depositFees` is a visible owner transaction. An attacker
@@ -185,10 +189,11 @@ the price of the 0.20% fee. **Mitigation added:** per-initiator exposure cap (`m
 default 0.2 ETH) in addition to the global cap. Residual: multiple addresses. Consider a bond, a higher
 fee for new addresses, or shorter LP timelocks.
 
-### LP-03 — L2 reorg / finality risk (Medium) — Acknowledged
+### LP-03 — L2 reorg / finality risk (Medium) — Mitigated
 The bot acts after `confirmations` blocks (default 2). On an L2 a reorg of the unsafe head after the LP
-locked on B would leave the LP with a lock on B and no swap on A. For larger amounts wait for the
-`safe`/`finalized` tag or raise confirmations proportionally to the amount.
+locked on B would leave the LP with a lock on B and no swap on A. **Mitigation added:** swaps at or above `largeAmount` (default 0.05 ETH) are only acted on after
+`largeConfirmations` (default 20) blocks; the scan cursor stays before them and smaller swaps are not delayed
+(test `LP-03`). Mainnet should additionally use the chain's `safe`/`finalized` tag.
 
 ### WEB-01 — Frontend and LP share one trust domain (Medium) — Acknowledged
 The secret is generated in the user's browser; whoever serves the page and whoever runs the LP can be the
@@ -208,24 +213,28 @@ locked swaps and retries at most 3 times. Residual risks: availability and spam.
 endpoint before mainnet.
 
 ### Low severity (summary)
-- **HTLC-04** The fee is taken on creation and is not returned on refund (PoC `HTLC-04`); a swap that never
+- **HTLC-04 (accepted)** The fee is taken on creation and is not returned on refund (PoC `HTLC-04`); a swap that never
   executes still costs the initiator the fee. Design choice; disclose it.
 - **ZTS-02** `withdrawStuckETH` compares the balance to a cumulative `totalFeesDeposited` that is never
   reduced when stakers claim, so ETH force-sent afterwards can never be withdrawn (PoC `ZTS-02`). Harmless
   to stakers; funds are simply stranded.
 - **ZTS-03** `rescueERC20` uses `transfer`; tokens that return no boolean cannot be rescued. Use `safeTransfer`.
-- **VEST-01** `totalAllocated` is never reduced on `release`, so after releases the balance check blocks
-  new schedules even when unallocated tokens remain (PoC `VEST-01`). The vesting contract is not deployed
-  on mainnet, so this can be fixed before launch.
-- **VEST-02** A beneficiary cannot be rotated; a lost key locks that schedule.
-- **GEN-01** Use `Ownable2Step` to avoid transferring ownership to a wrong address.
+- **VEST-01 (fixed)** `totalAllocated` is now reduced on `release`, so the balance check reflects only
+  unreleased commitments (test `VEST-01`).
+- **VEST-02 (fixed)** `transferBeneficiary` lets the current beneficiary rotate to a new address; the owner
+  cannot redirect funds. A key that is already lost still cannot be recovered: use a multisig as beneficiary.
+- **GEN-01 (fixed for HTLC and Vesting)** Both now use `Ownable2Step` (`transferOwnership` + `acceptOwnership`). The
+  deployed token keeps `Ownable`. Deployment scripts must have the Safe call `acceptOwnership()`.
 - **WEB-04** The landing page advertised "Presale live (18 Jun - 2 Jul)", a "1,473 people on the waitlist"
   counter, a form posting to a removed script and a link to a deleted page. All removed/corrected; the page
   still contains contradictory tokenomics wording (fair launch on Solana via pump.fun vs. a token on Base)
   that the owner should reconcile.
 - **WEB-05** Swap secrets are stored unencrypted in `localStorage`; with no CSP an XSS could read them.
   Security headers (`nosniff`, `X-Frame-Options: DENY`, referrer, permissions, HSTS) were added to
-  `firebase.json`; a strict CSP is still open because the pages use inline scripts.
+  `firebase.json`; a Content-Security-Policy was added (`object-src 'none'`, `frame-ancestors 'none'`, `base-uri 'self'`, a
+  `connect-src` allowlist that blocks exfiltration to unknown hosts, script hosts limited to self, gstatic and
+  googletagmanager). It still needs `'unsafe-inline'` for the existing inline scripts, so it limits but does
+  not eliminate XSS impact. Validated in a browser against the landing page and the app.
 - **LP-04** The LP key is in a plaintext `.env`. Keep the LP balance low; never reuse the deployer key.
 
 ### Informational
@@ -253,8 +262,8 @@ No High/Medium detector fired on `ZenthisHTLC`.
 ## 7. Reproduce
 
 ```bash
-npx hardhat test                                   # 258 tests
-npx hardhat test test/audit/AuditFindings.test.js   # PoCs for HTLC-01..04, ZTS-01..02, VEST-01
+npx hardhat test                                   # 263 tests
+npx hardhat test test/audit/AuditFindings.test.js   # fix tests for HTLC/VEST/GEN, open-issue PoCs for ZTS-01..02, HTLC-04
 slither . --filter-paths "node_modules|test|@openzeppelin"
 ```
 
@@ -262,14 +271,36 @@ slither . --filter-paths "node_modules|test|@openzeppelin"
 
 1. Rotate the SendGrid key and deploy the new Firestore rules (OPS-01, OPS-02).
 2. Move the token supply off the deployer EOA; use hardware wallets for Safe signers (OPS-03).
-3. Commission an **independent external audit** of `ZenthisHTLC`, the LP bot and the relay.
-4. Ship an HTLC v2 with `maxFeeBps`, balance-delta or allowlisted tokens, a pull-based refund and
-   `Ownable2Step`; deploy it on testnet first and re-run the PoCs flipped.
+3. Commission an **independent external audit** of `ZenthisHTLC` v2, the LP bot and the relay.
+4. Replace the staking contract (or add a minimum stake period) in any future token version (ZTS-01..03).
 5. Replace ntfy with an owned relay, use keyed RPC providers with fallback, and raise bot confirmations
    for larger swaps.
 6. Add a strict CSP and publish the UI with a pinned, reproducible build.
 
-## 9. Limitations
+## 9. Remediation log
+
+| Finding | Action | Evidence |
+|---------|--------|----------|
+| OPS-01 | File untracked, `.gitignore`, `.example` template | repo; **key rotation still required** |
+| OPS-02 | `firestore.rules` deny-all | repo; **deploy still required** |
+| UI-01 | `isGenuineLpLock` | browser test against live testnets |
+| LP-01, LP-02, LP-03 | write-ahead + reconcile, atomic state, per-initiator cap, deferred large swaps | `test/LpBot.test.js` (13 tests) |
+| HTLC-01..03, GEN-01 | `ZenthisHTLC` v2 | `test/audit/AuditFindings.test.js`, full suite |
+| VEST-01, VEST-02, GEN-01 | `ZenthisVesting` changes | `test/audit/AuditFindings.test.js` |
+| WEB-02, WEB-04, WEB-05 | vendored ethers, landing corrections, headers + CSP | browser checks |
+| OPS-03, ZTS-01..03, HTLC-04, WEB-01, WEB-03, LP-04 | cannot be fixed in code | see `docs/OPERATIONS.md` |
+
+## 10. Redeployment (testnet)
+
+`ZenthisHTLC` v2 (verified on the explorers):
+- Base Sepolia: `0x789b6fd580b1C507386EdCf676D5dc46D0158aea`
+- Arbitrum Sepolia: `0xC5FC2E804DFdbCf30F9DfC645fB2dD67Dea2BCf7`
+
+The previous testnet deployment (`0x3c0328eb…47eB`) is superseded. After redeploying, a full Base Sepolia to Arbitrum
+Sepolia swap was driven through the web UI with the LP bot running (`newSwapProtected`, lock authentication,
+claim). Mainnet HTLC has not been deployed.
+
+## 11. Limitations
 
 - Performed by an AI model in a single session; no formal verification or fuzzing campaign beyond the
   repository's existing fuzz/invariant tests.

@@ -1,10 +1,10 @@
 {
   "network": "baseSepolia",
   "chainId": "84532",
-  "deployedAt": "2026-10-28T09:22:10.777Z",
+  "deployedAt": "2026-10-28T11:34:31.176Z",
   "deployer": "0x80a662887A616D09cFc5079005164c6f6EDDFe13",
   "contracts": {
-    "ZenthisHTLC": "0x3c0328eb23E76B35aaCA9DE1BC98bDcfd53547eB"
+    "ZenthisHTLC": "0x789b6fd580b1C507386EdCf676D5dc46D0158aea"
   },
   "config": {
     "feeBps": 20

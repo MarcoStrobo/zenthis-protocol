@@ -1,6 +1,6 @@
 const { expect } = require("chai");
 const { ethers } = require("hardhat");
-const { time } = require("@nomicfoundation/hardhat-network-helpers");
+const { time, mine } = require("@nomicfoundation/hardhat-network-helpers");
 const { LpBot } = require("../lp-bot/LpBot");
 
 describe("LpBot — atomic swap liquidity provider", () => {
@@ -18,7 +18,12 @@ describe("LpBot — atomic swap liquidity provider", () => {
       htlcB: htlcB.connect(lp),
       lpAddress: lp.address,
       state: store,
-      config: { confirmations: 0, maxOpenPerInitiator: ethers.parseEther("100"), ...cfg },
+      config: {
+        confirmations: 0,
+        maxOpenPerInitiator: ethers.parseEther("100"),
+        largeAmount: ethers.parseEther("1000000"),
+        ...cfg,
+      },
       log: () => {},
     });
 
@@ -218,7 +223,11 @@ describe("LpBot — atomic swap liquidity provider", () => {
       htlcB: flaky,
       lpAddress: lp.address,
       state: store,
-      config: { confirmations: 0, maxOpenPerInitiator: ethers.parseEther("100") },
+      config: {
+        confirmations: 0,
+        maxOpenPerInitiator: ethers.parseEther("100"),
+        largeAmount: ethers.parseEther("1000000"),
+      },
       log: () => {},
     });
 
@@ -236,5 +245,25 @@ describe("LpBot — atomic swap liquidity provider", () => {
     await htlcB.connect(deployer).redeem(store.load().swaps[idA].idB, preimage);
     await bot.tick();
     expect(store.load().swaps[idA].status).to.equal("completed");
+  });
+
+  it("LP-03: a large swap is deferred until it has enough confirmations; small ones are not", async () => {
+    bot = mkBot({ largeAmount: ethers.parseEther("0.5"), largeConfirmations: 5 });
+    const big = await aliceLocksOnA({ value: ethers.parseEther("1") });
+    const small = await aliceLocksOnA({
+      value: ethers.parseEther("0.1"),
+      hl: ethers.sha256("0x" + "44".repeat(32)),
+    });
+    await bot.tick();
+    expect(store.load().swaps[small].status).to.equal("locked"); // not delayed
+    expect(store.load().swaps[big]).to.equal(undefined); // deferred, cursor stays before it
+
+    await mine(6);
+    await bot.tick();
+    expect(store.load().swaps[big].status).to.equal("locked");
+    const created = await htlcB.queryFilter(
+      htlcB.filters.SwapCreated(null, lp.address, alice.address),
+    );
+    expect(created.length).to.equal(2); // exactly one lock per swap
   });
 });

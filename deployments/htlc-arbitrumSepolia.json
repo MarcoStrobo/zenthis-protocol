@@ -1,10 +1,10 @@
 {
   "network": "arbitrumSepolia",
   "chainId": "421614",
-  "deployedAt": "2026-10-28T09:22:59.540Z",
+  "deployedAt": "2026-10-28T11:35:18.835Z",
   "deployer": "0x80a662887A616D09cFc5079005164c6f6EDDFe13",
   "contracts": {
-    "ZenthisHTLC": "0x3c0328eb23E76B35aaCA9DE1BC98bDcfd53547eB"
+    "ZenthisHTLC": "0xC5FC2E804DFdbCf30F9DfC645fB2dD67Dea2BCf7"
   },
   "config": {
     "feeBps": 20

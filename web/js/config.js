@@ -4,8 +4,8 @@
 export const HTLC_ADDRESSES = {
   ETH: '', ARB: '', POL: '', BNB: '', AVAX: '', BASE: '',
   // Testnets (open /app.html?testnet=1)
-  BASE_SEP: '0x3c0328eb23E76B35aaCA9DE1BC98bDcfd53547eB',
-  ARB_SEP: '0x3c0328eb23E76B35aaCA9DE1BC98bDcfd53547eB'
+  BASE_SEP: '0x789b6fd580b1C507386EdCf676D5dc46D0158aea',
+  ARB_SEP: '0xC5FC2E804DFdbCf30F9DfC645fB2dD67Dea2BCf7'
 };
 
 // Liquidity provider that locks the counter-leg on the destination chain.
@@ -15,6 +15,8 @@ export const LP_ADDRESS_TESTNET = '0xb8420eB9c1611D630022b7692181d4325EE0eDfA';
 // Minimal ABI used by the swap flow and the "My swaps" panel.
 export const HTLC_ABI = [
   'function newSwap(address recipient, bytes32 hashlock, uint256 timelock) external payable returns (bytes32 swapId)',
+  'function newSwapProtected(address recipient, bytes32 hashlock, uint256 timelock, uint256 maxFeeBps) external payable returns (bytes32 swapId)',
+  'function withdrawPendingRefund(address to) external',
   'function newSwapToken(address recipient, address tokenAddr, uint256 amount, bytes32 hashlock, uint256 timelock) external returns (bytes32 swapId)',
   'function feeBps() view returns (uint256)',
   'function redeem(bytes32 swapId, bytes32 preimage) external',

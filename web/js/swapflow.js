@@ -156,7 +156,10 @@ export async function runSwap({ fromKey, toKey, amountEth, wallet, lpAddress, on
 
   onStep('lock');
   const destBlock = await readProvider(toKey).getBlockNumber();
-  const tx = await htlc.newSwap(lpAddress, hashlock, timelock, { value: ethers.parseEther(String(amountEth)) });
+  // maxFeeBps = the fee quoted to the user: reverts if the owner raised it meanwhile (audit HTLC-01).
+  const tx = await htlc.newSwapProtected(lpAddress, hashlock, timelock, quote.feeA, {
+    value: ethers.parseEther(String(amountEth))
+  });
   const receipt = await tx.wait();
   const ev = receipt.logs.map(l => { try { return htlc.interface.parseLog(l); } catch { return null; } })
     .find(e => e && e.name === 'SwapCreated');

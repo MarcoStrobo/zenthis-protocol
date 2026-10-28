@@ -1,7 +1,9 @@
 /**
- * Proof-of-concept tests for the findings of audit/AI_Assisted_Security_Review_2026-10-28.md.
- * Each test ASSERTS THE CURRENT (VULNERABLE) BEHAVIOUR so the finding stays reproducible.
- * When a finding is fixed in a new contract version, flip the assertion.
+ * Tests for the findings of audit/AI_Assisted_Security_Review_2026-10-28.md.
+ *
+ * - HTLC-01..03, VEST-01/02, GEN-01: FIXED in the contracts; these tests prove the fix.
+ * - HTLC-04, ZTS-01, ZTS-02: not fixable (design choice / deployed immutable token); these tests
+ *   keep asserting the current behaviour so the finding stays reproducible.
  */
 const { expect } = require("chai");
 const { ethers } = require("hardhat");
@@ -10,7 +12,7 @@ const { time } = require("@nomicfoundation/hardhat-network-helpers");
 const swapIdFrom = (htlc, rc) =>
   rc.logs.map((l) => htlc.interface.parseLog(l)).find((e) => e?.name === "SwapCreated").args.swapId;
 
-describe("Audit PoCs (current behaviour of the deployed code)", () => {
+describe("Audit findings", () => {
   describe("ZenthisHTLC", () => {
     let htlc, owner, alice, bob, carol;
     beforeEach(async () => {
@@ -19,78 +21,104 @@ describe("Audit PoCs (current behaviour of the deployed code)", () => {
     });
     const hl = (n) => ethers.sha256(ethers.zeroPadValue(ethers.toBeHex(n), 32));
 
-    it("HTLC-01: the owner can raise the fee to 5% instantly, after a user already quoted 0.20%", async () => {
+    it("HTLC-01 (fixed): newSwapProtected reverts if the owner raised the fee above the user's max", async () => {
       await htlc.setFeeBps(20);
       const value = ethers.parseEther("1");
       await htlc.setFeeBps(500); // owner front-runs the user's transaction
       const now = await time.latest();
+      await expect(
+        htlc.connect(alice).newSwapProtected(bob.address, hl(1), now + 3600, 20, { value }),
+      ).to.be.revertedWith("HTLC: fee above max");
+      // with an adequate max the protected variant behaves like newSwap
       const rc = await (
-        await htlc.connect(alice).newSwap(bob.address, hl(1), now + 3600, { value })
+        await htlc.connect(alice).newSwapProtected(bob.address, hl(1), now + 3600, 500, { value })
       ).wait();
-      const ev = rc.logs
+      expect(swapIdFrom(htlc, rc)).to.not.equal(undefined);
+      // the unprotected variant still takes whatever the current fee is (documented)
+      const rc2 = await (
+        await htlc.connect(alice).newSwap(bob.address, hl(2), now + 3600, { value })
+      ).wait();
+      const ev = rc2.logs
         .map((l) => htlc.interface.parseLog(l))
         .find((e) => e?.name === "SwapCreated");
-      expect(ev.args.amount).to.equal((value * 9500n) / 10000n); // 5% taken, no slippage protection
+      expect(ev.args.amount).to.equal((value * 9500n) / 10000n);
     });
 
-    it("HTLC-02: a fee-on-transfer token makes the pool insolvent; the last redeemer loses", async () => {
+    it("HTLC-01 (fixed): newSwapTokenProtected enforces the max fee for ERC-20", async () => {
+      const tok = await (await ethers.getContractFactory("ZenthisToken")).deploy(owner.address);
+      await tok.transfer(alice.address, ethers.parseEther("100"));
+      await htlc.setFeeBps(500);
+      await tok.connect(alice).approve(await htlc.getAddress(), ethers.parseEther("100"));
+      const now = await time.latest();
+      await expect(
+        htlc
+          .connect(alice)
+          .newSwapTokenProtected(
+            bob.address,
+            await tok.getAddress(),
+            ethers.parseEther("10"),
+            hl(3),
+            now + 3600,
+            20,
+          ),
+      ).to.be.revertedWith("HTLC: fee above max");
+    });
+
+    it("HTLC-02 (fixed): a fee-on-transfer token is rejected instead of making the pool insolvent", async () => {
       const fot = await (await ethers.getContractFactory("FeeOnTransferToken")).deploy();
       await fot.transfer(alice.address, ethers.parseEther("1000"));
-      await fot.transfer(bob.address, ethers.parseEther("1000"));
-      const amount = ethers.parseEther("100");
+      await fot.connect(alice).approve(await htlc.getAddress(), ethers.parseEther("100"));
       const now = await time.latest();
-      const pa = ethers.hexlify(ethers.randomBytes(32));
-      const pb = ethers.hexlify(ethers.randomBytes(32));
-      const make = async (signer, pre) => {
-        await fot.connect(signer).approve(await htlc.getAddress(), amount);
-        const rc = await (
-          await htlc
-            .connect(signer)
-            .newSwapToken(
-              carol.address,
-              await fot.getAddress(),
-              amount,
-              ethers.sha256(pre),
-              now + 3600,
-            )
-        ).wait();
-        return swapIdFrom(htlc, rc);
-      };
-      const idA = await make(alice, pa);
-      const idB = await make(bob, pb);
-      // recorded 100 + 100, but the contract only holds 90 + 90
-      expect(await fot.balanceOf(await htlc.getAddress())).to.equal(ethers.parseEther("180"));
-      await htlc.redeem(idA, pa); // pays 100 (arrives as 90) out of the shared pool
-      await expect(htlc.redeem(idB, pb)).to.be.reverted; // 80 left, 100 owed
-      expect(await htlc.isActive(idB)).to.equal(true);
-      await time.increase(3601);
-      await expect(htlc.refund(idB)).to.be.reverted; // refund fails too: funds locked
+      await expect(
+        htlc
+          .connect(alice)
+          .newSwapToken(
+            carol.address,
+            await fot.getAddress(),
+            ethers.parseEther("100"),
+            hl(4),
+            now + 3600,
+          ),
+      ).to.be.revertedWith("HTLC: unsupported token (fee-on-transfer)");
+      expect(await fot.balanceOf(await htlc.getAddress())).to.equal(0n);
     });
 
-    it("HTLC-03: an initiator contract that rejects ETH makes refund() revert forever", async () => {
+    it("HTLC-03 (fixed): refund to an ETH-rejecting contract is credited and can be withdrawn elsewhere", async () => {
       const init = await (await ethers.getContractFactory("RejectingInitiator")).deploy();
       const now = await time.latest();
-      const swapId = await init.start.staticCall(
-        await htlc.getAddress(),
-        bob.address,
-        hl(7),
-        now + 3600,
-        {
-          value: ethers.parseEther("1"),
-        },
-      );
-      await init.start(await htlc.getAddress(), bob.address, hl(7), now + 3600, {
-        value: ethers.parseEther("1"),
-      });
+      const args = [await htlc.getAddress(), bob.address, hl(7), now + 3600];
+      const swapId = await init.start.staticCall(...args, { value: ethers.parseEther("1") });
+      await init.start(...args, { value: ethers.parseEther("1") });
       await time.increase(3601);
-      await expect(htlc.refund(swapId)).to.be.revertedWith("HTLC: ETH refund failed");
-      expect(await htlc.isActive(swapId)).to.equal(true);
-      expect(await ethers.provider.getBalance(await htlc.getAddress())).to.equal(
+
+      await expect(htlc.refund(swapId)).to.emit(htlc, "RefundDeferred");
+      expect(await htlc.isActive(swapId)).to.equal(false); // REFUNDED, no longer stuck
+      expect(await htlc.pendingEthRefunds(await init.getAddress())).to.equal(
         ethers.parseEther("1"),
+      );
+      expect(await htlc.totalPendingEthRefunds()).to.equal(ethers.parseEther("1"));
+
+      const before = await ethers.provider.getBalance(carol.address);
+      await init.withdraw(await htlc.getAddress(), carol.address); // redirect to a wallet that can receive
+      expect((await ethers.provider.getBalance(carol.address)) - before).to.equal(
+        ethers.parseEther("1"),
+      );
+      expect(await htlc.pendingEthRefunds(await init.getAddress())).to.equal(0n);
+      expect(await ethers.provider.getBalance(await htlc.getAddress())).to.equal(0n);
+      await expect(init.withdraw(await htlc.getAddress(), carol.address)).to.be.revertedWith(
+        "HTLC: nothing to withdraw",
       );
     });
 
-    it("HTLC-04: the protocol fee is charged at creation and is not returned on refund", async () => {
+    it("GEN-01 (fixed): ownership transfer is two-step", async () => {
+      await htlc.transferOwnership(alice.address);
+      expect(await htlc.owner()).to.equal(owner.address); // not yet
+      await expect(htlc.connect(bob).acceptOwnership()).to.be.reverted;
+      await htlc.connect(alice).acceptOwnership();
+      expect(await htlc.owner()).to.equal(alice.address);
+    });
+
+    it("HTLC-04 (accepted design): the protocol fee is charged at creation and is not returned on refund", async () => {
       await htlc.setFeeBps(100);
       const now = await time.latest();
       const rc = await (
@@ -107,7 +135,7 @@ describe("Audit PoCs (current behaviour of the deployed code)", () => {
     });
   });
 
-  describe("ZenthisToken", () => {
+  describe("ZenthisToken (deployed, immutable)", () => {
     let token, owner, alice, mallory;
     beforeEach(async () => {
       [owner, alice, mallory] = await ethers.getSigners();
@@ -116,7 +144,7 @@ describe("Audit PoCs (current behaviour of the deployed code)", () => {
       await token.transfer(mallory.address, ethers.parseEther("9000"));
     });
 
-    it("ZTS-01: fee sniping — stake right before depositFees, claim, unstake right after", async () => {
+    it("ZTS-01 (open): fee sniping — stake right before depositFees, claim, unstake right after", async () => {
       await token.connect(alice).stake(ethers.parseEther("1000"));
       await token.connect(mallory).stake(ethers.parseEther("9000")); // sees depositFees in the mempool
       await token.depositFees({ value: ethers.parseEther("1") });
@@ -125,7 +153,7 @@ describe("Audit PoCs (current behaviour of the deployed code)", () => {
       expect(await token.earned(alice.address)).to.equal(ethers.parseEther("0.1")); // long-term staker: 10%
     });
 
-    it("ZTS-02: ETH force-sent after stakers claimed can never be withdrawn", async () => {
+    it("ZTS-02 (open): ETH force-sent after stakers claimed can never be withdrawn", async () => {
       await token.connect(alice).stake(ethers.parseEther("1000"));
       await token.depositFees({ value: ethers.parseEther("1") });
       await token.connect(alice).claimRewards(); // balance back to 0, totalFeesDeposited stays 1 ETH
@@ -140,13 +168,17 @@ describe("Audit PoCs (current behaviour of the deployed code)", () => {
   });
 
   describe("ZenthisVesting", () => {
-    it("VEST-01: totalAllocated is never reduced on release, blocking new schedules despite free balance", async () => {
-      const [owner, ben] = await ethers.getSigners();
-      const token = await (await ethers.getContractFactory("ZenthisToken")).deploy(owner.address);
-      const vesting = await (
+    let owner, ben, other, token, vesting;
+    beforeEach(async () => {
+      [owner, ben, other] = await ethers.getSigners();
+      token = await (await ethers.getContractFactory("ZenthisToken")).deploy(owner.address);
+      vesting = await (
         await ethers.getContractFactory("ZenthisVesting")
       ).deploy(await token.getAddress(), owner.address);
       await token.transfer(await vesting.getAddress(), ethers.parseEther("1000"));
+    });
+
+    it("VEST-01 (fixed): releasing reduces totalAllocated, so new schedules can use the free balance", async () => {
       const start = (await time.latest()) + 100;
       await vesting.createSchedule(
         ethers.id("A"),
@@ -157,21 +189,67 @@ describe("Audit PoCs (current behaviour of the deployed code)", () => {
         0,
         0,
       );
+      expect(await vesting.totalAllocated()).to.equal(ethers.parseEther("500"));
       await time.increaseTo(start + 1);
-      await vesting.connect(ben).release(ethers.id("A")); // 500 leave, 500 remain free
-      expect(await token.balanceOf(await vesting.getAddress())).to.equal(ethers.parseEther("500"));
+      await vesting.connect(ben).release(ethers.id("A"));
+      expect(await vesting.totalAllocated()).to.equal(0n);
       const start2 = (await time.latest()) + 100;
+      await vesting.createSchedule(
+        ethers.id("B"),
+        ben.address,
+        0,
+        ethers.parseEther("500"),
+        start2,
+        0,
+        0,
+      );
       await expect(
         vesting.createSchedule(
-          ethers.id("B"),
+          ethers.id("C"),
           ben.address,
           0,
-          ethers.parseEther("500"),
+          ethers.parseEther("1"),
           start2,
           0,
           0,
         ),
-      ).to.be.revertedWithCustomError(vesting, "InsufficientContractBalance");
+      ).to.be.revertedWithCustomError(vesting, "InsufficientContractBalance"); // still protected when really full
+    });
+
+    it("VEST-02 (fixed): only the beneficiary can rotate the beneficiary; the owner cannot redirect funds", async () => {
+      const start = (await time.latest()) + 100;
+      await vesting.createSchedule(
+        ethers.id("A"),
+        ben.address,
+        0,
+        ethers.parseEther("100"),
+        start,
+        0,
+        0,
+      );
+      await expect(
+        vesting.transferBeneficiary(ethers.id("A"), other.address),
+      ).to.be.revertedWithCustomError(vesting, "NotBeneficiary");
+      await expect(
+        vesting.connect(ben).transferBeneficiary(ethers.id("A"), ethers.ZeroAddress),
+      ).to.be.revertedWithCustomError(vesting, "ZeroAddress");
+      await expect(vesting.connect(ben).transferBeneficiary(ethers.id("A"), other.address))
+        .to.emit(vesting, "BeneficiaryTransferred")
+        .withArgs(ethers.id("A"), ben.address, other.address);
+      await time.increaseTo(start + 1);
+      await expect(vesting.connect(ben).release(ethers.id("A"))).to.be.revertedWithCustomError(
+        vesting,
+        "NotBeneficiary",
+      );
+      await vesting.connect(other).release(ethers.id("A"));
+      expect(await token.balanceOf(other.address)).to.equal(ethers.parseEther("100"));
+    });
+
+    it("GEN-01 (fixed): ownership transfer is two-step", async () => {
+      await vesting.transferOwnership(other.address);
+      expect(await vesting.owner()).to.equal(owner.address);
+      await vesting.connect(other).acceptOwnership();
+      expect(await vesting.owner()).to.equal(other.address);
     });
   });
 });

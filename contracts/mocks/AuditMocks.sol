@@ -7,6 +7,10 @@ interface IHtlcEth {
     function newSwap(address recipient, bytes32 hashlock, uint256 timelock) external payable returns (bytes32);
 }
 
+interface IHtlcWithdraw {
+    function withdrawPendingRefund(address payable to) external;
+}
+
 /// @dev TEST/AUDIT ONLY. ERC-20 that burns 10% of every transfer (fee-on-transfer).
 contract FeeOnTransferToken is ERC20 {
     constructor() ERC20("FeeOnTransfer", "FOT") {
@@ -32,6 +36,10 @@ contract RejectingInitiator {
         returns (bytes32)
     {
         return htlc.newSwap{value: msg.value}(recipient, hashlock, timelock);
+    }
+
+    function withdraw(IHtlcWithdraw htlc, address payable to) external {
+        htlc.withdrawPendingRefund(to);
     }
 
     receive() external payable {
