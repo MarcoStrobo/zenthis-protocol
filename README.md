@@ -4,7 +4,7 @@
 
 [![License: BUSL-1.1](https://img.shields.io/badge/License-BUSL--1.1-blue.svg)](LICENSE)
 [![Solidity](https://img.shields.io/badge/Solidity-0.8.24-lightgrey)](https://soliditylang.org)
-[![Tests](https://img.shields.io/badge/Tests-247%20passing-brightgreen)](#testing)
+[![Tests](https://img.shields.io/badge/Tests-294%20passing-brightgreen)](#testing)
 
 ---
 
@@ -64,7 +64,7 @@ cp .env.example .env   # fill in your keys
 
 ```bash
 npx hardhat test
-# 247 tests passing (unit, fuzz, invariant, two-chain atomic swap simulation, LP bot)
+# 294 tests passing (unit, fuzz, invariant, two-chain atomic swap simulation, LP bot)
 ```
 
 ### Deploy
@@ -86,8 +86,8 @@ Deployment records live in `deployments/`. Safe (multisig) and ownership helpers
 
 | Network | Address |
 |---------|---------|
-| Base Sepolia | [`0x3c0328eb23E76B35aaCA9DE1BC98bDcfd53547eB`](https://sepolia.basescan.org/address/0x3c0328eb23E76B35aaCA9DE1BC98bDcfd53547eB#code) |
-| Arbitrum Sepolia | [`0x3c0328eb23E76B35aaCA9DE1BC98bDcfd53547eB`](https://sepolia.arbiscan.io/address/0x3c0328eb23E76B35aaCA9DE1BC98bDcfd53547eB#code) |
+| Base Sepolia | [`0x789b6fd580b1C507386EdCf676D5dc46D0158aea`](https://sepolia.basescan.org/address/0x789b6fd580b1C507386EdCf676D5dc46D0158aea#code) |
+| Arbitrum Sepolia | [`0xC5FC2E804DFdbCf30F9DfC645fB2dD67Dea2BCf7`](https://sepolia.arbiscan.io/address/0xC5FC2E804DFdbCf30F9DfC645fB2dD67Dea2BCf7#code) |
 
 Native ETH swaps between the two work end to end (user locks on A, LP locks on B, user redeems revealing the secret, LP redeems on A).
 
@@ -102,11 +102,11 @@ Rule enforced by the bot and UI: the initiator's timelock must outlive the count
 ## Security
 
 - `ZenthisHTLC` is on **Base Sepolia / Arbitrum Sepolia** testnets; token and presale are on Base mainnet
-- 247 tests across all core contracts
+- 294 tests across all core contracts
 - ReentrancyGuard on all state-changing functions
 - Pausable (HTLC) for emergency response
 
-> **Internal security review** (self-conducted; not performed or endorsed by any external firm) completed 2026-06-05 (see `audit/`). All findings remediated. An **external audit is still pending** and is required before any mainnet HTLC deployment.
+> **Security reviews:** a self-conducted internal review (June 2026) and an AI-assisted review (Claude, 2026-10-28) with proof-of-concept tests: [`audit/AI_Assisted_Security_Review_2026-10-28.md`](audit/AI_Assisted_Security_Review_2026-10-28.md). Neither is an independent audit and neither was performed or endorsed by any external firm. An external audit is still pending and required before any mainnet HTLC deployment.
 
 ---
 

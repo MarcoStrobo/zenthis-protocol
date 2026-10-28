@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.24;
 
-import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/access/Ownable2Step.sol";
 import "@openzeppelin/contracts/utils/Pausable.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
@@ -33,8 +33,15 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
  *   - refund() is permissionless — no liveness dependency on the initiator.
  *
  * Compatibility:
- *   - Fee-on-transfer / rebasing tokens are NOT supported. The contract
- *     does not measure pre/post transfer balances.
+ *   - Fee-on-transfer / rebasing tokens are NOT supported. newSwapToken measures the
+ *     balance actually received and reverts if it differs from `amount`.
+ *
+ * Hardening (audit 2026-10):
+ *   - HTLC-01: newSwapProtected / newSwapTokenProtected take a `maxFeeBps` so a user is protected
+ *     against an owner fee change between quote and execution. Prefer those variants.
+ *   - HTLC-03: if the initiator cannot receive ETH, refund() credits a pending balance that the
+ *     initiator withdraws with withdrawPendingRefund(to) instead of reverting forever.
+ *   - GEN-01: two-step ownership (Ownable2Step).
  *
  * Protocol fee (optional):
  *   feeBps — basis points deducted from the locked amount on swap creation
@@ -45,7 +52,7 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
  * Timelock: absolute Unix timestamp; must be > MIN_TIMELOCK from now
  *           and < MAX_TIMELOCK from now.
  */
-contract ZenthisHTLC is Ownable, Pausable, ReentrancyGuard {
+contract ZenthisHTLC is Ownable2Step, Pausable, ReentrancyGuard {
     using SafeERC20 for IERC20;
 
     // -- Constants
@@ -82,6 +89,10 @@ contract ZenthisHTLC is Ownable, Pausable, ReentrancyGuard {
     uint256 public collectedEthFees;
     /// @notice Accumulated ERC-20 protocol fees per token address.
     mapping(address => uint256) public collectedTokenFees;
+    /// @notice ETH refunds that could not be pushed to a contract initiator (pull via withdrawPendingRefund).
+    mapping(address => uint256) public pendingEthRefunds;
+    /// @notice Total ETH owed in pendingEthRefunds.
+    uint256 public totalPendingEthRefunds;
 
     // -- Events
     /// @notice Emitted when a new swap is created.
@@ -105,6 +116,10 @@ contract ZenthisHTLC is Ownable, Pausable, ReentrancyGuard {
     event SwapRedeemed(bytes32 indexed swapId, bytes preimage);
     /// @notice Emitted when a swap is refunded.
     event SwapRefunded(bytes32 indexed swapId);
+    /// @notice Emitted when a refund could not be pushed and was credited for withdrawal.
+    event RefundDeferred(bytes32 indexed swapId, address indexed initiator, uint256 amount);
+    /// @notice Emitted when a deferred refund is withdrawn.
+    event PendingRefundWithdrawn(address indexed initiator, address indexed to, uint256 amount);
     /// @notice Emitted when the protocol fee is changed.
     event FeeBpsUpdated(uint256 oldBps, uint256 newBps);
     /// @notice Emitted when accumulated fees are withdrawn.
@@ -175,7 +190,26 @@ contract ZenthisHTLC is Ownable, Pausable, ReentrancyGuard {
         address recipient,
         bytes32 hashlock,
         uint256 timelock
-    ) external payable whenNotPaused nonReentrant returns (bytes32 swapId) {
+    ) external payable whenNotPaused nonReentrant returns (bytes32) {
+        return _newSwapEth(recipient, hashlock, timelock);
+    }
+
+    /// @notice Same as newSwap, but reverts if the current fee exceeds `maxFeeBps` (HTLC-01).
+    function newSwapProtected(
+        address recipient,
+        bytes32 hashlock,
+        uint256 timelock,
+        uint256 maxFeeBps
+    ) external payable whenNotPaused nonReentrant returns (bytes32) {
+        require(feeBps <= maxFeeBps, "HTLC: fee above max");
+        return _newSwapEth(recipient, hashlock, timelock);
+    }
+
+    function _newSwapEth(
+        address recipient,
+        bytes32 hashlock,
+        uint256 timelock
+    ) internal returns (bytes32 swapId) {
         require(msg.value > 0, "HTLC: amount must be > 0");
         _validateSwapParams(recipient, timelock);
 
@@ -214,14 +248,42 @@ contract ZenthisHTLC is Ownable, Pausable, ReentrancyGuard {
         uint256 amount,
         bytes32 hashlock,
         uint256 timelock
-    ) external whenNotPaused nonReentrant returns (bytes32 swapId) {
+    ) external whenNotPaused nonReentrant returns (bytes32) {
+        return _newSwapToken(recipient, tokenAddr, amount, hashlock, timelock);
+    }
+
+    /// @notice Same as newSwapToken, but reverts if the current fee exceeds `maxFeeBps` (HTLC-01).
+    function newSwapTokenProtected(
+        address recipient,
+        address tokenAddr,
+        uint256 amount,
+        bytes32 hashlock,
+        uint256 timelock,
+        uint256 maxFeeBps
+    ) external whenNotPaused nonReentrant returns (bytes32) {
+        require(feeBps <= maxFeeBps, "HTLC: fee above max");
+        return _newSwapToken(recipient, tokenAddr, amount, hashlock, timelock);
+    }
+
+    function _newSwapToken(
+        address recipient,
+        address tokenAddr,
+        uint256 amount,
+        bytes32 hashlock,
+        uint256 timelock
+    ) internal returns (bytes32 swapId) {
         require(amount > 0,               "HTLC: amount must be > 0");
         require(tokenAddr != address(0),  "HTLC: invalid token");
         _validateSwapParams(recipient, timelock);
 
         (uint256 fee, uint256 net) = _calcFee(amount);
 
+        uint256 balBefore = IERC20(tokenAddr).balanceOf(address(this));
         IERC20(tokenAddr).safeTransferFrom(msg.sender, address(this), amount);
+        require(
+            IERC20(tokenAddr).balanceOf(address(this)) - balBefore == amount,
+            "HTLC: unsupported token (fee-on-transfer)"
+        );
         if (fee > 0) collectedTokenFees[tokenAddr] += fee;
 
         swapId = _nextSwapId(recipient, hashlock, timelock);
@@ -282,12 +344,30 @@ contract ZenthisHTLC is Ownable, Pausable, ReentrancyGuard {
 
         if (s.token == address(0)) {
             (bool ok, ) = s.initiator.call{value: s.amount}("");
-            require(ok, "HTLC: ETH refund failed");
+            if (!ok) {
+                // Initiator cannot receive ETH (e.g. a contract wallet): credit it for a pull withdrawal.
+                pendingEthRefunds[s.initiator] += s.amount;
+                totalPendingEthRefunds += s.amount;
+                emit RefundDeferred(swapId, s.initiator, s.amount);
+            }
         } else {
             IERC20(s.token).safeTransfer(s.initiator, s.amount);
         }
 
         emit SwapRefunded(swapId);
+    }
+
+    /// @notice Withdraw an ETH refund that could not be pushed to the caller.
+    /// @param to Address that receives the ETH (may differ from the caller).
+    function withdrawPendingRefund(address payable to) external nonReentrant {
+        require(to != address(0), "HTLC: invalid address");
+        uint256 amount = pendingEthRefunds[msg.sender];
+        require(amount > 0, "HTLC: nothing to withdraw");
+        pendingEthRefunds[msg.sender] = 0;
+        totalPendingEthRefunds -= amount;
+        (bool ok, ) = to.call{value: amount}("");
+        require(ok, "HTLC: withdrawal failed");
+        emit PendingRefundWithdrawn(msg.sender, to, amount);
     }
 
     // -- Views

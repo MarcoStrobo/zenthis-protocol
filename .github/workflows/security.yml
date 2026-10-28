@@ -1,0 +1,80 @@
+name: Security
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+  schedule:
+    - cron: "17 5 * * 1" # weekly, catches newly disclosed dependency issues
+
+permissions:
+  contents: read
+  security-events: write
+
+concurrency:
+  group: security-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  secrets:
+    name: Secret scan (gitleaks)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # full history: leaked credentials usually live in old commits
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  dependencies:
+    name: Dependency audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm install --ignore-scripts
+      - name: Fail on high/critical advisories in production dependencies
+        run: npm audit --omit=dev --audit-level=high
+
+  slither:
+    name: Slither static analysis
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm install --ignore-scripts
+      - uses: crytic/slither-action@v0.4.0
+        id: slither
+        continue-on-error: true
+        with:
+          node-version: 20
+          sarif: slither.sarif
+          fail-on: none
+          slither-args: --filter-paths "node_modules|test|mocks|@openzeppelin"
+      - uses: github/codeql-action/upload-sarif@v3
+        if: always() && hashFiles('slither.sarif') != ''
+        with:
+          sarif_file: slither.sarif
+      - name: Block new High findings in ZenthisHTLC and ZenthisVesting
+        run: |
+          pip install slither-analyzer solc-select
+          solc-select install 0.8.24 && solc-select use 0.8.24
+          slither . --filter-paths "node_modules|test|mocks|@openzeppelin" --json slither.json || true
+          python3 - <<'PY'
+          import json, sys
+          d = json.load(open("slither.json"))
+          bad = []
+          for r in d.get("results", {}).get("detectors", []):
+              files = {e.get("source_mapping", {}).get("filename_short", "") for e in r["elements"]}
+              if r["impact"] == "High" and any(("HTLC" in f or "Vesting" in f) for f in files):
+                  bad.append((r["check"], sorted(files)))
+          if bad:
+              print("High findings in HTLC/Vesting:", bad)
+              sys.exit(1)
+          print("No High findings in ZenthisHTLC / ZenthisVesting")
+          PY

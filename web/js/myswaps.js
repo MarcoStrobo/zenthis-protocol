@@ -5,7 +5,7 @@
    expired source lock.
    ─────────────────────────────────────────────────────────────── */
 
-import { ethers } from 'https://cdn.jsdelivr.net/npm/ethers@6.13.5/dist/ethers.min.js';
+import { ethers } from './vendor/ethers.min.js';
 import { HTLC_ABI, CHAIN_INFO, SWAP_STORE_KEY } from './config.js';
 import { waitAndClaim, STEPS } from './swapflow.js';
 

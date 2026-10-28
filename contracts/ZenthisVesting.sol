@@ -2,7 +2,7 @@
 pragma solidity ^0.8.24;
 
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/access/Ownable2Step.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
 /// @title ZenthisVesting — Multi-schedule linear vesting with cliffs
@@ -10,15 +10,15 @@ import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 ///      1. Owner creates schedule via createSchedule() [EMPTY → INITIALIZED]
 ///      2. Beneficiary releases vested tokens via release()
 ///      3. Owner cancels before startTime via cancelSchedule() [INITIALIZED → CANCELLED]
-contract ZenthisVesting is Ownable, ReentrancyGuard {
+contract ZenthisVesting is Ownable2Step, ReentrancyGuard {
     using SafeERC20 for IERC20;
 
     IERC20 public immutable token;
 
     uint64 public constant MONTH = 30 days;
 
-    /// @notice Track total tokens committed across all schedules.
-    /// @dev Used to prevent creating schedules that exceed the contract's balance.
+    /// @notice Tokens committed to schedules and not yet released (decreases on release and cancel).
+    /// @dev Used to prevent creating schedules that exceed the contract's balance (VEST-01).
     uint256 public totalAllocated;
 
     enum Status { EMPTY, INITIALIZED, CANCELLED }
@@ -58,6 +58,7 @@ contract ZenthisVesting is Ownable, ReentrancyGuard {
     );
     event TokensReleased(bytes32 indexed scheduleId, address indexed beneficiary, uint256 amount);
     event ScheduleCancelled(bytes32 indexed scheduleId, uint256 recoveredAmount);
+    event BeneficiaryTransferred(bytes32 indexed scheduleId, address indexed from, address indexed to);
 
     // ── Errors ─────────────────────────────────────────────────────────────────
     error ZeroAddress();
@@ -131,8 +132,22 @@ contract ZenthisVesting is Ownable, ReentrancyGuard {
         if (amount == 0) revert NothingToRelease();
 
         s.released += amount;
+        totalAllocated -= amount; // released tokens are no longer committed (VEST-01)
         token.safeTransfer(msg.sender, amount);
         emit TokensReleased(scheduleId, msg.sender, amount);
+    }
+
+    // ── Beneficiary rotation (VEST-02) ───────────────────────────────────────────
+
+    /// @notice The current beneficiary hands a schedule to a new address (key rotation).
+    /// @dev Only the beneficiary can do this; the owner cannot redirect vested funds.
+    function transferBeneficiary(bytes32 scheduleId, address newBeneficiary) external {
+        Schedule storage s = schedules[scheduleId];
+        if (s.status != Status.INITIALIZED) revert ScheduleNotFound();
+        if (msg.sender != s.beneficiary) revert NotBeneficiary();
+        if (newBeneficiary == address(0)) revert ZeroAddress();
+        emit BeneficiaryTransferred(scheduleId, s.beneficiary, newBeneficiary);
+        s.beneficiary = newBeneficiary;
     }
 
     // ── Rescue ───────────────────────────────────────────────────────────────────

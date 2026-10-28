@@ -4,10 +4,11 @@
    Every step is persisted so an interrupted swap can be resumed.
    ─────────────────────────────────────────────────────────────── */
 
-import { ethers } from 'https://cdn.jsdelivr.net/npm/ethers@6.13.5/dist/ethers.min.js';
+import { ethers } from './vendor/ethers.min.js';
 import {
   HTLC_ADDRESSES, HTLC_ABI, CHAIN_INFO, CHAIN_RPC, SWAP_STORE_KEY, ROUTES,
-  LP_SPREAD_BPS, SWAP_LIMITS, SWAP_TIMELOCK_SECS, RELAY_URL, MIN_GAS_BALANCE_ETH
+  LP_SPREAD_BPS, SWAP_LIMITS, SWAP_TIMELOCK_SECS, RELAY_URL, MIN_GAS_BALANCE_ETH,
+  LP_ADDRESS, LP_ADDRESS_TESTNET
 } from './config.js';
 
 /* ─── Persistence ─── */
@@ -135,6 +136,11 @@ export async function runSwap({ fromKey, toKey, amountEth, wallet, lpAddress, on
   const signer = await provider.getSigner();
   const htlc = new ethers.Contract(HTLC_ADDRESSES[fromKey], HTLC_ABI, signer);
 
+  // Minimum acceptable payout on the destination chain: 1% under the quote. Anything lower
+  // is treated as a hostile or broken lock and is never claimed (see waitAndClaim).
+  const quote = await quoteEthToEth(amountEth, fromKey, toKey);
+  const minRecvWei = ethers.parseEther((quote.recv * 0.99).toFixed(18)).toString();
+
   const preimage = ethers.hexlify(ethers.randomBytes(32));
   const hashlock = ethers.sha256(preimage); // ZenthisHTLC verifies sha256, not keccak256
   const timelock = Math.floor(Date.now() / 1000) + SWAP_TIMELOCK_SECS;
@@ -142,20 +148,46 @@ export async function runSwap({ fromKey, toKey, amountEth, wallet, lpAddress, on
     preimage, hashlock, timelock, htlc: HTLC_ADDRESSES[fromKey], createdAt: Date.now(),
     chain: fromKey, chainId: CHAIN_INFO[fromKey].id,
     toChain: toKey, toChainId: CHAIN_INFO[toKey].id,
-    initiator: wallet, amount: String(amountEth), swapId: null, status: 'locking'
+    initiator: wallet, amount: String(amountEth), swapId: null, status: 'locking',
+    lp: lpAddress, minRecvWei
   };
   // Persist the secret BEFORE sending funds: losing it means waiting for the refund.
   const store = loadSwaps(); store.push(rec); saveSwaps(store);
 
   onStep('lock');
   const destBlock = await readProvider(toKey).getBlockNumber();
-  const tx = await htlc.newSwap(lpAddress, hashlock, timelock, { value: ethers.parseEther(String(amountEth)) });
+  // maxFeeBps = the fee quoted to the user: reverts if the owner raised it meanwhile (audit HTLC-01).
+  const tx = await htlc.newSwapProtected(lpAddress, hashlock, timelock, quote.feeA, {
+    value: ethers.parseEther(String(amountEth))
+  });
   const receipt = await tx.wait();
   const ev = receipt.logs.map(l => { try { return htlc.interface.parseLog(l); } catch { return null; } })
     .find(e => e && e.name === 'SwapCreated');
   updateSwap(hashlock, { swapId: ev.args.swapId, txHash: receipt.hash, status: 'locked', destFromBlock: destBlock - 5 });
 
   return waitAndClaim(loadSwaps().find(r => r.hashlock === hashlock), wallet, onStep);
+}
+
+/**
+ * A destination lock is only claimed if it was made by the LP, is native ETH, pays at least the
+ * minimum agreed payout and leaves a safe window. Revealing the secret against any other lock
+ * (e.g. a 1-wei lock planted by an attacker who copied the public hashlock) would let the LP
+ * redeem the source lock while the user receives dust.
+ */
+export function isGenuineLpLock(ev, rec) {
+  return isGenuineLock(ev.args, rec, 600);
+}
+
+/** Same checks on any {hashlock, initiator, token, amount, timelock} (event args or getSwap result). */
+export function isGenuineLock(a, rec, minSecsLeft) {
+  if (a.hashlock !== rec.hashlock) return false;
+  const lps = rec.lp ? [rec.lp] : [LP_ADDRESS, LP_ADDRESS_TESTNET].filter(Boolean);
+  if (!lps.some(x => x && x.toLowerCase() === a.initiator.toLowerCase())) return false;
+  if (a.token !== ethers.ZeroAddress) return false;
+  const minWei = rec.minRecvWei ? BigInt(rec.minRecvWei) : ethers.parseEther(String(rec.amount * 0.9));
+  if (a.amount < minWei) return false;
+  if (Number(a.timelock) < Math.floor(Date.now() / 1000) + minSecsLeft) return false;
+  return true;
 }
 
 /** Resumable second half: wait for the LP lock on the destination chain and redeem it. */
@@ -171,7 +203,7 @@ export async function waitAndClaim(rec, wallet, onStep, { waitMs = 10 * 60 * 100
   while (Date.now() < deadline && !lock) {
     const latest = await readProvider(toKey).getBlockNumber();
     const evs = await queryChunked(read, read.filters.SwapCreated(null, null, wallet), from, latest);
-    lock = evs.find(e => e.args.hashlock === rec.hashlock) || null;
+    lock = evs.find(e => isGenuineLpLock(e, rec)) || null;
     if (!lock) await sleep(4000);
   }
   if (!lock) {
@@ -196,6 +228,14 @@ export async function waitAndClaim(rec, wallet, onStep, { waitMs = 10 * 60 * 100
     await ensureChain(toKey);
     const signer = await new ethers.BrowserProvider(window.ethereum).getSigner();
     const htlc = new ethers.Contract(HTLC_ADDRESSES[toKey], HTLC_ABI, signer);
+    // The network switch can take a while: re-validate the lock right before revealing the secret.
+    const fresh = await htlc.getSwap(lock.args.swapId);
+    if (Number(fresh.status) !== 1 || fresh.recipient.toLowerCase() !== wallet.toLowerCase()
+        || !isGenuineLock(fresh, rec, 120)) {
+      const err = new Error('The destination lock changed or is about to expire; the secret was NOT revealed. Your funds are safe: refund from "My swaps" after the timelock.');
+      err.code = 'LOCK_CHANGED';
+      throw err;
+    }
     const tx = await htlc.redeem(lock.args.swapId, rec.preimage);
     const rc = await tx.wait();
     updateSwap(rec.hashlock, { claimed: true, claimTx: rc.hash, status: 'done' });

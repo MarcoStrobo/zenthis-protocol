@@ -26,6 +26,11 @@
       "markFailed": "0xf5846dfa436be0b615acfd35ec39504fd456e071534c367265e0a0f5783dbc10",
       "withdrawUnusedTokens": "0x790cef2218dc67abeba372fb66148b3173f5b94fe396da90431b2b4afec34263"
     },
-    "deployerZtsBalance": "85937000"
+    "deployerZtsBalance": "0",
+    "safeZtsBalance": "85937000",
+    "supplyMovedToSafe": {
+      "date": "2026-10-28",
+      "tx": "0xf26390fc00131ba898ee4b1521f9cf643cac292d83a8ce6cfd8965cb173d78d2"
+    }
   }
 }

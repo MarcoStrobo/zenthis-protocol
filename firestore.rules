@@ -1,55 +1,12 @@
 rules_version = '2';
 
+// Deny-all for clients. The web app no longer reads or writes Firestore (waitlist/airdrop pages
+// were removed) and Cloud Functions use the Admin SDK, which bypasses these rules.
+// The previous rules allowed anyone to read the whole waitlist (emails) and to create documents
+// in `mail`, which triggers outgoing email: an open relay. Do not re-open without validation,
+// rate limits and App Check.
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    // ============================================================
-    // WHITELIST / AIRDROP — open for public registration
-    // ============================================================
-
-    // Anyone can read their own registration by email
-    match /waitlist/{email} {
-      allow read: if true;
-      allow create: if true;
-      allow update: if true;
-    }
-
-    // Anyone can read stats
-    match /waitlist_meta/stats {
-      allow read, write: if true;
-    }
-
-    // ============================================================
-    // MAIL collection — only the extension function writes here
-    // (Cloud Functions have admin access, bypass rules)
-    // ============================================================
-    match /mail/{email} {
-      allow read: if true;
-      allow create: if true;
-    }
-
-    // ============================================================
-    // AIRDROP collection — authenticated users can read/create/update
-    // ============================================================
-    match /airdrop/{wallet} {
-      allow read: if true;
-      allow create: if true;
-      allow update: if true;
-    }
-
-    // Airdrop meta stats — public read/write
-    match /airdrop_meta/{doc} {
-      allow read, write: if true;
-    }
-
-    // Referral events — public read/write
-    match /referral_events/{event} {
-      allow read, write: if true;
-    }
-
-    // ============================================================
-    // DEFAULT — deny everything else
-    // ============================================================
     match /{document=**} {
       allow read, write: if false;
     }

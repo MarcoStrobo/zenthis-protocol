@@ -1,6 +1,6 @@
 const { expect } = require("chai");
 const { ethers } = require("hardhat");
-const { time } = require("@nomicfoundation/hardhat-network-helpers");
+const { time, mine } = require("@nomicfoundation/hardhat-network-helpers");
 const { LpBot } = require("../lp-bot/LpBot");
 
 describe("LpBot — atomic swap liquidity provider", () => {
@@ -18,7 +18,12 @@ describe("LpBot — atomic swap liquidity provider", () => {
       htlcB: htlcB.connect(lp),
       lpAddress: lp.address,
       state: store,
-      config: { confirmations: 0, ...cfg },
+      config: {
+        confirmations: 0,
+        maxOpenPerInitiator: ethers.parseEther("100"),
+        largeAmount: ethers.parseEther("1000000"),
+        ...cfg,
+      },
       log: () => {},
     });
 
@@ -179,5 +184,148 @@ describe("LpBot — atomic swap liquidity provider", () => {
     );
     expect(store.load().swaps[idA].status).to.equal("completed");
     expect((await htlcA.getSwap(idA)).status).to.equal(2n);
+  });
+
+  it("caps open exposure per initiator (capital-lock griefing)", async () => {
+    bot = mkBot({ maxOpenPerInitiator: ethers.parseEther("1") });
+    const first = await aliceLocksOnA({ value: ethers.parseEther("0.6") });
+    const second = await aliceLocksOnA({
+      value: ethers.parseEther("0.6"),
+      hl: ethers.sha256("0x" + "33".repeat(32)),
+    });
+    await bot.tick();
+    expect(store.load().swaps[first].status).to.equal("locked");
+    expect(store.load().swaps[second].reason).to.equal("initiator exposure limit reached");
+  });
+
+  it("ambiguous RPC after broadcast: reconciles from chain, never double-locks", async () => {
+    // The lock tx is broadcast and mined, but the RPC errors while waiting for the receipt.
+    const real = htlcB.connect(lp);
+    const flaky = new Proxy(real, {
+      get(t, p) {
+        const v = Reflect.get(t, p, t);
+        if (p === "newSwap") {
+          return async (...args) => {
+            const tx = await t.newSwap(...args);
+            return {
+              hash: tx.hash,
+              wait: async () => {
+                throw new Error("could not coalesce error");
+              },
+            };
+          };
+        }
+        return typeof v === "function" ? v.bind(t) : v;
+      },
+    });
+    bot = new LpBot({
+      htlcA: htlcA.connect(lp),
+      htlcB: flaky,
+      lpAddress: lp.address,
+      state: store,
+      config: {
+        confirmations: 0,
+        maxOpenPerInitiator: ethers.parseEther("100"),
+        largeAmount: ethers.parseEther("1000000"),
+      },
+      log: () => {},
+    });
+
+    const idA = await aliceLocksOnA();
+    await bot.tick(); // lock mined, receipt lookup "failed" -> uncertain, then reconciled in the same tick
+    expect(store.load().swaps[idA].status).to.equal("locked");
+
+    await bot.tick();
+    await bot.tick();
+    const created = await htlcB.queryFilter(
+      htlcB.filters.SwapCreated(null, lp.address, alice.address),
+    );
+    expect(created.length).to.equal(1); // exactly one lock on B
+
+    await htlcB.connect(deployer).redeem(store.load().swaps[idA].idB, preimage);
+    await bot.tick();
+    expect(store.load().swaps[idA].status).to.equal("completed");
+  });
+
+  it("LP-03: a large swap is deferred until it has enough confirmations; small ones are not", async () => {
+    bot = mkBot({ largeAmount: ethers.parseEther("0.5"), largeConfirmations: 5 });
+    const big = await aliceLocksOnA({ value: ethers.parseEther("1") });
+    const small = await aliceLocksOnA({
+      value: ethers.parseEther("0.1"),
+      hl: ethers.sha256("0x" + "44".repeat(32)),
+    });
+    await bot.tick();
+    expect(store.load().swaps[small].status).to.equal("locked"); // not delayed
+    expect(store.load().swaps[big]).to.equal(undefined); // deferred, cursor stays before it
+
+    await mine(6);
+    await bot.tick();
+    expect(store.load().swaps[big].status).to.equal("locked");
+    const created = await htlcB.queryFilter(
+      htlcB.filters.SwapCreated(null, lp.address, alice.address),
+    );
+    expect(created.length).to.equal(2); // exactly one lock per swap
+  });
+
+  it("LP-05: an ERC-20 swap addressed to the LP is never treated as native ETH", async () => {
+    // attacker: worthless token, "amount" 0.5e18 units. Without a token check the LP would lock ~0.5 ETH.
+    const junk = await (await ethers.getContractFactory("ZenthisToken")).deploy(deployer.address);
+    await junk.transfer(alice.address, ethers.parseEther("1"));
+    await junk.connect(alice).approve(await htlcA.getAddress(), ethers.parseEther("1"));
+    const now = await time.latest();
+    const rc = await (
+      await htlcA
+        .connect(alice)
+        .newSwapToken(
+          lp.address,
+          await junk.getAddress(),
+          ethers.parseEther("0.5"),
+          hashlock,
+          now + TA,
+        )
+    ).wait();
+    const idA = rc.logs
+      .map((l) => htlcA.interface.parseLog(l))
+      .find((e) => e?.name === "SwapCreated").args.swapId;
+    await bot.tick();
+    expect(store.load().swaps[idA].reason).to.equal("not native ETH");
+    const onB = await htlcB.queryFilter(htlcB.filters.SwapCreated(null, lp.address, alice.address));
+    expect(onB.length).to.equal(0); // nothing locked on B
+  });
+
+  it("LP-06: malformed relay messages cannot abort the tick; a valid claim after them still works", async () => {
+    let queue = [];
+    bot.relay = { claims: async () => queue.splice(0) };
+    const idA = await aliceLocksOnA();
+    await bot.tick();
+    const rec = store.load().swaps[idA];
+    queue = [
+      null,
+      "just a string",
+      { hashlock: 5, preimage: 7 },
+      { hashlock: rec.hashlock, preimage: "zzz" }, // not hex: sha256() would throw
+      { hashlock: rec.hashlock, preimage: "0x" + "g".repeat(64) },
+      { hashlock: rec.hashlock, preimage },
+    ];
+    await bot.tick(); // must not throw
+    expect(store.load().swaps[idA].status).to.equal("completed");
+  });
+
+  it("LP-07: a failing chain-A scan cannot starve redemptions of swaps that already hold funds", async () => {
+    const idA = await aliceLocksOnA();
+    await bot.tick();
+    const idB = store.load().swaps[idA].idB;
+    await htlcB.connect(deployer).redeem(idB, preimage); // user revealed the secret on B
+    bot._scanChainA = async () => {
+      throw new Error("rpc down");
+    };
+    let threw = false;
+    try {
+      await bot.tick();
+    } catch (e) {
+      threw = e.message.includes("rpc down"); // the failure is still reported...
+    }
+    expect(threw).to.equal(true);
+    expect(store.load().swaps[idA].status).to.equal("completed"); // ...but A was redeemed first
   });
 });
