@@ -1,5 +1,5 @@
-const fs = require('fs');
-const c = fs.readFileSync('C:\\Users\\Suko\\Documents\\zenthis-protocol\\web\\index.html', 'utf8');
+const fs = require("fs");
+const c = fs.readFileSync("C:\\Users\\Suko\\Documents\\zenthis-protocol\\web\\index.html", "utf8");
 
 // Fix: Add margin-top to presale-countdown to account for fixed navbar
 // Also improve hero padding-top to account for countdown
@@ -23,11 +23,11 @@ const newCSS = `.presale-countdown {
 
 const result = c.replace(oldCSS, newCSS);
 if (result === c) {
-  console.log('ERROR: CSS replacement failed - string not found');
+  console.log("ERROR: CSS replacement failed - string not found");
   // Find the actual CSS
-  const i = c.indexOf('.presale-countdown');
-  console.log('Actual CSS:', c.substring(i, i + 250));
+  const i = c.indexOf(".presale-countdown");
+  console.log("Actual CSS:", c.substring(i, i + 250));
 } else {
-  fs.writeFileSync('C:\\Users\\Suko\\Documents\\zenthis-protocol\\web\\index.html', result, 'utf8');
-  console.log('Fixed: added padding-top to presale-countdown');
+  fs.writeFileSync("C:\\Users\\Suko\\Documents\\zenthis-protocol\\web\\index.html", result, "utf8");
+  console.log("Fixed: added padding-top to presale-countdown");
 }

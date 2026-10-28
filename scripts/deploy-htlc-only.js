@@ -20,7 +20,9 @@ async function main() {
   console.log("═══════════════════════════════════════════════════════");
   console.log(`  Network : ${network.name} (chainId ${netInfo.chainId})`);
   console.log(`  Deployer: ${deployer.address}`);
-  console.log(`  Balance : ${ethers.formatEther(await ethers.provider.getBalance(deployer.address))} ETH`);
+  console.log(
+    `  Balance : ${ethers.formatEther(await ethers.provider.getBalance(deployer.address))} ETH`,
+  );
   console.log("═══════════════════════════════════════════════════════\n");
 
   // ── Deploy ZenthisHTLC ─────────────────────────────────────────

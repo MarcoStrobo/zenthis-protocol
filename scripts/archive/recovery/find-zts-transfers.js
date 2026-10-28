@@ -14,7 +14,7 @@ async function main() {
   // Token creation block - search in recent history
   // Go back in chunks from currentBlock
   const CHUNK = 10000;
-  
+
   for (let end = currentBlock; end > 0; end -= CHUNK) {
     const start = Math.max(0, end - CHUNK);
     try {
@@ -22,26 +22,30 @@ async function main() {
         address: TOKEN,
         topics: [TRANSFER_TOPIC, FROM_TOPIC],
         fromBlock: start,
-        toBlock: end
+        toBlock: end,
       });
-      
+
       for (const log of logs) {
         const toAddr = "0x" + log.topics[2].slice(26);
         const value = ethers.toBigInt(log.data);
         const block = log.blockNumber;
-        
+
         if (toAddr !== "0x50425684634F9AF37D1dE14Bb1140057C421b656" && value > 0n) {
-          console.log(`Block ${block}: → ${toAddr}  ${ethers.formatEther(value)} ZTS (tx: ${log.transactionHash})`);
+          console.log(
+            `Block ${block}: → ${toAddr}  ${ethers.formatEther(value)} ZTS (tx: ${
+              log.transactionHash
+            })`,
+          );
         }
       }
-      
+
       if (start < 47000000) break; // token likely deployed around block 47M+
     } catch (e) {
       // eth_getLogs limited range - just continue
       console.log(`Range ${start}-${end}: ${e.message.substring(0, 100)}`);
     }
   }
-  
+
   console.log("Done searching");
 }
 

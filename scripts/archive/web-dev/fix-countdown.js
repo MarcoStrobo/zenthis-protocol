@@ -1,5 +1,5 @@
-const fs = require('fs');
-let c = fs.readFileSync('C:\\Users\\Suko\\Documents\\zenthis-protocol\\web\\index.html', 'utf8');
+const fs = require("fs");
+let c = fs.readFileSync("C:\\Users\\Suko\\Documents\\zenthis-protocol\\web\\index.html", "utf8");
 
 // Fix: replace the bare JS with a proper script tag
 const bareJS = `// Presale countdown - start: 18 Jun 2026 14:00 CET
@@ -29,6 +29,6 @@ const wrappedJS = `  <script>` + bareJS + `\n  </script>`;
 
 c = c.replace(bareJS, wrappedJS);
 
-fs.writeFileSync('C:\\Users\\Suko\\Documents\\zenthis-protocol\\web\\index.html', c, 'utf8');
-console.log('Fixed: countdown JS now wrapped in script tags');
-console.log('Contains script tags:', c.indexOf('<script>\n  // Presale countdown') > 0);
+fs.writeFileSync("C:\\Users\\Suko\\Documents\\zenthis-protocol\\web\\index.html", c, "utf8");
+console.log("Fixed: countdown JS now wrapped in script tags");
+console.log("Contains script tags:", c.indexOf("<script>\n  // Presale countdown") > 0);

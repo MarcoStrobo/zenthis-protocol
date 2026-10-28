@@ -72,3 +72,4 @@ web/
 .DS_Store
 Thumbs.db
 desktop.ini
+lp-bot/state.json

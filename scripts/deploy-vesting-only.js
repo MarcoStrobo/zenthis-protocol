@@ -18,13 +18,13 @@ const TOKEN_ADDR = "0xCFAeB3678DbC479e26Fd87C2cA7eD0a264f1F6a6";
 const MILLION = (n) => ethers.parseEther((n * 1_000_000).toString());
 
 const SCHEDULES = [
-  { key: "SEED",         total: MILLION(10),   tge: 0n,             cliff: 6,  vest: 24 },
-  { key: "IDO",          total: MILLION(22.5), tge: MILLION(2.5),  cliff: 0,  vest: 18 },
-  { key: "LIQUIDITY",    total: MILLION(21.5), tge: MILLION(3.5),  cliff: 0,  vest: 48 },
-  { key: "TEAM",         total: MILLION(10),   tge: 0n,             cliff: 12, vest: 36 },
-  { key: "TREASURY",     total: MILLION(16.2), tge: MILLION(2),    cliff: 0,  vest: 48 },
-  { key: "FOUNDER_OPS",  total: MILLION(1.8),  tge: 0n,             cliff: 0,  vest: 36 },
-  { key: "AIRDROPS",     total: MILLION(5),    tge: MILLION(5),    cliff: 0,  vest: 6  },
+  { key: "SEED", total: MILLION(10), tge: 0n, cliff: 6, vest: 24 },
+  { key: "IDO", total: MILLION(22.5), tge: MILLION(2.5), cliff: 0, vest: 18 },
+  { key: "LIQUIDITY", total: MILLION(21.5), tge: MILLION(3.5), cliff: 0, vest: 48 },
+  { key: "TEAM", total: MILLION(10), tge: 0n, cliff: 12, vest: 36 },
+  { key: "TREASURY", total: MILLION(16.2), tge: MILLION(2), cliff: 0, vest: 48 },
+  { key: "FOUNDER_OPS", total: MILLION(1.8), tge: 0n, cliff: 0, vest: 36 },
+  { key: "AIRDROPS", total: MILLION(5), tge: MILLION(5), cliff: 0, vest: 6 },
 ];
 
 const VESTING_FUND = ethers.parseEther("87000000"); // 87M ZTS total
@@ -52,7 +52,12 @@ async function main() {
   console.log("═".repeat(60));
   console.log(`  Deployer : ${deployerAddr}`);
   console.log(`  Balance  : ${ethers.formatEther(bal)} ETH`);
-  console.log(`  Gas price: ${ethers.formatUnits((await ethers.provider.getFeeData()).gasPrice, "gwei")} gwei`);
+  console.log(
+    `  Gas price: ${ethers.formatUnits(
+      (await ethers.provider.getFeeData()).gasPrice,
+      "gwei",
+    )} gwei`,
+  );
 
   // ── TGE timestamp ──────────────────────────────────────────────────────────
   const tgeStr = requireEnv("TGE_TIMESTAMP");
@@ -68,7 +73,11 @@ async function main() {
   console.log(`  Deployer : ${ethers.formatEther(tokenBal)} ZTS`);
 
   if (tokenBal < VESTING_FUND) {
-    console.error(`\n❌ Deployer only has ${ethers.formatEther(tokenBal)} ZTS, need ${ethers.formatEther(VESTING_FUND)}`);
+    console.error(
+      `\n❌ Deployer only has ${ethers.formatEther(tokenBal)} ZTS, need ${ethers.formatEther(
+        VESTING_FUND,
+      )}`,
+    );
     console.error("   Transfer ZTS to deployer and re-run.");
     process.exit(1);
   }
@@ -111,11 +120,21 @@ async function main() {
     const id = ethers.id(s.key);
 
     console.log(`\n  ${s.key.padEnd(12)} → ${beneficiary}`);
-    console.log(`           ${ethers.formatEther(s.total)} ZTS` +
-      ` + TGE ${ethers.formatEther(s.tge)} ZTS` +
-      ` | cliff ${s.cliff}mo | vest ${s.vest}mo`);
+    console.log(
+      `           ${ethers.formatEther(s.total)} ZTS` +
+        ` + TGE ${ethers.formatEther(s.tge)} ZTS` +
+        ` | cliff ${s.cliff}mo | vest ${s.vest}mo`,
+    );
 
-    const tx = await vesting.createSchedule(id, beneficiary, s.total, s.tge, tgeBN, s.cliff, s.vest);
+    const tx = await vesting.createSchedule(
+      id,
+      beneficiary,
+      s.total,
+      s.tge,
+      tgeBN,
+      s.cliff,
+      s.vest,
+    );
     await tx.wait();
     console.log(`           ✅ created (tx: ${tx.hash})`);
   }

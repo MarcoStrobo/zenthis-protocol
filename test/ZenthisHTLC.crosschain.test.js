@@ -29,7 +29,9 @@ describe("ZenthisHTLC — cross-chain atomic swap (two instances)", () => {
     const now = await time.latest();
     const tx = await htlc.connect(signer).newSwap(recipient, hashlock, now + delta, { value });
     const rc = await tx.wait();
-    const ev = rc.logs.map((l) => htlc.interface.parseLog(l)).find((e) => e?.name === "SwapCreated");
+    const ev = rc.logs
+      .map((l) => htlc.interface.parseLog(l))
+      .find((e) => e?.name === "SwapCreated");
     return ev.args.swapId;
   }
 
@@ -69,7 +71,9 @@ describe("ZenthisHTLC — cross-chain atomic swap (two instances)", () => {
     const idB = await lock(htlcB, bob, alice.address, AMOUNT_B, T_B);
 
     await time.increase(T_A + 1);
-    await expect(htlcB.connect(alice).redeem(idB, preimage)).to.be.revertedWith("HTLC: swap expired");
+    await expect(htlcB.connect(alice).redeem(idB, preimage)).to.be.revertedWith(
+      "HTLC: swap expired",
+    );
 
     const bobBefore = await ethers.provider.getBalance(bob.address);
     const aliceBefore = await ethers.provider.getBalance(alice.address);
@@ -107,9 +111,13 @@ describe("ZenthisHTLC — cross-chain atomic swap (two instances)", () => {
   it("keccak256 hashlock cannot be redeemed (UI must use sha256)", async () => {
     const badLock = ethers.keccak256(preimage);
     const now = await time.latest();
-    const tx = await htlcA.connect(alice).newSwap(bob.address, badLock, now + T_A, { value: AMOUNT_A });
+    const tx = await htlcA
+      .connect(alice)
+      .newSwap(bob.address, badLock, now + T_A, { value: AMOUNT_A });
     const rc = await tx.wait();
-    const id = rc.logs.map((l) => htlcA.interface.parseLog(l)).find((e) => e?.name === "SwapCreated").args.swapId;
+    const id = rc.logs
+      .map((l) => htlcA.interface.parseLog(l))
+      .find((e) => e?.name === "SwapCreated").args.swapId;
     await expect(htlcA.redeem(id, preimage)).to.be.revertedWith("HTLC: invalid preimage");
   });
 

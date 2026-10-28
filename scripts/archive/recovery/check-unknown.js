@@ -8,19 +8,20 @@ async function main() {
   const token = await ethers.getContractAt("ZenthisToken", TOKEN);
   const bal = await token.balanceOf(ADDR);
   console.log(`${ADDR}: ${ethers.formatEther(bal)} ZTS`);
-  
+
   const deployerBal = await token.balanceOf(DEPLOYER);
   console.log(`Deployer: ${ethers.formatEther(deployerBal)} ZTS`);
-  
+
   const presaleBal = await token.balanceOf("0x50425684634F9AF37D1dE14Bb1140057C421b656");
   console.log(`Presale:  ${ethers.formatEther(presaleBal)} ZTS`);
-  
+
   const total = deployerBal + presaleBal + bal;
   const supply = await token.totalSupply();
   console.log(`---`);
   console.log(`Sum:      ${ethers.formatEther(total)} ZTS`);
   console.log(`Supply:   ${ethers.formatEther(supply)} ZTS`);
-  if (total < supply) console.log(`Remaining: ${ethers.formatEther(supply - total)} ZTS (lost or burned)`);
+  if (total < supply)
+    console.log(`Remaining: ${ethers.formatEther(supply - total)} ZTS (lost or burned)`);
 }
 
 main().catch(console.error);

@@ -18,12 +18,15 @@ async function main() {
   console.log(`\nCalling markFailed()...`);
   try {
     const estGas = await signer.provider.estimateGas({
-      to: OLD_PRESALE, data: markFailedSel, from: signer.address
+      to: OLD_PRESALE,
+      data: markFailedSel,
+      from: signer.address,
     });
     console.log(`Gas est: ${estGas}`);
     const tx = await signer.sendTransaction({
-      to: OLD_PRESALE, data: markFailedSel,
-      gasLimit: estGas * 12n / 10n
+      to: OLD_PRESALE,
+      data: markFailedSel,
+      gasLimit: (estGas * 12n) / 10n,
     });
     console.log(`Tx: ${tx.hash}`);
     const receipt = await tx.wait();
@@ -33,16 +36,19 @@ async function main() {
     const withdrawSel = ethers.id("withdrawUnusedTokens()").slice(0, 10);
     console.log(`\nCalling withdrawUnusedTokens()...`);
     const estGas2 = await signer.provider.estimateGas({
-      to: OLD_PRESALE, data: withdrawSel, from: signer.address
+      to: OLD_PRESALE,
+      data: withdrawSel,
+      from: signer.address,
     });
     const tx2 = await signer.sendTransaction({
-      to: OLD_PRESALE, data: withdrawSel,
-      gasLimit: estGas2 * 12n / 10n
+      to: OLD_PRESALE,
+      data: withdrawSel,
+      gasLimit: (estGas2 * 12n) / 10n,
     });
     console.log(`Tx2: ${tx2.hash}`);
     const receipt2 = await tx2.wait();
     console.log(`✅ Withdraw success! Gas: ${receipt2.gasUsed}`);
-    
+
     // Check final balance
     const finalBal = await token.balanceOf(signer.address);
     console.log(`\nDeployer ZTS: ${ethers.formatEther(finalBal)}`);

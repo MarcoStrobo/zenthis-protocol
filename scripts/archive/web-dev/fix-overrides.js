@@ -1,5 +1,5 @@
-const fs = require('fs');
-let c = fs.readFileSync('C:\\Users\\Suko\\Documents\\zenthis-protocol\\web\\index.html', 'utf8');
+const fs = require("fs");
+let c = fs.readFileSync("C:\\Users\\Suko\\Documents\\zenthis-protocol\\web\\index.html", "utf8");
 
 // Add inline style overrides before </head> to hide desktop nav-links/cta
 const override = `<style>
@@ -15,6 +15,6 @@ const override = `<style>
 </style>
 `;
 
-c = c.replace('</head>', override + '</head>');
-fs.writeFileSync('C:\\Users\\Suko\\Documents\\zenthis-protocol\\web\\index.html', c, 'utf8');
-console.log('Added inline overrides');
+c = c.replace("</head>", override + "</head>");
+fs.writeFileSync("C:\\Users\\Suko\\Documents\\zenthis-protocol\\web\\index.html", c, "utf8");
+console.log("Added inline overrides");
