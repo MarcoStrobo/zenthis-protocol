@@ -1,18 +1,24 @@
 ---
-Title:    Comprehensive Security Audit — Zenthis Protocol
+Title:    Internal Security Review — Zenthis Protocol
 Client:   Zenthis Protocol (SolvX)
 Platform: Base (L2)
 Date:     2026-06-10
-Methodology: CertiK ™️ Enterprise-Grade Smart Contract Audit (Adapted)
+Methodology: Internal review using an enterprise-audit report structure (not CertiK)
 Scope:   All 4 protocol contracts
-Status:  ✅ A — All findings remediated, deployment-ready
+Status:  Internal review: all findings remediated. External audit pending.
 ---
 
-# Zenthis Protocol — Final Security Audit Report
+# Zenthis Protocol — Final Internal Security Review
+
+> **Disclaimer.** This is a **self-conducted internal security review** that follows the structure of
+> enterprise audit reports. It was **not performed, reviewed or endorsed by CertiK or any external audit
+> firm**, and the independence of the named reviewer has not been verified. It covers the four contracts
+> as of 2026-06-10 and does **not** cover the LP bot (`lp-bot/`), the web app or the gasless-claim relay.
+> An independent external audit is still required before deploying with real user funds.
 
 ## 1. Executive Summary
 
-Vega Security conducted a comprehensive line-by-line manual audit of all four smart contracts comprising the Zenthis Protocol:
+The reviewer (named in this report as Vega Security) performed a line-by-line manual review of all four smart contracts comprising the Zenthis Protocol:
 
 | Contract | Lines | Tests | Purpose |
 |----------|:-----:|:-----:|---------|
@@ -41,8 +47,8 @@ Vega Security conducted a comprehensive line-by-line manual audit of all four sm
 | AI-generated audit | Token, HTLC, Vesting | 15 |
 | Technical audit #1 | Token, HTLC, Vesting | 12 |
 | Technical audit #2 | Vesting | 8 |
-| CertiK-style #1 (v9→v12) | Presale | 19 |
-| CertiK-style #2 (v13→v16) | Presale | 12 |
+| Review round #1 (v9→v12) | Presale | 19 |
+| Review round #2 (v13→v16) | Presale | 12 |
 | Final delta (v16→final) | Presale | 4 |
 
 Total findings triaged: **63** — all 29 verified issues fixed, 34 false positives documented.
@@ -253,9 +259,9 @@ Staker            Fee Source
 | v10 delta | `0e5220e` | 4 findings | 2L, 2I |
 | Ext. audit | `02ae2a3` | 4 findings | 1C, 3H |
 | v10 delta redo | `5a7b9e5` | 19 findings | 1C, 3H, 4M, 5L, 6I |
-| CertiK #1 | `1c63c8f` | 3 findings | 2H, 1M |
-| CertiK #1 follow | `9e5c6fd` | 6 findings | 1H, 2M, 1L, 1I |
-| CertiK #2 | `2278694` | 2 findings | 1M, 1Cfg |
+| Round #1 | `1c63c8f` | 3 findings | 2H, 1M |
+| Round #1 follow-up | `9e5c6fd` | 6 findings | 1H, 2M, 1L, 1I |
+| Round #2 | `2278694` | 2 findings | 1M, 1Cfg |
 | Final | `e91b21a` | 1 finding | 1C |
 
 **Notable high-severity fixes:**
@@ -405,7 +411,7 @@ ZenthisToken ◄── ZenthisVesting    ◀── ZenthisPresale
 
 **Security Rating: A** ✅
 
-The Zenthis Protocol has undergone **6+ independent audit rounds** across all 4 contracts. **63 total findings** were triaged — **29 verified issues fixed**, **34 false positives documented**.
+The Zenthis Protocol has undergone **6+ internal review rounds** across all 4 contracts. **63 total findings** were triaged — **29 verified issues fixed**, **34 false positives documented**.
 
 ### Key Strengths
 
@@ -427,9 +433,9 @@ The Zenthis Protocol has undergone **6+ independent audit rounds** across all 4 
 | LP not added post-finalize | Operational | Gnosis Safe 2/2 + documented expectation |
 | Stuck ETH in token | Low | `withdrawStuckETH()` recovers excess |
 
-*Audited by Vega Security — 10 June 2026*
+*Internal security review — 10 June 2026 (reviewer: Vega Security, unverified)*
 
-*Methodology adapted from CertiK ™️ enterprise security audit standards.*
+*Report structure modelled on public enterprise audit reports. Not affiliated with CertiK.*
 
 *Repository: https://github.com/MarcoStrobo/zenthis-protocol*  
 *Latest commit: e91b21a*  
@@ -465,11 +471,11 @@ v11 ── 4 findings from ext. audit (1C, 3H)
  │
 v12 ── 19 findings resolved (1C, 3H, 4M, 5L, 6I)
  │
-v13 ── 3 findings from CertiK #1 (2H, 1M)
+v13 ── 3 findings from review round #1 (2H, 1M)
  │
-v14 ── 6 findings from CertiK #1 follow-up
+v14 ── 6 findings from review round #1 follow-up
  │
-v15 ── 2 findings from CertiK #2
+v15 ── 2 findings from review round #2
  │
 v16 ── C-01 ceiling division fix
  │

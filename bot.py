@@ -841,8 +841,8 @@ FAQ = {
     ),
     "auditoria|audit|seguridad|security|hack": (
         "🛡️ *Auditoría y Seguridad*\n\n"
-        "✅ Auditoría interna completada (10 hallazgos resueltos)\n"
-        "🔄 Auditoría externa en progreso — se completará antes del mainnet launch\n"
+        "✅ Revisión de seguridad interna completada (no es una auditoría externa)\n"
+        "⏳ Auditoría externa independiente: pendiente, prevista antes del mainnet\n"
         "📂 Contratos verificados en Sepolia testnet\n"
         "🔓 Código open-source en [GitHub](https://github.com/zenthis)"
     ),
@@ -859,7 +859,7 @@ FAQ = {
     ),
     "roadmap|fases|etapas|planeado|futuro|proximo": (
         "🗺️ *Roadmap*\n\n"
-        "🔹 *Fase 1 — Fundación (Actual)*: Contratos, testnet Sepolia, whitelist, auditoría externa\n"
+        "🔹 *Fase 1 — Fundación (Actual)*: Contratos, testnet Sepolia, whitelist, revisión interna (auditoría externa pendiente)\n"
         "🔹 *Fase 2 — Lanzamiento*: IDO en PinkSale, TGE del $ZTS, airdrop, mainnet\n"
         "🔹 *Fase 3 — Producto*: Interfaz cross-chain swap, dashboard HTLC, SDK dev\n"
         "🔹 *Fase 4 — Expansión*: Más cadenas, governance, OTC institucional\n\n"

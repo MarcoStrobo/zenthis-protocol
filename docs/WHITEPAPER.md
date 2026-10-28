@@ -236,7 +236,7 @@ ZENTHIS includes a public `burn()` function. Any holder can permanently remove t
 
 ### 6.1 Audit Status
 
-An internal security audit was conducted in May 2026. **Rating: A-**.
+An internal security review (self-conducted, not performed by an external firm) was carried out in May-June 2026. **Rating: A-**. An independent external audit is still pending and is required before any mainnet deployment of the HTLC.
 
 | Severity | Findings | Status |
 |----------|----------|--------|
