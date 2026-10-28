@@ -4,7 +4,7 @@
 
 [![License: BUSL-1.1](https://img.shields.io/badge/License-BUSL--1.1-blue.svg)](LICENSE)
 [![Solidity](https://img.shields.io/badge/Solidity-0.8.24-lightgrey)](https://soliditylang.org)
-[![Tests](https://img.shields.io/badge/Tests-119%20passing-brightgreen)](#testing)
+[![Tests](https://img.shields.io/badge/Tests-247%20passing-brightgreen)](#testing)
 
 ---
 
@@ -28,6 +28,7 @@ No bridge. No wrapped tokens. No custodian. Not even us.
 | `ZenthisToken.sol` | ERC-20 with staking, ETH fee distribution, ERC20Votes, ERC20Permit |
 | `ZenthisHTLC.sol` | Cross-chain atomic swap engine (ETH + ERC-20, protocol fees) |
 | `ZenthisVesting.sol` | Multi-schedule linear vesting with cliff and TGE unlock |
+| `ZenthisPresale.sol` | ETH presale with whitelist phases and bonus pool (deployed on Base, not yet funded/launched) |
 
 **License:** [BUSL-1.1](LICENSE) — commercial use restricted until 2030-05-07, then GPL-2.0-or-later.
 
@@ -63,33 +64,49 @@ cp .env.example .env   # fill in your keys
 
 ```bash
 npx hardhat test
-# 119 tests passing
+# 247 tests passing (unit, fuzz, invariant, two-chain atomic swap simulation, LP bot)
 ```
 
-### Deploy (Sepolia testnet)
+### Deploy
 
 ```bash
-npx hardhat run scripts/deploy.js --network sepolia
+# Single-chain HTLC deploy (sets fee to 0.20 % and verifies on the explorer)
+npx hardhat run scripts/deploy-htlc-only.js --network baseSepolia
+npx hardhat run scripts/deploy-htlc-only.js --network arbitrumSepolia
+# Other networks: ethereum, arbitrum, polygon, bsc, avalanche, base
 ```
 
-### Deploy (Mainnet)
+Deployment records live in `deployments/`. Safe (multisig) and ownership helpers are in `scripts/ops/`.
 
-```bash
-npx hardhat run scripts/deploy.js --network mainnet
-```
+---
+
+## Atomic swap testnet
+
+`ZenthisHTLC` is deployed and verified on:
+
+| Network | Address |
+|---------|---------|
+| Base Sepolia | [`0x3c0328eb23E76B35aaCA9DE1BC98bDcfd53547eB`](https://sepolia.basescan.org/address/0x3c0328eb23E76B35aaCA9DE1BC98bDcfd53547eB#code) |
+| Arbitrum Sepolia | [`0x3c0328eb23E76B35aaCA9DE1BC98bDcfd53547eB`](https://sepolia.arbiscan.io/address/0x3c0328eb23E76B35aaCA9DE1BC98bDcfd53547eB#code) |
+
+Native ETH swaps between the two work end to end (user locks on A, LP locks on B, user redeems revealing the secret, LP redeems on A).
+
+- **UI:** open `/app.html?testnet=1`. "My swaps" shows stored swaps, lets you claim on the destination chain or refund after expiry, and exports a backup of the swap secrets.
+- **LP bot:** see [`lp-bot/README.md`](lp-bot/README.md). Run `node lp-bot/e2e-testnet.js` for a scripted end-to-end swap.
+- **Bridge test ETH:** `scripts/bridge-sepolia.js` moves Sepolia ETH to Base / Arbitrum Sepolia via the official bridges.
+
+Rule enforced by the bot and UI: the initiator's timelock must outlive the counterparty's (UI uses 2 h, LP uses TA - 1 h).
 
 ---
 
 ## Security
 
-- Contracts are deployed on **Sepolia testnet** — audit in progress before mainnet
-- 119 unit tests across all core contracts
+- `ZenthisHTLC` is on **Base Sepolia / Arbitrum Sepolia** testnets; token and presale are on Base mainnet
+- 247 tests across all core contracts
 - ReentrancyGuard on all state-changing functions
 - Pausable (HTLC) for emergency response
 
-> ✅ **Audited.** Security audit completed 2026-06-05. [View report](./audits/Certik_Style_Audit_Zenthis_Protocol.md).
-
-> **Rating: B+** (A- with single High finding fixed). No critical vulnerabilities. All findings remediated.
+> **Internal security audit** completed 2026-06-05 (see `audit/`). All findings remediated. An **external audit is still pending** and is required before any mainnet HTLC deployment.
 
 ---
 
@@ -97,8 +114,7 @@ npx hardhat run scripts/deploy.js --network mainnet
 
 - Website: [zenthisprotocol.xyz](https://zenthisprotocol.xyz)
 - Whitepaper: [zenthisprotocol.xyz/whitepaper](https://zenthisprotocol.xyz/whitepaper)
-- Testnet app: [zenthisprotocol.xyz/app](https://zenthisprotocol.xyz/app)
-- Airdrop / Whitelist: [zenthisprotocol.xyz/airdrop](https://zenthisprotocol.xyz/airdrop)
+- Testnet app: [zenthisprotocol.xyz/app?testnet=1](https://zenthisprotocol.xyz/app?testnet=1)
 - Twitter: [@zenthis_io](https://twitter.com/zenthis_io)
 
 ---

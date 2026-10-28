@@ -1,78 +1,64 @@
 # Zenthis Protocol — Roadmap
 
-**Last updated: 2026-05-21**
+**Last updated: 2026-10-28**
+
+Focus: **trustless cross-chain atomic swaps** (HTLC). Token and presale are secondary and paused.
 
 ---
 
 ## ✅ Completed
 
-### Phase 1 — Core Development (Q2 2026)
-- [x] `ZenthisToken` — ERC-20 with staking, ETH fee distribution, burn, ERC20Permit, ERC20Votes
-- [x] `ZenthisHTLC` — Hash Time-Locked Contracts for ETH + ERC-20 atomic swaps (SHA-256)
-- [x] `ZenthisVesting` — 7-schedule linear vesting with cliffs, TGE, cancel/rescue
-- [x] 153 unit tests (100% passing)
-- [x] 34 integration tests (100% passing)
-- [x] CI/CD — GitHub Actions (lint + test + gas report on push/PR)
+### Core
+- [x] `ZenthisHTLC` (ETH + ERC-20, SHA-256 hashlock, protocol fee, pause)
+- [x] `ZenthisToken`, `ZenthisVesting`, `ZenthisPresale`
+- [x] 247 tests: unit, fuzz, invariant, two-chain swap simulation, LP bot
+- [x] CI (lint + tests), internal security audit (A-), whitepaper, landing page
 
-### Phase 2 — Testnet & Security (Q2 2026)
-- [x] Deploy to Sepolia testnet (3 contracts + 7 vesting schedules)
-- [x] Etherscan Sepolia verification (all 3 contracts)
-- [x] Internal security audit (Rating A-)
-- [x] Audit fixes applied — no critical/high issues remain
-- [x] Technical whitepaper v1.0
-- [x] Landing page (zenthisprotocol.xyz)
-- [x] Deploy scripts + local testnet tooling
-- [x] `.env.example`, `.gitignore`, `.prettierrc`
+### Atomic swap MVP (Oct 2026)
+- [x] UI fixes: sha256 hashlock, LP recipient, secret persisted before sending
+- [x] `ZenthisHTLC` deployed and verified on Base Sepolia and Arbitrum Sepolia
+- [x] LP bot (`lp-bot/`) with exposure caps and restart-safe state
+- [x] End-to-end ETH swap Base Sepolia to Arbitrum Sepolia completed on real testnets
+- [x] "My swaps" panel: claim, refund, secret backup
+- [x] Testnet mode in the UI (`/app.html?testnet=1`)
 
----
-
-## 🔜 In Progress
-
-### Phase 3 — External Audit (Q2 2026)
-- [ ] Submit to CertiK or Trail of Bits
-- [ ] Resolve any findings
-- [ ] Publish audit report publicly
-
-### Phase 4 — Launch (Q2-Q3 2026)
-- [ ] Mainnet deploy (Ethereum)
-- [ ] Set up Gnosis Safe multi-sig for owner/admin keys
-- [ ] Timelock controller for admin functions
-- [ ] Mainnet Etherscan verification + Sourcify
-- [ ] Token Generation Event (TGE)
-- [ ] Add liquidity to DEX (Uniswap V3)
-- [ ] CoinGecko / CoinMarketCap listing
-- [ ] Public vesting dashboard
+### Base mainnet (paused)
+- [x] ZTS token (100 M) owned by a 2-of-2 Safe
+- [x] `ZenthisPresale` deployed, 20.3 M ZTS deposited, nothing raised (never launched)
 
 ---
 
-## 📅 Planned (Post-Launch)
+## 🔜 Next
 
-### Phase 5 — Ecosystem Growth (Q3-Q4 2026)
-- [ ] Bug bounty program (Immunefi)
-- [ ] The Graph subgraph for on-chain data indexing
-- [ ] Dune Analytics dashboard
-- [ ] Governance framework (DAO)
-- [ ] Telegram Mini App v2
-- [ ] Mobile dApp (React Native / PWA)
-- [ ] Rate limiting & DDoS protection for API endpoints
+### Swap hardening (before mainnet)
+- [ ] Soak the LP bot on testnet (multiple swaps, restarts, RPC failures)
+- [ ] Alerts for the bot (missed redeem window, low balance)
+- [ ] ERC-20 swaps in UI and bot
+- [ ] Hosted LP quote API (spread, limits) instead of constants in `config.js`
+- [ ] External audit of `ZenthisHTLC` (356 lines)
+- [ ] Safe multisig as owner of the HTLC; cap per swap on mainnet launch
+- [ ] Fund the deployer / LP with real ETH and deploy HTLC on Base and Arbitrum
 
-### Phase 6 — Cross-Chain Expansion (Q4 2026+)
-- [ ] HTLC counterparty contracts on Bitcoin (Taproot)
-- [ ] Solana / Polygon / Arbitrum deployments
-- [ ] Cross-chain liquidity aggregator
-- [ ] MEV protection for atomic swaps
+### Presale (when relaunching)
+- [ ] Close the current presale (`markFailed()`, needs mainnet gas on the deployer)
+- [ ] Fresh presale deployment once swaps are live
 
 ---
 
-## 📊 Key Metrics
+## 📅 Later
+
+- [ ] Order book / multiple LPs
+- [ ] Bitcoin (Taproot) HTLC counterparty
+- [ ] Solana / Polygon / Avalanche deployments
+- [ ] Bug bounty, subgraph, public dashboard
+
+---
+
+## 📊 Key metrics
 
 | Metric | Value |
 |--------|-------|
-| Smart contracts | 3 |
-| Total lines of Solidity | 656 |
-| Unit tests | 153 |
-| Integration tests | 34 |
-| Test coverage | >90% |
-| Audit rating | A- (internal) |
-| Deployed networks | Sepolia testnet |
-| GitHub Actions | 2 workflows |
+| Contracts | 4 (HTLC, Token, Vesting, Presale) |
+| Tests | 247 passing |
+| HTLC testnets | Base Sepolia, Arbitrum Sepolia |
+| Audit | internal (A-), external pending |

@@ -2,11 +2,15 @@
 
 // ZenthisHTLC address per chain key (see CHAINS in app.js).
 export const HTLC_ADDRESSES = {
-  ETH: '', ARB: '', POL: '', BNB: '', AVAX: '', BASE: ''
+  ETH: '', ARB: '', POL: '', BNB: '', AVAX: '', BASE: '',
+  // Testnets (open /app.html?testnet=1)
+  BASE_SEP: '0x3c0328eb23E76B35aaCA9DE1BC98bDcfd53547eB',
+  ARB_SEP: '0x3c0328eb23E76B35aaCA9DE1BC98bDcfd53547eB'
 };
 
 // Liquidity provider that locks the counter-leg on the destination chain.
 export const LP_ADDRESS = '';
+export const LP_ADDRESS_TESTNET = '0xb8420eB9c1611D630022b7692181d4325EE0eDfA';
 
 // Minimal ABI used by the swap flow and the "My swaps" panel.
 export const HTLC_ABI = [
@@ -25,7 +29,9 @@ export const CHAIN_INFO = {
   POL:  { id: 137,   label: 'Polygon' },
   BNB:  { id: 56,    label: 'BNB Chain' },
   AVAX: { id: 43114, label: 'Avalanche' },
-  BASE: { id: 8453,  label: 'Base' }
+  BASE: { id: 8453,  label: 'Base' },
+  BASE_SEP: { id: 84532,  label: 'Base Sepolia' },
+  ARB_SEP:  { id: 421614, label: 'Arbitrum Sepolia' }
 };
 
 export const SWAP_STORE_KEY = 'zenthis_swaps';

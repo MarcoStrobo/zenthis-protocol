@@ -3,7 +3,7 @@
    ─────────────────────────────────────────────────────────────── */
 
 import { ethers } from 'https://cdn.jsdelivr.net/npm/ethers@6.13.5/dist/ethers.min.js';
-import { HTLC_ADDRESSES, LP_ADDRESS, HTLC_ABI, SWAP_STORE_KEY } from './config.js';
+import { HTLC_ADDRESSES, LP_ADDRESS, LP_ADDRESS_TESTNET, HTLC_ABI, SWAP_STORE_KEY } from './config.js';
 import { initMySwaps, refreshMySwaps } from './myswaps.js';
 
 /* ─── Chain / token data ─── */
@@ -50,6 +50,18 @@ const TOKENS = {
   ],
 };
 
+/* ─── Testnet mode: /app.html?testnet=1 ─── */
+const TESTNET = new URLSearchParams(location.search).has('testnet');
+if (TESTNET) {
+  CHAINS.length = 0;
+  CHAINS.push(
+    { id: '0x14a34', decimal: 84532,  key: 'BASE_SEP', label: 'Base Sepolia',     color: '#0052ff' },
+    { id: '0x66eee', decimal: 421614, key: 'ARB_SEP',  label: 'Arbitrum Sepolia', color: '#28a0f0' }
+  );
+  TOKENS.BASE_SEP = [{ sym: 'ETH', name: 'Sepolia Ether', cg: 'ethereum', dec: 18, logo: '🔷' }];
+  TOKENS.ARB_SEP  = [{ sym: 'ETH', name: 'Sepolia Ether', cg: 'ethereum', dec: 18, logo: '🔷' }];
+}
+
 const TICKER_TOKENS = ['ethereum','usd-coin','tether','wrapped-bitcoin','arbitrum','matic-network','binancecoin','avalanche-2'];
 
 /* ─── State ─── */
@@ -59,9 +71,9 @@ let walletBalances = {};  // { chain-key: { token-sym: amount } }
 let slippage = 0.5;
 
 let fromChain = CHAINS[0];          // Ethereum
-let fromToken = TOKENS.ETH[0];      // ETH
+let fromToken = TOKENS[fromChain.key][0];
 let toChain   = CHAINS[1];          // Arbitrum
-let toToken   = TOKENS.ARB[1];      // USDC
+let toToken   = TESTNET ? TOKENS[toChain.key][0] : TOKENS.ARB[1];      // USDC
 
 let assetTarget = 'from'; // which side is the modal opening for
 
@@ -468,7 +480,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         swapBtn.disabled = false;
         return;
       }
-      if (!ethers.isAddress(LP_ADDRESS)) {
+      const lpAddr = TESTNET ? LP_ADDRESS_TESTNET : LP_ADDRESS;
+      if (!ethers.isAddress(lpAddr)) {
         swapBtn.textContent = 'No liquidity provider configured yet';
         swapBtn.disabled = false;
         return;
@@ -499,10 +512,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         return;
       }
       
-      if (fromToken.sym === 'ETH' && fromChain.key === 'ETH') {
+      if (fromToken.sym === 'ETH') {
         // Native ETH swap
         const tx = await htlc.newSwap(
-          LP_ADDRESS,
+          lpAddr,
           hashlock,
           timelock,
           { value: ethers.parseEther(String(amt)) }
@@ -541,6 +554,10 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   /* ─── Init ─── */
+  if (TESTNET) {
+    const badge = document.querySelector('.app-network-badge');
+    if (badge) badge.lastChild.textContent = ' Testnet';
+  }
   initMySwaps(() => walletAddress);
   updatePanelUI();
   checkExistingWallet();
