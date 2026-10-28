@@ -23,6 +23,8 @@ const DEFAULTS = {
   minAmount: 0n, // wei, net amount locked on A
   maxAmount: 10n ** 18n, // 1 ETH
   maxOpenExposure: 5n * 10n ** 18n, // sum of B-side amounts currently locked
+  maxOpenPerInitiator: 2n * 10n ** 17n, // wei per initiator address (limits capital-lock griefing)
+  reconcileGrace: 600, // seconds before an unconfirmed B lock is declared failed
   safetyMargin: 60 * 60 * SECONDS, // TA - TB
   minRemainingA: 90 * 60 * SECONDS, // required (TA - now) to accept a swap
   confirmations: 2, // blocks to wait on chain A before acting
@@ -72,10 +74,11 @@ class LpBot {
     const b = await contract.runner.provider.getBlock("latest");
     return b.timestamp;
   }
-  _openExposure() {
+  _openExposure(initiator = null) {
     return Object.values(this.s.swaps)
-      .filter((x) => x.status === "locked")
-      .reduce((a, x) => a + BigInt(x.amountB), 0n);
+      .filter((x) => ["locked", "locking", "uncertain"].includes(x.status))
+      .filter((x) => !initiator || x.initiator.toLowerCase() === initiator.toLowerCase())
+      .reduce((a, x) => a + BigInt(x.amountB || 0), 0n);
   }
 
   /** Price quote: what the bot sends on B for `netA` received on A. */
@@ -92,6 +95,8 @@ class LpBot {
     if (this._openExposure() + this.quote(amount) > this.cfg.maxOpenExposure)
       return "exposure limit reached";
     if (this.s.hashlocks.includes(hashlock)) return "hashlock reused";
+    if (this._openExposure(initiator) + this.quote(amount) > this.cfg.maxOpenPerInitiator)
+      return "initiator exposure limit reached";
     if (BigInt(timelock) - BigInt(nowA) < BigInt(this.cfg.minRemainingA))
       return "timelock too close to expiry";
     return null;
@@ -211,36 +216,109 @@ class LpBot {
 
     const amountB = this.quote(ev.args.amount);
     const timelockB = rec.timelockA - this.cfg.safetyMargin;
+
+    // Write-ahead: persist the intent BEFORE sending funds. If the process dies or the RPC
+    // answers ambiguously after broadcast, the swap is reconciled from chain data instead of
+    // being re-locked (a second lock with the same hashlock would be redeemable twice).
+    rec.status = "locking";
+    rec.amountB = amountB.toString();
+    rec.timelockB = timelockB;
+    rec.lockingAt = Math.floor(Date.now() / 1000);
+    rec.blockHintB = await this.B.runner.provider.getBlockNumber();
+    this._save();
+
+    let tx;
     try {
-      const tx = await this.B.newSwap(rec.initiator, rec.hashlock, timelockB, { value: amountB });
-      const rc = await tx.wait();
-      const created = rc.logs
-        .map((l) => {
-          try {
-            return this.B.interface.parseLog(l);
-          } catch {
-            return null;
-          }
-        })
-        .find((e) => e && e.name === "SwapCreated");
-      rec.idB = created.args.swapId;
-      rec.blockB = rc.blockNumber;
-      rec.amountB = amountB.toString();
-      rec.timelockB = timelockB;
-      rec.status = "locked";
+      tx = await this.B.newSwap(rec.initiator, rec.hashlock, timelockB, { value: amountB });
+    } catch (e) {
+      const text = `${e.message} ${e.shortMessage || ""} ${e.info?.error?.message || ""}`;
+      // Definitive = rejected before broadcast (revert on gas estimation, no funds). Anything
+      // else (timeouts, "could not coalesce error", ...) may have reached the network.
+      const definitive =
+        ["CALL_EXCEPTION", "INSUFFICIENT_FUNDS", "ACTION_REJECTED"].includes(e.code) ||
+        /revert|insufficient funds/i.test(text);
+      if (definitive) {
+        rec.status = "failed";
+        rec.reason = `lock on B failed: ${e.shortMessage || e.message}`;
+        this.log(`[fail] ${idA} ${rec.reason}`);
+        this.alert(`Could not lock on B for swap ${idA}: ${rec.reason}`);
+      } else {
+        rec.status = "uncertain";
+        this.log(`[uncertain] ${idA} send error: ${e.shortMessage || e.message}`);
+      }
+      return this._save();
+    }
+    rec.txB = tx.hash;
+    this._save();
+    try {
+      this._adoptLock(rec, await tx.wait());
       this.log(`[locked] A:${idA} -> B:${rec.idB} amountB=${amountB}`);
     } catch (e) {
-      rec.status = "failed";
-      rec.reason = `lock on B failed: ${e.shortMessage || e.message}`;
-      this.log(`[fail] ${idA} ${rec.reason}`);
-      this.alert(`Could not lock on B for swap ${idA}: ${rec.reason}`);
+      rec.status = "uncertain"; // may or may not be mined: reconcile on the next ticks
+      this.log(`[uncertain] ${idA} wait error: ${e.shortMessage || e.message}`);
     }
     this._save();
+  }
+
+  _adoptLock(rec, receipt) {
+    const created = receipt.logs
+      .map((l) => {
+        try {
+          return this.B.interface.parseLog(l);
+        } catch {
+          return null;
+        }
+      })
+      .find((e) => e && e.name === "SwapCreated");
+    if (!created) throw new Error("no SwapCreated in receipt");
+    rec.idB = created.args.swapId;
+    rec.blockB = receipt.blockNumber;
+    rec.status = "locked";
+  }
+
+  /** Resolve 'locking' / 'uncertain' swaps from chain data. Never re-sends a lock. */
+  async _reconcile(rec) {
+    const provider = this.B.runner.provider;
+    if (rec.txB) {
+      const receipt = await provider.getTransactionReceipt(rec.txB);
+      if (receipt) {
+        if (receipt.status === 1) {
+          this._adoptLock(rec, receipt);
+          this.log(`[reconciled] A:${rec.idA} -> B:${rec.idB}`);
+        } else {
+          rec.status = "failed";
+          rec.reason = "lock tx reverted on B";
+        }
+        return;
+      }
+    }
+    const latest = await provider.getBlockNumber();
+    const lpAddr = await this.B.runner.getAddress();
+    const evs = await this._logs(
+      this.B,
+      this.B.filters.SwapCreated(null, lpAddr, rec.initiator),
+      rec.blockHintB || 0,
+      latest,
+    );
+    const found = evs.find((e) => e.args.hashlock === rec.hashlock);
+    if (found) {
+      rec.idB = found.args.swapId;
+      rec.blockB = found.blockNumber;
+      rec.status = "locked";
+      this.log(`[reconciled] A:${rec.idA} -> B:${rec.idB}`);
+      return;
+    }
+    if (Math.floor(Date.now() / 1000) - rec.lockingAt > this.cfg.reconcileGrace) {
+      rec.status = "failed";
+      rec.reason = "lock on B not found after grace period";
+      this.alert(`Lock on B for swap ${rec.idA} never confirmed; marked failed (verify manually)`);
+    }
   }
 
   async _progressSwaps() {
     for (const rec of Object.values(this.s.swaps)) {
       try {
+        if (rec.status === "locking" || rec.status === "uncertain") await this._reconcile(rec);
         if (rec.status === "locked") await this._progressLocked(rec);
         else if (rec.status === "revealed") await this._redeemOnA(rec);
       } catch (e) {

@@ -106,7 +106,7 @@ Rule enforced by the bot and UI: the initiator's timelock must outlive the count
 - ReentrancyGuard on all state-changing functions
 - Pausable (HTLC) for emergency response
 
-> **Internal security review** (self-conducted; not performed or endorsed by any external firm) completed 2026-06-05 (see `audit/`). All findings remediated. An **external audit is still pending** and is required before any mainnet HTLC deployment.
+> **Security reviews:** a self-conducted internal review (June 2026) and an AI-assisted review (Claude, 2026-10-28) with proof-of-concept tests: [`audit/AI_Assisted_Security_Review_2026-10-28.md`](audit/AI_Assisted_Security_Review_2026-10-28.md). Neither is an independent audit and neither was performed or endorsed by any external firm. An external audit is still pending and required before any mainnet HTLC deployment.
 
 ---
 

@@ -18,7 +18,7 @@ describe("LpBot — atomic swap liquidity provider", () => {
       htlcB: htlcB.connect(lp),
       lpAddress: lp.address,
       state: store,
-      config: { confirmations: 0, ...cfg },
+      config: { confirmations: 0, maxOpenPerInitiator: ethers.parseEther("100"), ...cfg },
       log: () => {},
     });
 
@@ -179,5 +179,62 @@ describe("LpBot — atomic swap liquidity provider", () => {
     );
     expect(store.load().swaps[idA].status).to.equal("completed");
     expect((await htlcA.getSwap(idA)).status).to.equal(2n);
+  });
+
+  it("caps open exposure per initiator (capital-lock griefing)", async () => {
+    bot = mkBot({ maxOpenPerInitiator: ethers.parseEther("1") });
+    const first = await aliceLocksOnA({ value: ethers.parseEther("0.6") });
+    const second = await aliceLocksOnA({
+      value: ethers.parseEther("0.6"),
+      hl: ethers.sha256("0x" + "33".repeat(32)),
+    });
+    await bot.tick();
+    expect(store.load().swaps[first].status).to.equal("locked");
+    expect(store.load().swaps[second].reason).to.equal("initiator exposure limit reached");
+  });
+
+  it("ambiguous RPC after broadcast: reconciles from chain, never double-locks", async () => {
+    // The lock tx is broadcast and mined, but the RPC errors while waiting for the receipt.
+    const real = htlcB.connect(lp);
+    const flaky = new Proxy(real, {
+      get(t, p) {
+        const v = Reflect.get(t, p, t);
+        if (p === "newSwap") {
+          return async (...args) => {
+            const tx = await t.newSwap(...args);
+            return {
+              hash: tx.hash,
+              wait: async () => {
+                throw new Error("could not coalesce error");
+              },
+            };
+          };
+        }
+        return typeof v === "function" ? v.bind(t) : v;
+      },
+    });
+    bot = new LpBot({
+      htlcA: htlcA.connect(lp),
+      htlcB: flaky,
+      lpAddress: lp.address,
+      state: store,
+      config: { confirmations: 0, maxOpenPerInitiator: ethers.parseEther("100") },
+      log: () => {},
+    });
+
+    const idA = await aliceLocksOnA();
+    await bot.tick(); // lock mined, receipt lookup "failed" -> uncertain, then reconciled in the same tick
+    expect(store.load().swaps[idA].status).to.equal("locked");
+
+    await bot.tick();
+    await bot.tick();
+    const created = await htlcB.queryFilter(
+      htlcB.filters.SwapCreated(null, lp.address, alice.address),
+    );
+    expect(created.length).to.equal(1); // exactly one lock on B
+
+    await htlcB.connect(deployer).redeem(store.load().swaps[idA].idB, preimage);
+    await bot.tick();
+    expect(store.load().swaps[idA].status).to.equal("completed");
   });
 });

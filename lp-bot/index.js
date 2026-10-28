@@ -27,7 +27,12 @@ function need(name) {
 function fileState(file) {
   return {
     load: () => (fs.existsSync(file) ? JSON.parse(fs.readFileSync(file, "utf8")) : {}),
-    save: (d) => fs.writeFileSync(file, JSON.stringify(d, null, 2)),
+    // Atomic write: a crash mid-write must never leave a truncated state file.
+    save: (d) => {
+      const tmp = `${file}.tmp`;
+      fs.writeFileSync(tmp, JSON.stringify(d, null, 2));
+      fs.renameSync(tmp, file);
+    },
   };
 }
 

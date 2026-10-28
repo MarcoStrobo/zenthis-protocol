@@ -12,7 +12,7 @@ Focus: **trustless cross-chain atomic swaps** (HTLC). Token and presale are seco
 - [x] `ZenthisHTLC` (ETH + ERC-20, SHA-256 hashlock, protocol fee, pause)
 - [x] `ZenthisToken`, `ZenthisVesting`, `ZenthisPresale`
 - [x] 247 tests: unit, fuzz, invariant, two-chain swap simulation, LP bot
-- [x] CI (lint + tests), internal security audit (A-), whitepaper, landing page
+- [x] CI (lint + tests), internal reviews (June and Oct 2026, the latter AI-assisted with PoCs), whitepaper, landing page
 
 ### Atomic swap MVP (Oct 2026)
 - [x] UI fixes: sha256 hashlock, LP recipient, secret persisted before sending
@@ -35,7 +35,10 @@ Focus: **trustless cross-chain atomic swaps** (HTLC). Token and presale are seco
 - [ ] Alerts for the bot (missed redeem window, low balance)
 - [ ] ERC-20 swaps in UI and bot
 - [ ] Hosted LP quote API (spread, limits) instead of constants in `config.js`
-- [ ] External audit of `ZenthisHTLC` (356 lines)
+- [ ] Rotate the SendGrid key and deploy the new Firestore rules (audit OPS-01, OPS-02)
+- [ ] Move the ZTS supply off the deployer EOA (audit OPS-03)
+- [ ] HTLC v2: `maxFeeBps`, balance-delta check, pull-based refund, `Ownable2Step` (audit HTLC-01..03)
+- [ ] External audit of `ZenthisHTLC` (356 lines), the LP bot and the relay
 - [ ] Safe multisig as owner of the HTLC; cap per swap on mainnet launch
 - [ ] Fund the deployer / LP with real ETH and deploy HTLC on Base and Arbitrum
 
@@ -58,6 +61,6 @@ Focus: **trustless cross-chain atomic swaps** (HTLC). Token and presale are seco
 | Metric | Value |
 |--------|-------|
 | Contracts | 4 (HTLC, Token, Vesting, Presale) |
-| Tests | 247 passing |
+| Tests | 258 passing |
 | HTLC testnets | Base Sepolia, Arbitrum Sepolia |
-| Audit | internal (A-), external pending |
+| Reviews | internal (Jun 2026) + AI-assisted (Oct 2026); external audit pending |

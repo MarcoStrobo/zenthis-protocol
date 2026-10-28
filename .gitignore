@@ -74,3 +74,7 @@ Thumbs.db
 desktop.ini
 lp-bot/state.json
 lp-bot/state-reverse.json
+
+# Extension secrets (never commit; contains SMTP credentials)
+extensions/*.env
+!extensions/*.env.example

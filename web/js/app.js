@@ -2,7 +2,7 @@
    Zenthis App — Cross-Chain Swap Logic
    ─────────────────────────────────────────────────────────────── */
 
-import { ethers } from 'https://cdn.jsdelivr.net/npm/ethers@6.13.5/dist/ethers.min.js';
+import { ethers } from './vendor/ethers.min.js';
 import { HTLC_ADDRESSES, LP_ADDRESS, LP_ADDRESS_TESTNET, HTLC_ABI, SWAP_STORE_KEY } from './config.js';
 import { initMySwaps, refreshMySwaps } from './myswaps.js';
 import {
