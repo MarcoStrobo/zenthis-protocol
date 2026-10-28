@@ -32,14 +32,20 @@ document.querySelectorAll('.nav-drop-menu a').forEach(a => {
 /* ─── HAMBURGER ─── */
 const hamburger = document.getElementById('hamburger');
 const mobileMenu = document.getElementById('mobileMenu');
-hamburger.addEventListener('click', () => {
-  mobileMenu.classList.toggle('open');
-});
-mobileMenu.querySelectorAll('a').forEach(a => {
-  a.addEventListener('click', () => mobileMenu.classList.remove('open'));
-});
+if (hamburger && mobileMenu) {
+  hamburger.addEventListener('click', () => {
+    mobileMenu.classList.toggle('open');
+  });
+  mobileMenu.querySelectorAll('a').forEach(a => {
+    a.addEventListener('click', function() {
+      mobileMenu.classList.remove('open');
+      /* close hamburger icon too if needed */
+    });
+  });
+}
 
 /* ─── HERO CANVAS — PARTICLE NETWORK ─── */
+try {
 (function () {
   const canvas = document.getElementById('heroCanvas');
   const ctx = canvas.getContext('2d');
@@ -115,7 +121,8 @@ mobileMenu.querySelectorAll('a').forEach(a => {
   window.addEventListener('resize', init);
 })();
 
-/* ─── COUNTER ANIMATION ─── */
+
+} catch(e) { console.warn("Hero canvas error:", e); }/* ─── COUNTER ANIMATION ─── */
 function animateCounter(el, target, duration = 1800) {
   const start = performance.now();
   function step(now) {
@@ -169,6 +176,7 @@ if (heroStats) {
 }
 
 /* ─── DONUT CHART ─── */
+try {
 (function () {
   const canvas = document.getElementById('donutChart');
   if (!canvas) return;
@@ -265,7 +273,9 @@ if (heroStats) {
   });
 })();
 
-/* ─── SWAP DEMO ─── */
+
+} catch(e) { console.warn("Donut chart error:", e); }/* ─── SWAP DEMO ─── */
+try {
 (function () {
   const PRICES = { ETH: 2803.55, USDC: 1, ARB: 1.12, WBTC: 63420, MATIC: 0.71, WETH: 2803.55, POL: 0.71 };
   const CHAINS  = {
@@ -414,7 +424,9 @@ if (heroStats) {
   updateSwap();
 })();
 
-/* ─── COUNTDOWN TIMER ─── */
+
+} catch(e) { console.warn("Swap demo error:", e); }/* ─── COUNTDOWN TIMER ─── */
+try {
 (function () {
   const TGE = new Date('2026-06-15T12:00:00Z').getTime();
 
@@ -452,7 +464,8 @@ if (heroStats) {
   setInterval(tick, 1000);
 })();
 
-/* ─── FAQ ACCORDION ─── */
+
+} catch(e) { console.warn("Countdown timer error:", e); }/* ─── FAQ ACCORDION ─── */
 document.querySelectorAll('.faq-question').forEach(btn => {
   btn.addEventListener('click', () => {
     const answer  = btn.nextElementSibling;

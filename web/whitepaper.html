@@ -12,7 +12,12 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Space+Grotesk:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="css/whitepaper.css" />
+  <link rel="stylesheet" href="css/whitepaper.css?v=4" />
+  <style>
+    /* ─── OVERRIDE POR CACHÉ ─── */
+    .nav-links, .nav-cta { display: none !important; }
+    .hamburger { display: flex !important; }
+  </style>
 </head>
 <body>
 
@@ -313,7 +318,11 @@
           </div>
         </div>
 
-        <h3 class="wp-h3" id="token-distribution">4.2 IDO Parameters &amp; Distribution</h3>
+        <h3 class="wp-h3" id="token-distribution">4.2 Presale, IDO &amp; Distribution</h3>
+
+        <div class="wp-callout callout-warning" style="margin-bottom:20px">
+          🛒 <strong>Phase 1 &amp; Phase 2 Presale:</strong> Active June 18 — July 2, 2026. Whitelist only. Purchase ZTS at the seed-equivalent price of <strong>$0.04 per token</strong> (60,000 ZTS/ETH). Two phases — Phase 1 (June 18–22) with full bonus tiers, Phase 2 (June 22–July 2) with 50% bonuses. Airdrop of 2,000 ZTS for qualifying contributors.
+        </div>
 
         <div class="wp-callout callout-info" style="margin-bottom:20px">
           🚀 <strong>The IDO will be conducted on <a href="https://pinksale.finance" target="_blank" rel="noopener" style="color:var(--purple-l)">PinkSale</a>.</strong> Whitelist members registered at zenthisprotocol.xyz receive guaranteed priority allocation before the public pool opens.
@@ -341,11 +350,11 @@
           </div>
           <div class="ido-metric">
             <span class="ido-metric-label">Mkt Cap at TGE</span>
-            <span class="ido-metric-value">~$950,000</span>
+            <span class="ido-metric-value">~$1,300,000</span>
           </div>
           <div class="ido-metric">
             <span class="ido-metric-label">Circulating at TGE</span>
-            <span class="ido-metric-value">~9,500,000 <small>(9.5%)</small></span>
+            <span class="ido-metric-value">~13,000,000 <small>(13%)</small></span>
           </div>
           <div class="ido-metric">
             <span class="ido-metric-label">Total Supply</span>
@@ -367,7 +376,7 @@
               <tr><td>Treasury &amp; Ecosystem</td><td>18,200,000</td><td>18.2%</td><td>—</td><td>11% (2M) ²</td><td>—</td><td>Multi-sig 3/5 · 48 months</td></tr>
               <tr><td>Founder Operations</td><td>1,800,000</td><td>1.8%</td><td>—</td><td>0%</td><td>—</td><td>Linear · 36 months (~50,000/mo) ³</td></tr>
               <tr><td>Community Airdrop</td><td>10,000,000</td><td>10%</td><td>—</td><td>50% (5M)</td><td>—</td><td>50% linear · 6 months</td></tr>
-              <tr class="total-row"><td><strong>Total</strong></td><td><strong>100,000,000</strong></td><td><strong>100%</strong></td><td>—</td><td><strong>9.5M (9.5%)</strong></td><td>—</td><td>—</td></tr>
+              <tr class="total-row"><td><strong>Total</strong></td><td><strong>100,000,000</strong></td><td><strong>100%</strong></td><td>—</td><td><strong>13M (13%)</strong></td><td>—</td><td>—</td></tr>
             </tbody>
           </table>
         </div>
@@ -376,7 +385,7 @@
           ² Treasury disbursements require 3-of-5 multi-sig approval (Gnosis Safe). Wallet address published at TGE.<br/>
           ³ Founder operational compensation: on-chain vesting schedule from the Treasury allocation, transparent and publicly auditable. Founder equity (10M Team tokens) remains fully locked with 12-month cliff.
         </div>
-        <p class="wp-caption" style="margin-top:12px;">Table 3 — Token distribution and vesting schedule. TGE date: TBA. Day-1 actual sell pressure: 9.5M tokens (9.5% of supply), down from 21.5% in the original design.</p>
+        <p class="wp-caption" style="margin-top:12px;">Table 3 — Token distribution and vesting schedule. TGE date: TBA. Day-1 actual sell pressure: 13M tokens (13% of supply), down from 21.5% in the original design.</p>
 
       </section>
 
@@ -413,7 +422,18 @@
         </div>
 
         <div class="wp-callout" style="margin-top:12px;background:rgba(124,58,237,.06);border-left-color:var(--purple)">
-          🔬 <strong>Sepolia Testnet Deployments</strong><br>
+          🔬 <strong>Base Mainnet (Live)</strong><br>
+          <span style="font-size:.85rem;color:var(--text-muted)">Deployed Jun 2026 · Network: Base (Coinbase L2)</span><br><br>
+          <span style="font-family:'Space Mono',monospace;font-size:.8rem">
+            ZenthisToken:<br>
+            <a href="https://basescan.org/address/0xCFAeB3678DbC479e26Fd87C2cA7eD0a264f1F6a6" target="_blank" rel="noopener" style="color:var(--purple-l)">0xCFAeB3678DbC479e26Fd87C2cA7eD0a264f1F6a6</a><br><br>
+            ZenthisPresale:<br>
+            <a href="https://basescan.org/address/0x50425684634F9AF37D1dE14Bb1140057C421b656" target="_blank" rel="noopener" style="color:var(--purple-l)">0x50425684634F9AF37D1dE14Bb1140057C421b656</a>
+          </span>
+          <span style="font-size:.75rem;color:var(--text-dim);display:block;margin-top:10px">Vesting + HTLC: testnet only · Mainnet deploy post-TGE</span>
+        </div>
+        <div class="wp-sidebar-box" style="border-left-color:var(--green)">
+          <strong>Sepolia Testnet (Archived)</strong><br>
           <span style="font-size:.85rem;color:var(--text-muted)">Deployed May 2026 · Network: Ethereum Sepolia</span><br><br>
           <span style="font-family:'Space Mono',monospace;font-size:.8rem">
             ZENTHIS (ERC-20):<br>

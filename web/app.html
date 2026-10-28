@@ -25,7 +25,7 @@
     <div class="app-header-center">
       <span class="app-network-badge">
         <span class="app-network-dot"></span>
-        Testnet
+        Mainnet
       </span>
     </div>
     <button class="app-connect-btn" id="connectBtn">
@@ -171,14 +171,14 @@
       <div class="route-bar">
         <span class="route-item"><span class="rdot rdot-green"></span>3–5s</span>
         <span class="route-sep">·</span>
-        <span class="route-item"><span class="rdot rdot-purple"></span>0.10% fee</span>
+        <span class="route-item"><span class="rdot rdot-purple"></span>0.20% fee</span>
         <span class="route-sep">·</span>
         <span class="route-item"><span class="rdot rdot-cyan"></span>No bridge</span>
       </div>
 
       <!-- Fee detail (visible when amount entered) -->
       <div class="fee-detail" id="feeDetail">
-        <div class="fee-row"><span>Protocol fee (0.10%)</span><span id="feeAmt">—</span></div>
+        <div class="fee-row"><span>Protocol fee (0.20%)</span><span id="feeAmt">—</span></div>
         <div class="fee-row"><span>Exchange rate</span><span id="swapRate">—</span></div>
         <div class="fee-row"><span>Settlement</span><span class="fee-green">3–5 seconds</span></div>
       </div>
@@ -193,34 +193,16 @@
     <!-- Pills -->
     <div class="app-pills">
       <span class="app-pill"><span class="pdot pdot-green"></span>3–5s avg</span>
-      <span class="app-pill"><span class="pdot pdot-purple"></span>0.10% fee</span>
-      <span class="app-pill"><span class="pdot pdot-cyan"></span>6 chains</span>
-      <span class="app-pill"><span class="pdot pdot-yellow"></span>Audit scheduled</span>
+      <span class="app-pill"><span class="pdot pdot-purple"></span>0.20% fee</span>
+      <span class="app-pill"><span class="pdot pdot-cyan"></span>7 chains</span>
+      <span class="app-pill"><span class="pdot pdot-green"></span>Audited (A-)</span>
     </div>
 
     <!-- Live price ticker -->
     <div class="price-ticker" id="priceTicker">Loading prices…</div>
   </main>
 
-  <!-- ─── LAUNCH GATE ─── -->
-  <div class="gate-overlay" id="gateOverlay">
-    <div class="gate-modal">
-      <div class="gate-hex">⬡</div>
-      <h2 class="gate-title">Mainnet launches<br /><span class="gate-grad">Date TBA</span></h2>
-      <p class="gate-sub">The swap engine is live on testnet. Mainnet opens on IDO day — whitelist members get priority access and 3× LP rewards.</p>
-      <div class="gate-cd" id="gateCd">
-        <div class="gate-cd-unit"><span id="gcd-d">--</span><small>Days</small></div>
-        <span class="gate-cd-sep">:</span>
-        <div class="gate-cd-unit"><span id="gcd-h">--</span><small>Hrs</small></div>
-        <span class="gate-cd-sep">:</span>
-        <div class="gate-cd-unit"><span id="gcd-m">--</span><small>Min</small></div>
-        <span class="gate-cd-sep">:</span>
-        <div class="gate-cd-unit"><span id="gcd-s">--</span><small>Sec</small></div>
-      </div>
-      <a href="/#waitlist" class="gate-btn">Join the Whitelist →</a>
-      <button class="gate-dismiss" id="gateClose">Continue exploring</button>
-    </div>
-  </div>
+
 
   <script type="module" src="js/app.js"></script>
   <script type="module">
