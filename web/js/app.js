@@ -463,10 +463,17 @@ document.addEventListener('DOMContentLoaded', async () => {
       const HTLC_ADDRESSES = {
         ETH: '', ARB: '', POL: '', BNB: '', AVAX: '', BASE: ''
       };
+      // Liquidity provider / relayer that locks the counter-leg on the destination chain.
+      const LP_ADDRESS = '';
       const htlcAddr = HTLC_ADDRESSES[fromChain.key];
       
       if (!htlcAddr) {
         swapBtn.textContent = 'HTLC not deployed on this chain yet';
+        swapBtn.disabled = false;
+        return;
+      }
+      if (!ethers.isAddress(LP_ADDRESS)) {
+        swapBtn.textContent = 'No liquidity provider configured yet';
         swapBtn.disabled = false;
         return;
       }
@@ -480,13 +487,26 @@ document.addEventListener('DOMContentLoaded', async () => {
       
       // Generate random preimage and hashlock
       const preimage = ethers.hexlify(ethers.randomBytes(32));
-      const hashlock = ethers.keccak256(preimage);
-      const timelock = Math.floor(Date.now() / 1000) + 600; // 10 min
+      // ZenthisHTLC verifies sha256(preimage) — NOT keccak256.
+      const hashlock = ethers.sha256(preimage);
+      // Initiator leg must outlive the counterparty leg (LP locks for 1h) — use 2h.
+      const timelock = Math.floor(Date.now() / 1000) + 2 * 3600;
+      // Persist the secret BEFORE sending the tx: losing it means funds wait for refund.
+      const pending = { preimage, hashlock, timelock, chain: fromChain.key, htlc: htlcAddr, createdAt: Date.now() };
+      try {
+        const store = JSON.parse(localStorage.getItem('zenthis_swaps') || '[]');
+        store.push(pending);
+        localStorage.setItem('zenthis_swaps', JSON.stringify(store));
+      } catch (e) {
+        swapBtn.textContent = 'Cannot save swap secret — aborted';
+        swapBtn.disabled = false;
+        return;
+      }
       
       if (fromToken.sym === 'ETH' && fromChain.key === 'ETH') {
         // Native ETH swap
         const tx = await htlc.newSwap(
-          walletAddress, // placeholder - should be LP/relayer address
+          LP_ADDRESS,
           hashlock,
           timelock,
           { value: ethers.parseEther(String(amt)) }
@@ -495,7 +515,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const receipt = await tx.wait();
         console.log('Swap created:', receipt);
         if (window._zlog) window._zlog('swap_created', { tx: receipt.hash });
-        swapBtn.textContent = '✅ Swap created! Preimage saved.';
+        swapBtn.textContent = '✅ Swap created. Secret stored in this browser.';
       } else {
         // ERC-20 swap (needs approval first)
         swapBtn.textContent = 'Token swaps coming soon — ETH available now';
