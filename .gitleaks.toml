@@ -1,0 +1,13 @@
+title = "zenthis gitleaks config"
+
+[extend]
+useDefault = true
+
+# Verified false positives: fake samples used by the scanner's own self-test, and the
+# vendored, hash-pinned ethers bundle (random-looking constants, no credentials).
+[allowlist]
+description = "verified false positives"
+paths = [
+  '''scripts/security/check-secrets\.js''',
+  '''web/js/vendor/ethers\.min\.js''',
+]
