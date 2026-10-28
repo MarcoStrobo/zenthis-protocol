@@ -175,14 +175,18 @@ export async function runSwap({ fromKey, toKey, amountEth, wallet, lpAddress, on
  * redeem the source lock while the user receives dust.
  */
 export function isGenuineLpLock(ev, rec) {
-  const a = ev.args;
+  return isGenuineLock(ev.args, rec, 600);
+}
+
+/** Same checks on any {hashlock, initiator, token, amount, timelock} (event args or getSwap result). */
+export function isGenuineLock(a, rec, minSecsLeft) {
   if (a.hashlock !== rec.hashlock) return false;
   const lps = rec.lp ? [rec.lp] : [LP_ADDRESS, LP_ADDRESS_TESTNET].filter(Boolean);
   if (!lps.some(x => x && x.toLowerCase() === a.initiator.toLowerCase())) return false;
   if (a.token !== ethers.ZeroAddress) return false;
   const minWei = rec.minRecvWei ? BigInt(rec.minRecvWei) : ethers.parseEther(String(rec.amount * 0.9));
   if (a.amount < minWei) return false;
-  if (Number(a.timelock) < Math.floor(Date.now() / 1000) + 600) return false; // needs >= 10 min left
+  if (Number(a.timelock) < Math.floor(Date.now() / 1000) + minSecsLeft) return false;
   return true;
 }
 
@@ -224,6 +228,14 @@ export async function waitAndClaim(rec, wallet, onStep, { waitMs = 10 * 60 * 100
     await ensureChain(toKey);
     const signer = await new ethers.BrowserProvider(window.ethereum).getSigner();
     const htlc = new ethers.Contract(HTLC_ADDRESSES[toKey], HTLC_ABI, signer);
+    // The network switch can take a while: re-validate the lock right before revealing the secret.
+    const fresh = await htlc.getSwap(lock.args.swapId);
+    if (Number(fresh.status) !== 1 || fresh.recipient.toLowerCase() !== wallet.toLowerCase()
+        || !isGenuineLock(fresh, rec, 120)) {
+      const err = new Error('The destination lock changed or is about to expire; the secret was NOT revealed. Your funds are safe: refund from "My swaps" after the timelock.');
+      err.code = 'LOCK_CHANGED';
+      throw err;
+    }
     const tx = await htlc.redeem(lock.args.swapId, rec.preimage);
     const rc = await tx.wait();
     updateSwap(rec.hashlock, { claimed: true, claimTx: rc.hash, status: 'done' });

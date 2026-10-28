@@ -266,4 +266,66 @@ describe("LpBot — atomic swap liquidity provider", () => {
     );
     expect(created.length).to.equal(2); // exactly one lock per swap
   });
+
+  it("LP-05: an ERC-20 swap addressed to the LP is never treated as native ETH", async () => {
+    // attacker: worthless token, "amount" 0.5e18 units. Without a token check the LP would lock ~0.5 ETH.
+    const junk = await (await ethers.getContractFactory("ZenthisToken")).deploy(deployer.address);
+    await junk.transfer(alice.address, ethers.parseEther("1"));
+    await junk.connect(alice).approve(await htlcA.getAddress(), ethers.parseEther("1"));
+    const now = await time.latest();
+    const rc = await (
+      await htlcA
+        .connect(alice)
+        .newSwapToken(
+          lp.address,
+          await junk.getAddress(),
+          ethers.parseEther("0.5"),
+          hashlock,
+          now + TA,
+        )
+    ).wait();
+    const idA = rc.logs
+      .map((l) => htlcA.interface.parseLog(l))
+      .find((e) => e?.name === "SwapCreated").args.swapId;
+    await bot.tick();
+    expect(store.load().swaps[idA].reason).to.equal("not native ETH");
+    const onB = await htlcB.queryFilter(htlcB.filters.SwapCreated(null, lp.address, alice.address));
+    expect(onB.length).to.equal(0); // nothing locked on B
+  });
+
+  it("LP-06: malformed relay messages cannot abort the tick; a valid claim after them still works", async () => {
+    let queue = [];
+    bot.relay = { claims: async () => queue.splice(0) };
+    const idA = await aliceLocksOnA();
+    await bot.tick();
+    const rec = store.load().swaps[idA];
+    queue = [
+      null,
+      "just a string",
+      { hashlock: 5, preimage: 7 },
+      { hashlock: rec.hashlock, preimage: "zzz" }, // not hex: sha256() would throw
+      { hashlock: rec.hashlock, preimage: "0x" + "g".repeat(64) },
+      { hashlock: rec.hashlock, preimage },
+    ];
+    await bot.tick(); // must not throw
+    expect(store.load().swaps[idA].status).to.equal("completed");
+  });
+
+  it("LP-07: a failing chain-A scan cannot starve redemptions of swaps that already hold funds", async () => {
+    const idA = await aliceLocksOnA();
+    await bot.tick();
+    const idB = store.load().swaps[idA].idB;
+    await htlcB.connect(deployer).redeem(idB, preimage); // user revealed the secret on B
+    bot._scanChainA = async () => {
+      throw new Error("rpc down");
+    };
+    let threw = false;
+    try {
+      await bot.tick();
+    } catch (e) {
+      threw = e.message.includes("rpc down"); // the failure is still reported...
+    }
+    expect(threw).to.equal(true);
+    expect(store.load().swaps[idA].status).to.equal("completed"); // ...but A was redeemed first
+  });
 });

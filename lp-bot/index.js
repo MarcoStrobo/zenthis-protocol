@@ -77,13 +77,14 @@ async function main() {
         const res = await fetch(`${relayUrl}/json?poll=1&since=${since}`);
         if (!res.ok) throw new Error(`relay HTTP ${res.status}`);
         const out = [];
-        for (const line of (await res.text()).split("\n").filter(Boolean)) {
-          const ev = JSON.parse(line);
-          if (ev.time) since = String(ev.time);
-          if (ev.event === "message") {
-            try {
-              out.push(JSON.parse(ev.message));
-            } catch {}
+        const lines = (await res.text()).split(/\r?\n/).filter(Boolean).slice(-500);
+        for (const line of lines) {
+          try {
+            const ev = JSON.parse(line);
+            if (ev.time) since = String(ev.time);
+            if (ev.event === "message") out.push(JSON.parse(ev.message));
+          } catch {
+            // ignore malformed lines: relay data is untrusted
           }
         }
         return out;
