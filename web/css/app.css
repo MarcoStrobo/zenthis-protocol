@@ -859,3 +859,18 @@ input[type=number] { -moz-appearance: textfield; }
 .myswap-empty { color: var(--muted); font-size: .85rem; }
 .myswap-msg { color: var(--yellow); font-size: .8rem; min-height: 1.2em; margin: 8px 0; }
 @media (max-width: 480px) { #mySwapsBtn { padding: 8px 10px; } }
+
+/* ─── Swap flow ─── */
+.lp-info { color: var(--muted); font-size: .75rem; margin: 6px 2px 0; min-height: 1em; }
+.swap-progress { margin-top: 14px; border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 12px; background: var(--card); }
+.swap-progress ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.swap-progress li { display: flex; align-items: center; gap: 10px; font-size: .85rem; color: var(--dim); }
+.swap-progress li::before { content: ''; width: 10px; height: 10px; border-radius: 50%; border: 2px solid var(--dim); flex: none; }
+.swap-progress li.active { color: var(--text); }
+.swap-progress li.active::before { border-color: var(--cyan); animation: swapPulse 1s infinite; }
+.swap-progress li.done { color: var(--green); }
+.swap-progress li.done::before { background: var(--green); border-color: var(--green); }
+.swap-progress li.error { color: #f87171; }
+.swap-progress li.error::before { background: #f87171; border-color: #f87171; }
+.swap-progress .progress-msg { margin: 10px 0 0; font-size: .8rem; color: var(--muted); word-break: break-word; }
+@keyframes swapPulse { 50% { opacity: .35; } }

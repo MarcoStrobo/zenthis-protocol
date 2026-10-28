@@ -73,3 +73,4 @@ web/
 Thumbs.db
 desktop.ini
 lp-bot/state.json
+lp-bot/state-reverse.json

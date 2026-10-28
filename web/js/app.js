@@ -5,6 +5,10 @@
 import { ethers } from 'https://cdn.jsdelivr.net/npm/ethers@6.13.5/dist/ethers.min.js';
 import { HTLC_ADDRESSES, LP_ADDRESS, LP_ADDRESS_TESTNET, HTLC_ABI, SWAP_STORE_KEY } from './config.js';
 import { initMySwaps, refreshMySwaps } from './myswaps.js';
+import {
+  runSwap, STEPS, quoteEthToEth, nativeBalance, lpLiquidity, routeSupported, validateAmount
+} from './swapflow.js';
+import { CHAIN_RPC, CHAIN_INFO } from './config.js';
 
 /* ─── Chain / token data ─── */
 const CHAINS = [
@@ -76,6 +80,13 @@ let toChain   = CHAINS[1];          // Arbitrum
 let toToken   = TESTNET ? TOKENS[toChain.key][0] : TOKENS.ARB[1];      // USDC
 
 let assetTarget = 'from'; // which side is the modal opening for
+let lpLiquidityEth = null; // LP balance on the destination chain (null = unknown)
+let quoteSeq = 0;
+let swapInFlight = false;
+
+const lpAddress = () => (TESTNET ? LP_ADDRESS_TESTNET : LP_ADDRESS);
+const isEthRoute = () => fromToken.sym === 'ETH' && toToken.sym === 'ETH' && fromChain.key !== toChain.key
+  && !!CHAIN_RPC[fromChain.key] && !!CHAIN_RPC[toChain.key];
 
 /* ─── DOM refs ─── */
 const $ = id => document.getElementById(id);
@@ -119,6 +130,8 @@ const feeDetail       = $('feeDetail');
 const feeAmt          = $('feeAmt');
 const swapRate        = $('swapRate');
 const swapWarn        = $('swapWarn');
+const lpInfo          = $('lpInfo');
+const swapProgress    = $('swapProgress');
 const priceTicker     = $('priceTicker');
 
 /* ═══════════════════════════════════════════════════════════════
@@ -185,6 +198,23 @@ function updateCalculation() {
     fromUSD.textContent = '—';
   }
 
+  if (isEthRoute() && amt > 0) {
+    const seq = ++quoteSeq;
+    quoteEthToEth(amt, fromChain.key, toChain.key).then(q => {
+      if (seq !== quoteSeq) return;
+      toAmount.textContent = q.recv.toLocaleString('en-US', { minimumFractionDigits: 4, maximumFractionDigits: 6 });
+      toUSD.textContent = tp ? `≈ $${(q.recv * tp).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '—';
+      feeAmt.textContent = `${(amt - q.recv).toLocaleString('en-US', { minimumFractionDigits: 6, maximumFractionDigits: 8 })} ETH (${q.totalPct.toFixed(2)}%)`;
+      swapRate.textContent = `1 ETH = ${(q.recv / amt).toLocaleString('en-US', { minimumFractionDigits: 4, maximumFractionDigits: 6 })} ETH`;
+      feeDetail.classList.add('visible');
+    });
+    const bal = walletBalances[fromChain.key]?.ETH ?? null;
+    swapWarn.style.display = bal !== null && amt > bal ? 'block' : 'none';
+    updateSwapBtn();
+    return;
+  }
+  quoteSeq++;
+
   if (!amt || amt <= 0 || !fp || !tp) {
     toAmount.textContent = '—';
     toUSD.textContent    = '—';
@@ -234,10 +264,64 @@ function updateSwapBtn() {
     swapBtn.textContent = `Insufficient ${fromToken.sym}`;
     swapBtn.disabled    = true;
     swapBtn.className   = 'swap-cta swap-cta-disabled';
+  } else if (!routeSupported(fromChain.key, toChain.key, fromToken.sym, toToken.sym, lpAddress())) {
+    swapBtn.textContent = 'Route not available yet';
+    swapBtn.disabled    = true;
+    swapBtn.className   = 'swap-cta swap-cta-disabled';
+  } else if (validateAmount(amt, lpLiquidityEth)) {
+    swapBtn.textContent = validateAmount(amt, lpLiquidityEth);
+    swapBtn.disabled    = true;
+    swapBtn.className   = 'swap-cta swap-cta-disabled';
   } else {
     swapBtn.textContent = `Swap ${fromToken.sym} → ${toToken.sym}`;
-    swapBtn.disabled    = false;
+    swapBtn.disabled    = swapInFlight;
     swapBtn.className   = 'swap-cta';
+  }
+}
+
+/* Balance of the selected source chain, read via public RPC (no wallet network dependency). */
+async function refreshBalance() {
+  if (!walletAddress || fromToken.sym !== 'ETH' || !CHAIN_RPC[fromChain.key]) { updateBalanceDisplay(); return; }
+  try {
+    const eth = await nativeBalance(fromChain.key, walletAddress);
+    if (!walletBalances[fromChain.key]) walletBalances[fromChain.key] = {};
+    walletBalances[fromChain.key].ETH = eth;
+  } catch (_) {}
+  updateBalanceDisplay();
+  updateCalculation();
+}
+
+/* LP liquidity on the destination chain. */
+async function refreshLpInfo() {
+  lpLiquidityEth = null;
+  lpInfo.textContent = '';
+  if (!isEthRoute() || !ethers.isAddress(lpAddress())) { updateSwapBtn(); return; }
+  try {
+    lpLiquidityEth = await lpLiquidity(toChain.key, lpAddress());
+    lpInfo.textContent = `Liquidity on ${CHAIN_INFO[toChain.key].label}: ${lpLiquidityEth.toFixed(4)} ETH`;
+  } catch (_) {}
+  updateSwapBtn();
+}
+
+/* Swap progress panel */
+function renderProgress(activeId, errMsg) {
+  const idx = STEPS.findIndex(s => s.id === activeId);
+  swapProgress.hidden = false;
+  swapProgress.replaceChildren();
+  const ol = document.createElement('ol');
+  STEPS.forEach((s, i) => {
+    const li = document.createElement('li');
+    li.textContent = s.label;
+    if (activeId === 'done' || i < idx) li.className = 'done';
+    else if (i === idx) li.className = errMsg ? 'error' : 'active';
+    ol.append(li);
+  });
+  swapProgress.append(ol);
+  if (errMsg) {
+    const p = document.createElement('p');
+    p.className = 'progress-msg';
+    p.textContent = errMsg;
+    swapProgress.append(p);
   }
 }
 
@@ -266,14 +350,8 @@ async function onWalletConnected(provider) {
   closeModal(walletOverlay);
   if (window._zlog) window._zlog('wallet_connected', { wallet: 'metamask' });
 
-  // Fetch ETH balance on current chain
-  try {
-    const bal = await provider.getBalance(walletAddress);
-    const eth = parseFloat(ethers.formatEther(bal));
-    if (!walletBalances[fromChain.key]) walletBalances[fromChain.key] = {};
-    walletBalances[fromChain.key][fromToken.sym === 'ETH' ? 'ETH' : fromToken.sym] = eth;
-    updateBalanceDisplay();
-  } catch (_) {}
+  await refreshBalance();
+  refreshLpInfo();
 
   updateSwapBtn();
 }
@@ -377,6 +455,8 @@ function selectToken(chainKey, sym) {
   closeModal(assetOverlay);
   updateCalculation();
   updateBalanceDisplay();
+  refreshBalance();
+  refreshLpInfo();
 }
 
 /* ═══════════════════════════════════════════════════════════════
@@ -400,6 +480,8 @@ function switchFromTo() {
   updatePanelUI();
   updateCalculation();
   updateBalanceDisplay();
+  refreshBalance();
+  refreshLpInfo();
 }
 
 /* ═══════════════════════════════════════════════════════════════
@@ -465,84 +547,33 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (!amt || amt <= 0) return;
     if (window._zlog) window._zlog('swap_attempted', { from: fromToken.sym, to: toToken.sym, amount: amt });
     
-    // Initiate HTLC atomic swap
+    const lp = lpAddress();
+    if (!routeSupported(fromChain.key, toChain.key, fromToken.sym, toToken.sym, lp)) return;
+    if (swapInFlight) return;
+
+    swapInFlight = true;
+    swapBtn.disabled = true;
+    let current = 'switch';
     try {
-      swapBtn.textContent = 'Locking funds…';
-      swapBtn.disabled = true;
-      
-      const provider = new ethers.BrowserProvider(window.ethereum);
-      const signer = await provider.getSigner();
-      
-      const htlcAddr = HTLC_ADDRESSES[fromChain.key];
-      
-      if (!htlcAddr) {
-        swapBtn.textContent = 'HTLC not deployed on this chain yet';
-        swapBtn.disabled = false;
-        return;
-      }
-      const lpAddr = TESTNET ? LP_ADDRESS_TESTNET : LP_ADDRESS;
-      if (!ethers.isAddress(lpAddr)) {
-        swapBtn.textContent = 'No liquidity provider configured yet';
-        swapBtn.disabled = false;
-        return;
-      }
-      
-      const htlc = new ethers.Contract(htlcAddr, HTLC_ABI, signer);
-      
-      // Generate random preimage and hashlock
-      const preimage = ethers.hexlify(ethers.randomBytes(32));
-      // ZenthisHTLC verifies sha256(preimage) — NOT keccak256.
-      const hashlock = ethers.sha256(preimage);
-      // Initiator leg must outlive the counterparty leg (LP locks for 1h) — use 2h.
-      const timelock = Math.floor(Date.now() / 1000) + 2 * 3600;
-      // Persist the secret BEFORE sending the tx: losing it means funds wait for refund.
-      const pending = {
-        preimage, hashlock, timelock, htlc: htlcAddr, createdAt: Date.now(),
-        chain: fromChain.key, chainId: fromChain.decimal,
-        toChain: toChain.key, toChainId: toChain.decimal,
-        initiator: walletAddress, amount: String(amt), swapId: null
-      };
-      try {
-        const store = JSON.parse(localStorage.getItem(SWAP_STORE_KEY) || '[]');
-        store.push(pending);
-        localStorage.setItem(SWAP_STORE_KEY, JSON.stringify(store));
-      } catch (e) {
-        swapBtn.textContent = 'Cannot save swap secret — aborted';
-        swapBtn.disabled = false;
-        return;
-      }
-      
-      if (fromToken.sym === 'ETH') {
-        // Native ETH swap
-        const tx = await htlc.newSwap(
-          lpAddr,
-          hashlock,
-          timelock,
-          { value: ethers.parseEther(String(amt)) }
-        );
-        swapBtn.textContent = 'Waiting for confirmation…';
-        const receipt = await tx.wait();
-        console.log('Swap created:', receipt);
-        try {
-          const ev = receipt.logs.map(l => { try { return htlc.interface.parseLog(l); } catch { return null; } })
-            .find(e => e && e.name === 'SwapCreated');
-          const store = JSON.parse(localStorage.getItem(SWAP_STORE_KEY) || '[]');
-          const rec = store.find(r => r.hashlock === hashlock);
-          if (rec && ev) { rec.swapId = ev.args.swapId; rec.txHash = receipt.hash; }
-          localStorage.setItem(SWAP_STORE_KEY, JSON.stringify(store));
-          refreshMySwaps();
-        } catch (e) { console.warn('Could not record swapId', e); }
-        if (window._zlog) window._zlog('swap_created', { tx: receipt.hash });
-        swapBtn.textContent = '✅ Swap created. Secret stored in this browser.';
-      } else {
-        // ERC-20 swap (needs approval first)
-        swapBtn.textContent = 'Token swaps coming soon — ETH available now';
-        swapBtn.disabled = false;
-      }
+      await runSwap({
+        fromKey: fromChain.key, toKey: toChain.key, amountEth: amt,
+        wallet: walletAddress, lpAddress: lp,
+        onStep: (id) => { current = id; renderProgress(id); swapBtn.textContent = STEPS.find(s => s.id === id).label + '…'; }
+      });
+      renderProgress('done');
+      swapBtn.textContent = '✅ Swap complete';
+      if (window._zlog) window._zlog('swap_completed', { from: fromChain.key, to: toChain.key, amount: amt });
     } catch (err) {
       console.error('Swap failed:', err);
-      swapBtn.textContent = 'Swap failed — try again';
-      swapBtn.disabled = false;
+      const rejected = err.code === 'ACTION_REJECTED' || err.code === 4001;
+      renderProgress(current, rejected ? 'Cancelled in your wallet.' : (err.shortMessage || err.message));
+    } finally {
+      swapInFlight = false;
+      fromAmount.value = '';
+      await refreshBalance();
+      refreshLpInfo();
+      refreshMySwaps();
+      updateCalculation();
     }
   });
 
@@ -559,6 +590,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (badge) badge.lastChild.textContent = ' Testnet';
   }
   initMySwaps(() => walletAddress);
+  refreshLpInfo();
   updatePanelUI();
   checkExistingWallet();
   await fetchPrices();
@@ -578,10 +610,12 @@ document.addEventListener('DOMContentLoaded', async () => {
         walletAddress = accounts[0];
         const short = walletAddress.slice(0, 6) + '…' + walletAddress.slice(-4);
         connectBtnLabel.textContent = short;
+        refreshBalance();
         updateSwapBtn();
       }
     });
 
-    window.ethereum.on('chainChanged', () => window.location.reload());
+    // The swap flow switches networks itself; never reload mid-swap.
+    window.ethereum.on('chainChanged', () => { if (!swapInFlight) refreshBalance(); });
   }
 });

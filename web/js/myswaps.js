@@ -6,7 +6,8 @@
    ─────────────────────────────────────────────────────────────── */
 
 import { ethers } from 'https://cdn.jsdelivr.net/npm/ethers@6.13.5/dist/ethers.min.js';
-import { HTLC_ADDRESSES, HTLC_ABI, CHAIN_INFO, SWAP_STORE_KEY } from './config.js';
+import { HTLC_ABI, CHAIN_INFO, SWAP_STORE_KEY } from './config.js';
+import { waitAndClaim, STEPS } from './swapflow.js';
 
 const STATUS = ['Empty', 'Active', 'Redeemed', 'Refunded'];
 
@@ -57,23 +58,11 @@ async function readSource(rec) {
 async function claim(rec) {
   const wallet = getWallet();
   if (!wallet) return say('Connect your wallet first.');
-  const htlcAddr = HTLC_ADDRESSES[rec.toChain];
-  if (!htlcAddr) return say(`HTLC not configured on ${CHAIN_INFO[rec.toChain]?.label || rec.toChain}.`);
   try {
-    await switchChain(rec.toChainId);
-    const provider = new ethers.BrowserProvider(window.ethereum);
-    const signer = await provider.getSigner();
-    const htlc = new ethers.Contract(htlcAddr, HTLC_ABI, signer);
-    const events = await htlc.queryFilter(htlc.filters.SwapCreated(null, null, wallet));
-    const match = events.find(e => e.args.hashlock === rec.hashlock);
-    if (!match) return say('The liquidity provider has not locked funds yet. Try again in a minute.');
-    const lock = await htlc.getSwap(match.args.swapId);
-    if (Number(lock.status) !== 1) return say(`Destination lock is ${STATUS[Number(lock.status)]}.`);
-    say('Confirm the claim in your wallet…');
-    const tx = await htlc.redeem(match.args.swapId, rec.preimage);
-    await tx.wait();
-    rec.claimed = true;
-    saveSwaps(loadSwaps().map(r => (r.hashlock === rec.hashlock ? rec : r)));
+    await waitAndClaim(rec, wallet, (id, detail) => {
+      const label = STEPS.find(s => s.id === id)?.label || id;
+      say(detail === 'gasless' ? 'Asking the liquidity provider to claim for you…' : label + '…');
+    });
     say('Claimed. Funds are in your wallet.');
   } catch (e) {
     say('Claim failed: ' + (e.shortMessage || e.message));

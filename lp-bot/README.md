@@ -30,6 +30,8 @@ LP_CONFIRMATIONS=2
 LP_POLL_MS=15000
 LP_MIN_BALANCE_B_ETH=0.02   # alert when the LP balance on chain B drops below this
 LP_ALERT_WEBHOOK=https://ntfy.sh/your-private-topic   # optional, free; any URL accepting a JSON POST
+LP_RELAY_URL=https://ntfy.sh/zenthis-claims-<random>  # gasless-claim mailbox, must equal RELAY_URL in web/js/config.js
+LP_BIDIRECTIONAL=1          # also serve B -> A (default on; set 0 to disable)
 ```
 
 ```bash
@@ -47,6 +49,10 @@ Start-ScheduledTask -TaskName ZenthisLpBot
 
 The task restarts the bot if it stops. Remove it with `Unregister-ScheduledTask -TaskName ZenthisLpBot -Confirm:$false`.
 
+## Gasless claim
+
+A user who holds funds only on the source chain has no gas on the destination chain. After the LP locks on B, the web app posts `{hashlock, preimage, idB}` to the `LP_RELAY_URL` topic (ntfy.sh, free) and the bot calls `redeem` on B for them, paying the gas. This is safe: `redeem` always pays the recipient, and the secret is only revealed after the LP's lock exists. The bot validates `sha256(preimage) == hashlock` and only acts on its own locked swaps. If the relay is down, the user can still claim manually from "My swaps" with a little gas.
+
 ## Alerts
 
 The bot logs and optionally POSTs a message to `LP_ALERT_WEBHOOK` when it cannot lock on B, misses a redeem window on A, or the B balance falls below `LP_MIN_BALANCE_B_ETH` (throttled to once per hour).
@@ -56,5 +62,6 @@ min/max amount, open-exposure cap, hashlock reuse, minimum remaining time on A (
 
 ## Limits (v1)
 - Native ETH only. ERC-20 and Bitcoin legs are not implemented.
+- Public RPCs reject wide `getLogs` ranges; log queries shrink their range automatically. Use keyed RPCs for production.
 - The user receives on B at the same address they used on A (EOAs only; smart-contract wallets may differ per chain).
 - Single LP, fixed spread, no price oracle (valid for ETH to ETH).

@@ -154,4 +154,30 @@ describe("LpBot — atomic swap liquidity provider", () => {
     await bot.tick(); // low-balance alert is throttled by the cooldown
     expect(alerts.length).to.equal(before);
   });
+
+  it("gasless claim: LP redeems on B for the user from a relay message, then redeems on A", async () => {
+    let queue = [];
+    bot.relay = { claims: async () => queue.splice(0) };
+    const idA = await aliceLocksOnA();
+    await bot.tick();
+    const rec = store.load().swaps[idA];
+    expect(rec.status).to.equal("locked");
+
+    // junk and a wrong preimage are ignored
+    queue = [
+      { hashlock: "0x" + "00".repeat(32), preimage: preimage },
+      { hashlock, preimage: ethers.hexlify(ethers.randomBytes(32)) },
+    ];
+    await bot.tick();
+    expect((await htlcB.getSwap(rec.idB)).status).to.equal(1n); // still ACTIVE
+
+    const aliceBefore = await ethers.provider.getBalance(alice.address);
+    queue = [{ hashlock, preimage }];
+    await bot.tick(); // redeems B for Alice and completes A in the same tick
+    expect(await ethers.provider.getBalance(alice.address)).to.equal(
+      aliceBefore + BigInt(rec.amountB),
+    );
+    expect(store.load().swaps[idA].status).to.equal("completed");
+    expect((await htlcA.getSwap(idA)).status).to.equal(2n);
+  });
 });
