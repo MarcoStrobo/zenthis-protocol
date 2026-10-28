@@ -586,7 +586,7 @@
           </p>
           <div class="token-metric">
             <span class="metric-label">Fee to holders</span>
-            <span class="metric-val">0.10% / swap</span>
+            <span class="metric-val">Planned</span>
           </div>
         </div>
         <div class="token-card featured">
@@ -729,10 +729,11 @@
   <section class="section" id="tokenomics">
     <div class="container">
       <div class="section-tag">Tokenomics</div>
-      <h2 class="section-title">ZTS on Solana. <span class="gradient-text">Fair launch.</span></h2>
+      <h2 class="section-title">ZTS on Base. <span class="gradient-text">Fixed supply.</span></h2>
       <p class="section-sub">
-        No presale. No VC allocation. No whitelist. ZTS launches fairly on Solana via pump.fun.
-        The token's value comes from the 0.10% of every swap that flows to holders.
+        ZTS is deployed on Base with a fixed supply of 100M and no further minting. An earlier presale never opened and was
+        closed on-chain; nothing was raised. Any public launch will be announced here first. Sharing protocol fees with
+        holders is planned and is not live.
       </p>
       <div class="tokenomics-layout">
         <div class="donut-wrap">
@@ -749,7 +750,7 @@
               <span class="legend-name">Fair Launch</span>
               <span class="legend-pct">35% · 35M</span>
             </div>
-            <div class="legend-detail">pump.fun bonding curve → Raydium listing</div>
+            <div class="legend-detail">Launch mechanism to be announced</div>
           </div>
           <div class="legend-item" data-idx="1">
             <span class="legend-dot" style="background:#06b6d4"></span>
@@ -789,11 +790,11 @@
       <div class="ido-strip">
         <div class="ido-strip-item">
           <span class="ido-strip-label">Network</span>
-          <span class="ido-strip-value">Solana</span>
+          <span class="ido-strip-value">Base</span>
         </div>
         <div class="ido-strip-item">
           <span class="ido-strip-label">Launch</span>
-          <span class="ido-strip-value">pump.fun</span>
+          <span class="ido-strip-value">TBA</span>
         </div>
         <div class="ido-strip-item">
           <span class="ido-strip-label">Swap Fee</span>
@@ -801,7 +802,7 @@
         </div>
         <div class="ido-strip-item">
           <span class="ido-strip-label">To Holders</span>
-          <span class="ido-strip-value">0.10%</span>
+          <span class="ido-strip-value">Planned</span>
         </div>
         <div class="ido-strip-item">
           <span class="ido-strip-label">Supply</span>
@@ -894,13 +895,13 @@
           <div class="rm-marker"><span class="rm-dot pulse"></span><div class="rm-line"></div></div>
           <div class="rm-content">
             <div class="rm-period">H2 2026 - Now</div>
-            <h3 class="rm-title">Swap App Live + ZTS on Solana</h3>
+            <h3 class="rm-title">Swap App (testnet) + ZTS on Base</h3>
             <ul class="rm-list">
-              <li>✅ Atomic swap app live - MetaMask, live prices, 6 chains</li>
-              <li>✅ HTLC contracts deployed on mainnet</li>
-              <li>🔄 ZTS token launch on Solana via fair launch</li>
-              <li>🔄 Revenue share: 50% of swap fees → ZTS holders</li>
-              <li>⬜ Wormhole bridge: EVM fees → Solana distribution</li>
+              <li>✅ Atomic swap app on testnet (Base Sepolia ↔ Arbitrum Sepolia) - MetaMask, live prices</li>
+              <li>✅ HTLC contracts verified on testnets (mainnet after an external audit)</li>
+              <li>✅ ZTS token deployed on Base (public launch TBA)</li>
+              <li>⬜ Revenue share: part of swap fees → ZTS holders (planned)</li>
+              <li>⬜ Fee distribution design for ZTS holders (planned)</li>
             </ul>
             <span class="rm-status current">In Progress</span>
           </div>
@@ -912,8 +913,8 @@
             <div class="rm-period">Q4 2026 - Q1 2027</div>
             <h3 class="rm-title">Expansion &amp; Revenue Infrastructure</h3>
             <ul class="rm-list">
-              <li>Automated fee collection + Wormhole bridge to Solana</li>
-              <li>Solana smart contract for holder distribution</li>
+              <li>Automated fee collection and distribution</li>
+              <li>Holder distribution contract (design pending)</li>
               <li>More EVM chains (Optimism, zkSync, Starknet)</li>
               <li>Mobile web app</li>
             </ul>
@@ -953,32 +954,32 @@
           <div class="token-card-icon">⬡</div>
           <h3>Swap fees → Holders</h3>
           <p>
-            <strong>0.20%</strong> fee per swap. <strong>50%</strong> distributed to ZTS holders
-            via smart contract on Solana. Every swap generates real yield for token holders.
+            <strong>0.20%</strong> protocol fee per swap. Sharing part of it with ZTS holders is planned
+            and is not live yet; no yield or return is promised.
           </p>
           <div class="token-metric">
             <span class="metric-label">Fee to holders</span>
-            <span class="metric-val">0.10%</span>
+            <span class="metric-val">Planned</span>
           </div>
         </div>
         <div class="token-card" style="flex:1;min-width:250px;max-width:350px;">
           <div class="token-card-icon">🔗</div>
           <h3>Cross-chain · Multi-chain</h3>
           <p>
-            Swaps happen across 6+ EVM chains. Fees are aggregated and bridged
-            to Solana automatically via Wormhole for holder distribution.
+            The HTLC design works between EVM chains. Today the testnet runs between
+            Base Sepolia and Arbitrum Sepolia; mainnet follows an external audit.
           </p>
           <div class="token-metric">
-            <span class="metric-label">Chains live</span>
-            <span class="metric-val">6</span>
+            <span class="metric-label">Chains (testnet)</span>
+            <span class="metric-val">2</span>
           </div>
         </div>
         <div class="token-card" style="flex:1;min-width:250px;max-width:350px;">
-          <div class="token-card-icon">◎</div>
-          <h3>ZTS on Solana</h3>
+          <div class="token-card-icon">⬡</div>
+          <h3>ZTS on Base</h3>
           <p>
-            Fair launch via pump.fun. No presale, no VC allocation, no whitelist.
-            The token exists to capture and distribute protocol revenue to its community.
+            Fixed supply of 100M, no further minting. The earlier presale never opened and was closed
+            on-chain. Nothing on this page is an offer or investment advice.
           </p>
           <div class="token-metric">
             <span class="metric-label">Launch</span>
