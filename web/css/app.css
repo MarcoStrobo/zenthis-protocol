@@ -845,3 +845,17 @@ input[type=number] { -moz-appearance: textfield; }
   .gate-title { font-size: 1.5rem; }
   .gate-cd-unit span { font-size: 1.6rem; }
 }
+
+/* ─── My swaps ─── */
+.myswaps-modal { max-height: 80vh; overflow-y: auto; }
+.myswap-note { color: var(--muted); font-size: .8rem; margin: 0 0 12px; }
+.myswap-row { border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 12px; margin-bottom: 10px; background: var(--card); }
+.myswap-head { font-size: .9rem; margin-bottom: 4px; }
+.myswap-info { color: var(--muted); font-size: .8rem; margin-bottom: 8px; }
+.myswap-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.myswap-btn { background: transparent; color: var(--text); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 8px 12px; font-size: .8rem; cursor: pointer; }
+.myswap-btn:hover { border-color: var(--cyan); }
+.myswap-btn.primary { background: var(--grad); border-color: transparent; }
+.myswap-empty { color: var(--muted); font-size: .85rem; }
+.myswap-msg { color: var(--yellow); font-size: .8rem; min-height: 1.2em; margin: 8px 0; }
+@media (max-width: 480px) { #mySwapsBtn { padding: 8px 10px; } }

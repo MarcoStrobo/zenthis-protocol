@@ -28,6 +28,9 @@
         Mainnet
       </span>
     </div>
+    <button class="app-connect-btn" id="mySwapsBtn" type="button">
+      <span id="mySwapsBtnLabel">My swaps</span>
+    </button>
     <button class="app-connect-btn" id="connectBtn">
       <span class="connect-icon">⬡</span>
       <span id="connectBtnLabel">Connect Wallet</span>
@@ -79,6 +82,20 @@
       <div class="chain-pills" id="chainPills"></div>
       <div class="asset-label">Token</div>
       <div class="token-rows" id="tokenRows"></div>
+    </div>
+  </div>
+
+  <!-- ─── MY SWAPS MODAL ─── -->
+  <div class="modal-overlay" id="mySwapsOverlay">
+    <div class="settings-modal myswaps-modal">
+      <div class="modal-header">
+        <h3>My swaps</h3>
+        <button class="modal-close" id="mySwapsClose">✕</button>
+      </div>
+      <p class="myswap-note">Swap secrets live only in this browser. Export a backup before clearing site data.</p>
+      <div id="mySwapsList"></div>
+      <p class="myswap-msg" id="mySwapsMsg" role="status"></p>
+      <button class="myswap-btn" id="mySwapsExport" type="button">Export backup</button>
     </div>
   </div>
 

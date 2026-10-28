@@ -3,6 +3,8 @@
    ─────────────────────────────────────────────────────────────── */
 
 import { ethers } from 'https://cdn.jsdelivr.net/npm/ethers@6.13.5/dist/ethers.min.js';
+import { HTLC_ADDRESSES, LP_ADDRESS, HTLC_ABI, SWAP_STORE_KEY } from './config.js';
+import { initMySwaps, refreshMySwaps } from './myswaps.js';
 
 /* ─── Chain / token data ─── */
 const CHAINS = [
@@ -459,12 +461,6 @@ document.addEventListener('DOMContentLoaded', async () => {
       const provider = new ethers.BrowserProvider(window.ethereum);
       const signer = await provider.getSigner();
       
-      // HTLC contract address per chain (populated at deploy time)
-      const HTLC_ADDRESSES = {
-        ETH: '', ARB: '', POL: '', BNB: '', AVAX: '', BASE: ''
-      };
-      // Liquidity provider / relayer that locks the counter-leg on the destination chain.
-      const LP_ADDRESS = '';
       const htlcAddr = HTLC_ADDRESSES[fromChain.key];
       
       if (!htlcAddr) {
@@ -478,12 +474,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         return;
       }
       
-      const htlcABI = [
-        'function newSwap(address recipient, bytes32 hashlock, uint256 timelock) external payable returns (bytes32 swapId)',
-        'function newSwapToken(address recipient, address tokenAddr, uint256 amount, bytes32 hashlock, uint256 timelock) external returns (bytes32 swapId)',
-        'event SwapCreated(bytes32 indexed swapId, address indexed initiator, address indexed recipient, address token, uint256 amount, bytes32 hashlock, uint256 timelock)'
-      ];
-      const htlc = new ethers.Contract(htlcAddr, htlcABI, signer);
+      const htlc = new ethers.Contract(htlcAddr, HTLC_ABI, signer);
       
       // Generate random preimage and hashlock
       const preimage = ethers.hexlify(ethers.randomBytes(32));
@@ -492,11 +483,16 @@ document.addEventListener('DOMContentLoaded', async () => {
       // Initiator leg must outlive the counterparty leg (LP locks for 1h) — use 2h.
       const timelock = Math.floor(Date.now() / 1000) + 2 * 3600;
       // Persist the secret BEFORE sending the tx: losing it means funds wait for refund.
-      const pending = { preimage, hashlock, timelock, chain: fromChain.key, htlc: htlcAddr, createdAt: Date.now() };
+      const pending = {
+        preimage, hashlock, timelock, htlc: htlcAddr, createdAt: Date.now(),
+        chain: fromChain.key, chainId: fromChain.decimal,
+        toChain: toChain.key, toChainId: toChain.decimal,
+        initiator: walletAddress, amount: String(amt), swapId: null
+      };
       try {
-        const store = JSON.parse(localStorage.getItem('zenthis_swaps') || '[]');
+        const store = JSON.parse(localStorage.getItem(SWAP_STORE_KEY) || '[]');
         store.push(pending);
-        localStorage.setItem('zenthis_swaps', JSON.stringify(store));
+        localStorage.setItem(SWAP_STORE_KEY, JSON.stringify(store));
       } catch (e) {
         swapBtn.textContent = 'Cannot save swap secret — aborted';
         swapBtn.disabled = false;
@@ -514,6 +510,15 @@ document.addEventListener('DOMContentLoaded', async () => {
         swapBtn.textContent = 'Waiting for confirmation…';
         const receipt = await tx.wait();
         console.log('Swap created:', receipt);
+        try {
+          const ev = receipt.logs.map(l => { try { return htlc.interface.parseLog(l); } catch { return null; } })
+            .find(e => e && e.name === 'SwapCreated');
+          const store = JSON.parse(localStorage.getItem(SWAP_STORE_KEY) || '[]');
+          const rec = store.find(r => r.hashlock === hashlock);
+          if (rec && ev) { rec.swapId = ev.args.swapId; rec.txHash = receipt.hash; }
+          localStorage.setItem(SWAP_STORE_KEY, JSON.stringify(store));
+          refreshMySwaps();
+        } catch (e) { console.warn('Could not record swapId', e); }
         if (window._zlog) window._zlog('swap_created', { tx: receipt.hash });
         swapBtn.textContent = '✅ Swap created. Secret stored in this browser.';
       } else {
@@ -536,6 +541,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   /* ─── Init ─── */
+  initMySwaps(() => walletAddress);
   updatePanelUI();
   checkExistingWallet();
   await fetchPrices();
