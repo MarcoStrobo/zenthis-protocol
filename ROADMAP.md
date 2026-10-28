@@ -24,7 +24,7 @@ Focus: **trustless cross-chain atomic swaps** (HTLC). Token and presale are seco
 
 ### Base mainnet (paused)
 - [x] ZTS token (100 M) owned by a 2-of-2 Safe
-- [x] `ZenthisPresale` deployed, 20.3 M ZTS deposited, nothing raised (never launched)
+- [x] `ZenthisPresale` deployed, never launched; closed with `markFailed()` on 2026-10-28 and the 20.3 M ZTS recovered to the deployer
 
 ---
 
@@ -40,7 +40,6 @@ Focus: **trustless cross-chain atomic swaps** (HTLC). Token and presale are seco
 - [ ] Fund the deployer / LP with real ETH and deploy HTLC on Base and Arbitrum
 
 ### Presale (when relaunching)
-- [ ] Close the current presale (`markFailed()`, needs mainnet gas on the deployer)
 - [ ] Fresh presale deployment once swaps are live
 
 ---
