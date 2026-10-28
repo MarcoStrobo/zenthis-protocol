@@ -143,6 +143,7 @@ class LpBot {
         })
         .find((e) => e && e.name === "SwapCreated");
       rec.idB = created.args.swapId;
+      rec.blockB = rc.blockNumber;
       rec.amountB = amountB.toString();
       rec.timelockB = timelockB;
       rec.status = "locked";
@@ -157,14 +158,18 @@ class LpBot {
 
   async _progressSwaps() {
     for (const rec of Object.values(this.s.swaps)) {
-      if (rec.status === "locked") await this._progressLocked(rec);
-      else if (rec.status === "revealed") await this._redeemOnA(rec);
+      try {
+        if (rec.status === "locked") await this._progressLocked(rec);
+        else if (rec.status === "revealed") await this._redeemOnA(rec);
+      } catch (e) {
+        this.log(`[retry] ${rec.idA}: ${e.shortMessage || e.message}`);
+      }
     }
     this._save();
   }
 
   async _progressLocked(rec) {
-    const evs = await this.B.queryFilter(this.B.filters.SwapRedeemed(rec.idB));
+    const evs = await this.B.queryFilter(this.B.filters.SwapRedeemed(rec.idB), rec.blockB || 0);
     if (evs.length) {
       rec.preimage = evs[0].args.preimage;
       rec.status = "revealed";
