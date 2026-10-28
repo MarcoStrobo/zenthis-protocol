@@ -4,7 +4,7 @@
 
 [![License: BUSL-1.1](https://img.shields.io/badge/License-BUSL--1.1-blue.svg)](LICENSE)
 [![Solidity](https://img.shields.io/badge/Solidity-0.8.24-lightgrey)](https://soliditylang.org)
-[![Tests](https://img.shields.io/badge/Tests-263%20passing-brightgreen)](#testing)
+[![Tests](https://img.shields.io/badge/Tests-294%20passing-brightgreen)](#testing)
 
 ---
 
@@ -64,7 +64,7 @@ cp .env.example .env   # fill in your keys
 
 ```bash
 npx hardhat test
-# 263 tests passing (unit, fuzz, invariant, two-chain atomic swap simulation, LP bot)
+# 294 tests passing (unit, fuzz, invariant, two-chain atomic swap simulation, LP bot)
 ```
 
 ### Deploy
@@ -102,7 +102,7 @@ Rule enforced by the bot and UI: the initiator's timelock must outlive the count
 ## Security
 
 - `ZenthisHTLC` is on **Base Sepolia / Arbitrum Sepolia** testnets; token and presale are on Base mainnet
-- 263 tests across all core contracts
+- 294 tests across all core contracts
 - ReentrancyGuard on all state-changing functions
 - Pausable (HTLC) for emergency response
 

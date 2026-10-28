@@ -65,7 +65,18 @@ Mainnet HTLC checklist:
 4. Replace the public ntfy.sh relay topic with an endpoint you control (WEB-03).
 5. Publish the UI from a pinned, reproducible build (WEB-01) and keep the repository public so it can be audited.
 
-## 6. Accepted design limits
+## 6. Guard rails that run automatically
+
+- **Local pre-commit secret scan:** `git config core.hooksPath .githooks` (already set in this clone). It blocks commits that add
+  private keys, SendGrid/Telegram/AWS/GitHub tokens, URIs with embedded credentials, secret-looking assignments, and any
+  `.env` / `*.env` / keystore / service-account file (templates ending in `.example` are allowed). Self-test:
+  `node scripts/security/check-secrets.js --self-test`.
+- **CI `Security` workflow** (`.github/workflows/security.yml`): gitleaks over the full history, `npm audit` (fails on high),
+  Slither (SARIF to code scanning; fails on High findings in `ZenthisHTLC`/`ZenthisVesting`). Dependabot opens weekly update PRs.
+- **Stateful fuzz** (`test/fuzz/ZenthisHTLC.stateful.test.js`): `FUZZ_SEEDS=1,2,3 FUZZ_STEPS=300 npx hardhat test test/fuzz/ZenthisHTLC.stateful.test.js`
+  replays random hostile sequences and checks solvency/conservation invariants after every step.
+
+## 7. Accepted design limits
 
 - `HTLC-04`: the protocol fee is charged when a swap is created and is not returned on refund.
 - `WEB-01`: whoever serves the UI and whoever runs the LP can be the same party; this is inherent to a hosted UI.

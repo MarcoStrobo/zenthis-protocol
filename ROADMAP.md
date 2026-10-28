@@ -62,6 +62,6 @@ Focus: **trustless cross-chain atomic swaps** (HTLC). Token and presale are seco
 | Metric | Value |
 |--------|-------|
 | Contracts | 4 (HTLC, Token, Vesting, Presale) |
-| Tests | 263 passing |
+| Tests | 294 passing |
 | HTLC testnets | Base Sepolia, Arbitrum Sepolia |
 | Reviews | internal (Jun 2026) + AI-assisted (Oct 2026); external audit pending |

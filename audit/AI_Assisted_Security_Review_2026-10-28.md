@@ -20,8 +20,8 @@ Report type: AI-assisted INTERNAL review. NOT an independent audit. Not affiliat
 
 | Severity | Count | Fixed in this PR | Open / accepted |
 |----------|:-----:|:----------------:|:---------------:|
-| Critical | 2 | 2 (rules deployed to production; SendGrid key must still be rotated) | 0 |
-| High | 3 | 2 fixed, 1 mitigated | 0 |
+| Critical | 3 | 3 (rules deployed to production; SendGrid key must still be rotated) | 0 |
+| High | 5 | 4 fixed, 1 mitigated | 0 |
 | Medium | 9 | 6 (4 fixed, 2 mitigated) | 3 |
 | Low | 9 | 5 (4 fixed, 1 mitigated) | 4 |
 | Informational | 4 | – | 4 |
@@ -35,7 +35,7 @@ Report type: AI-assisted INTERNAL review. NOT an independent audit. Not affiliat
 - Deployed mainnet contracts (`ZenthisToken`, closed `ZenthisPresale`) are immutable; their findings
   are mitigations/disclosures, not patches.
 
-Test status after remediation: **263 tests passing**, Prettier clean. `ZenthisHTLC` v2 and the LP bot were redeployed/restarted on Base Sepolia and Arbitrum Sepolia and a full swap was re-run through the UI (see section 10).
+Test status after remediation and hardening: **294 tests passing**, Prettier clean. `ZenthisHTLC` v2 and the LP bot were redeployed/restarted on Base Sepolia and Arbitrum Sepolia and a full swap was re-run through the UI (see section 10).
 
 ## 2. Scope
 
@@ -69,6 +69,9 @@ the repository), economic/tokenomics review, legal review.
 | OPS-01 | Critical | SendGrid SMTP credentials committed to a public repository | Fixed in repo · **rotate key** |
 | OPS-02 | Critical | Firestore rules allow public waitlist dump and email relay | Fixed in repo · **deploy rules** |
 | OPS-03 | High | ~86% of ZTS supply sat in a hot EOA whose key is in plaintext | Mitigated (moved to the 2-of-2 Safe; signer-key risk remains) |
+| LP-05 | Critical | LP bot treated ERC-20 swaps as native ETH (lock real ETH against a worthless token) | Fixed |
+| LP-06 | High | One malformed relay message aborted the whole bot cycle (DoS before redemption) | Fixed |
+| LP-07 | High | A failing chain-A scan starved redemptions of swaps that already hold funds | Fixed |
 | UI-01 | High | Claim step did not authenticate the LP's destination lock | Fixed |
 | LP-01 | High | Ambiguous RPC failures could cause a double lock or lost state | Fixed |
 | HTLC-01 | Medium | Owner can change the fee instantly; no max-fee protection for users | Fixed (v2: `newSwapProtected`) |
@@ -132,6 +135,27 @@ the second signer; consider a 2-of-3 Safe; never keep large balances on the depl
 moving them now needs both signers. The deployer key is still one of the two signers and is still in a plaintext
 `.env`, so replacing it with a hardware wallet (ideally in a 2-of-3 Safe) is still recommended.
 
+### LP-05 — Bot treated ERC-20 swaps as native ETH (Critical) — Fixed
+**Where:** `lp-bot/LpBot.js`, `_validate`. `SwapCreated` is emitted by both `newSwap` (ETH) and `newSwapToken`
+(ERC-20), and its `amount` is in token units for the latter. The bot never checked `token`.
+**Scenario:** the attacker deploys a worthless token and calls `newSwapToken(LP, token, 0.5e18, H, T)`. The bot
+read `amount = 0.5e18` as 0.5 ETH, locked ~0.5 ETH on chain B for the attacker, who redeems it with the preimage
+and keeps the ETH. The LP is left with a worthless token locked on A. Found by adversarial review of the bot;
+reproduced by test `LP-05` before the fix (the bot accepted the swap).
+**Fix:** reject any swap whose `token` is not the zero address (`not native ETH`). The default `minAmount` was also
+raised from 0 to 0.001 ETH so dust swaps cannot be used to burn LP gas.
+
+### LP-06 — Malformed relay message aborted the bot cycle (High) — Fixed
+`sha256(c.preimage)` throws on non-hex input and the exception left `_processRelay`, so the whole tick failed;
+an attacker able to post to the public relay topic could repeat it so the bot never reached the step that redeems
+swaps (missed redeem window = LP loses funds). **Fix:** relay data is validated (`0x` + 64 hex for both fields),
+each claim is isolated in its own `try/catch`, work per poll is capped, malformed lines are ignored. Test `LP-06`.
+
+### LP-07 — Failing scan starved redemptions (High) — Fixed
+The tick ran `scan → relay → progress`, so an RPC error in the scan (frequent on public RPCs) stopped the cycle
+before swaps that already hold funds could be redeemed. **Fix:** phases are isolated and ordered
+`progress → relay → scan → progress → balance`; the first error is still reported. Test `LP-07`.
+
 ### UI-01 — Claim step did not authenticate the LP's destination lock (High) — Fixed
 **Where:** `web/js/swapflow.js`, `waitAndClaim`.
 **Scenario:** the hashlock is public on the source chain. An attacker copies it and creates on the
@@ -140,7 +164,8 @@ first `SwapCreated` event matching the hashlock and redeemed it, revealing the s
 anyone) then redeems the source lock, while the user received dust and never claimed the LP's real lock.
 **Fix:** `isGenuineLpLock` accepts a destination lock only if `initiator` is the LP address stored in
 the swap record, the token is native ETH, the amount is at least 99% of the quote taken at creation,
-and at least 10 minutes remain on its timelock. Verified in a browser against the live testnets
+and at least 10 minutes remain on its timelock. The lock is validated again (from `getSwap`, at least 2 minutes
+left) right before the secret is revealed, because the network switch can take a while. Verified in a browser against the live testnets
 (dust, wrong initiator, ERC-20, short timelock and wrong hashlock are all rejected).
 
 ### LP-01 — Ambiguous RPC failures could cause a double lock or lost state (High) — Fixed
@@ -279,20 +304,35 @@ slither . --filter-paths "node_modules|test|@openzeppelin"
    for larger swaps.
 6. Add a strict CSP and publish the UI with a pinned, reproducible build.
 
-## 9. Remediation log
+## 9. Verification evidence (hardening pass)
+
+Beyond the unit tests, three independent methods were used on `ZenthisHTLC` v2:
+
+| Method | Result |
+|--------|--------|
+| **Stateful fuzz** (`test/fuzz/ZenthisHTLC.stateful.test.js`): random seeded sequences of hostile and honest operations, invariants checked after every step | 30 seeds x 250 steps (~7,500 operations) plus 10 default seeds: ETH and token solvency, fund conservation, status machine, exact payouts and revert conditions never violated |
+| **Mutation testing** (own harness, 81 mutants: deleted `require`s, removed modifiers, flipped comparisons and arithmetic) | Pass 1: 59/81 killed. Test gaps found (reentrancy never exercised, ETH-send failure handling, zero-address checks, pending-refund accounting, `unpause` access control, exact timelock/fee boundaries) were closed with 18 new tests, including a real re-entrancy attacker. Final: **76/81 killed; the 5 survivors are equivalent mutants** (`fee > 0` vs `>= 0`; `nonReentrant` on paths with no external call or reachable only by the owner) |
+| **Adversarial review of the off-chain code** | Found LP-05 (critical), LP-06 and LP-07; each reproduced by a test that failed before the fix |
+
+Static analysis: Slither shows no High findings in `ZenthisHTLC` or `ZenthisVesting`; its Medium hit on the HTLC is the intentional exact-balance check.
+Automated guard rails (see `docs/OPERATIONS.md`): pre-commit secret scanner, gitleaks over full history, `npm audit` (0 vulnerabilities),
+Slither and Dependabot in CI.
+
+## 10. Remediation log
 
 | Finding | Action | Evidence |
 |---------|--------|----------|
 | OPS-01 | File untracked, `.gitignore`, `.example` template | repo; **key rotation still required** |
 | OPS-02 | `firestore.rules` deny-all | repo; **deploy still required** |
 | UI-01 | `isGenuineLpLock` | browser test against live testnets |
+| LP-05, LP-06, LP-07 | token check, relay validation, isolated phases ordered by priority | `test/LpBot.test.js` (LP-05/06/07, failed before the fix) |
 | LP-01, LP-02, LP-03 | write-ahead + reconcile, atomic state, per-initiator cap, deferred large swaps | `test/LpBot.test.js` (13 tests) |
 | HTLC-01..03, GEN-01 | `ZenthisHTLC` v2 | `test/audit/AuditFindings.test.js`, full suite |
 | VEST-01, VEST-02, GEN-01 | `ZenthisVesting` changes | `test/audit/AuditFindings.test.js` |
 | WEB-02, WEB-04, WEB-05 | vendored ethers, landing corrections, headers + CSP | browser checks |
 | OPS-03, ZTS-01..03, HTLC-04, WEB-01, WEB-03, LP-04 | cannot be fixed in code | see `docs/OPERATIONS.md` |
 
-## 10. Redeployment (testnet)
+## 11. Redeployment (testnet)
 
 `ZenthisHTLC` v2 (verified on the explorers):
 - Base Sepolia: `0x789b6fd580b1C507386EdCf676D5dc46D0158aea`
@@ -302,10 +342,11 @@ The previous testnet deployment (`0x3c0328eb…47eB`) is superseded. After redep
 Sepolia swap was driven through the web UI with the LP bot running (`newSwapProtected`, lock authentication,
 claim). Mainnet HTLC has not been deployed.
 
-## 11. Limitations
+## 12. Limitations
 
-- Performed by an AI model in a single session; no formal verification or fuzzing campaign beyond the
-  repository's existing fuzz/invariant tests.
+- Performed by an AI model in a single session. Fuzzing and mutation testing raise confidence but are not formal
+  verification; they only prove the properties and mutants that were tried. No guarantee that the code is free of
+  vulnerabilities.
 - The presale was reviewed with static analysis and targeted reading only; it is closed and holds no funds.
 - Findings about the live website depend on what is currently deployed, which was not inspected.
 - This report is not legal, financial or investment advice and is not a certification.
