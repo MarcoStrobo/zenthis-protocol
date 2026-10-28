@@ -23,12 +23,12 @@ module.exports = {
     },
     // ── Testnets ──────────────────────────────────────────────────────────────
     sepolia: {
-      url:      process.env.SEPOLIA_RPC_URL || "",
+      url:      process.env.SEPOLIA_RPC_URL || "https://ethereum-sepolia-rpc.publicnode.com",
       accounts: process.env.DEPLOYER_PRIVATE_KEY ? [process.env.DEPLOYER_PRIVATE_KEY] : [],
       chainId:  11155111,
     },
     arbitrumSepolia: {
-      url:      process.env.ARB_SEPOLIA_RPC_URL || "",
+      url:      process.env.ARB_SEPOLIA_RPC_URL || "https://sepolia-rollup.arbitrum.io/rpc",
       accounts: process.env.DEPLOYER_PRIVATE_KEY ? [process.env.DEPLOYER_PRIVATE_KEY] : [],
       chainId:  421614,
     },
@@ -39,15 +39,43 @@ module.exports = {
       chainId:  84532,
     },
     // ── Mainnet ───────────────────────────────────────────────────────────────
-    mainnet: {
-      url:      process.env.MAINNET_RPC_URL || "",
+    ethereum: {
+      url:      process.env.ETH_RPC_URL || "https://ethereum-rpc.publicnode.com",
       accounts: process.env.DEPLOYER_PRIVATE_KEY ? [process.env.DEPLOYER_PRIVATE_KEY] : [],
       chainId:  1,
       gasPrice: "auto",
     },
+    // ── Arbitrum ───────────────────────────────────────────────────────────────
+    arbitrum: {
+      url:      process.env.ARB_RPC_URL || "https://arbitrum-rpc.publicnode.com",
+      accounts: process.env.DEPLOYER_PRIVATE_KEY ? [process.env.DEPLOYER_PRIVATE_KEY] : [],
+      chainId:  42161,
+      gasPrice: "auto",
+    },
+    // ── Polygon ────────────────────────────────────────────────────────────────
+    polygon: {
+      url:      process.env.POL_RPC_URL || "https://polygon-rpc.com",
+      accounts: process.env.DEPLOYER_PRIVATE_KEY ? [process.env.DEPLOYER_PRIVATE_KEY] : [],
+      chainId:  137,
+      gasPrice: "auto",
+    },
+    // ── BNB Chain ─────────────────────────────────────────────────────────────
+    bsc: {
+      url:      process.env.BNB_RPC_URL || "https://binance.llamarpc.com",
+      accounts: process.env.DEPLOYER_PRIVATE_KEY ? [process.env.DEPLOYER_PRIVATE_KEY] : [],
+      chainId:  56,
+      gasPrice: "auto",
+    },
+    // ── Avalanche ─────────────────────────────────────────────────────────────
+    avalanche: {
+      url:      process.env.AVAX_RPC_URL || "https://avalanche-rpc.publicnode.com",
+      accounts: process.env.DEPLOYER_PRIVATE_KEY ? [process.env.DEPLOYER_PRIVATE_KEY] : [],
+      chainId:  43114,
+      gasPrice: "auto",
+    },
     // ── Base (production) ─────────────────────────────────────────────────────
     base: {
-      url:      process.env.BASE_RPC_URL || "",
+      url:      process.env.BASE_RPC_URL || "https://mainnet.base.org",
       accounts: process.env.DEPLOYER_PRIVATE_KEY ? [process.env.DEPLOYER_PRIVATE_KEY] : [],
       chainId:  8453,
       gasPrice: "auto",

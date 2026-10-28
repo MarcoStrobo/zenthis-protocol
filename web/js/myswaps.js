@@ -1,0 +1,180 @@
+/* ═══════════════════════════════════════════════════════════════
+   Zenthis App — "My swaps" panel
+   Lists swaps stored in this browser, shows on-chain status, lets the
+   user claim the LP's lock on the destination chain or refund an
+   expired source lock.
+   ─────────────────────────────────────────────────────────────── */
+
+import { ethers } from 'https://cdn.jsdelivr.net/npm/ethers@6.13.5/dist/ethers.min.js';
+import { HTLC_ADDRESSES, HTLC_ABI, CHAIN_INFO, SWAP_STORE_KEY } from './config.js';
+
+const STATUS = ['Empty', 'Active', 'Redeemed', 'Refunded'];
+
+let getWallet = () => null;
+let listEl, msgEl, overlay;
+
+function loadSwaps() {
+  try { return JSON.parse(localStorage.getItem(SWAP_STORE_KEY) || '[]'); } catch { return []; }
+}
+function saveSwaps(list) {
+  localStorage.setItem(SWAP_STORE_KEY, JSON.stringify(list));
+}
+function say(text) { if (msgEl) msgEl.textContent = text || ''; }
+
+async function currentChainId(provider) {
+  return Number((await provider.getNetwork()).chainId);
+}
+
+async function switchChain(chainId) {
+  await window.ethereum.request({
+    method: 'wallet_switchEthereumChain',
+    params: [{ chainId: '0x' + chainId.toString(16) }]
+  });
+}
+
+function el(tag, cls, text) {
+  const e = document.createElement(tag);
+  if (cls) e.className = cls;
+  if (text !== undefined) e.textContent = text;
+  return e;
+}
+
+function fmtLeft(secs) {
+  if (secs <= 0) return 'expired';
+  const h = Math.floor(secs / 3600), m = Math.floor((secs % 3600) / 60);
+  return h ? `${h}h ${m}m left` : `${m}m left`;
+}
+
+async function readSource(rec) {
+  if (!rec.swapId || !window.ethereum) return null;
+  const provider = new ethers.BrowserProvider(window.ethereum);
+  if ((await currentChainId(provider)) !== rec.chainId) return null;
+  const htlc = new ethers.Contract(rec.htlc, HTLC_ABI, provider);
+  const s = await htlc.getSwap(rec.swapId);
+  return { status: Number(s.status), timelock: Number(s.timelock) };
+}
+
+async function claim(rec) {
+  const wallet = getWallet();
+  if (!wallet) return say('Connect your wallet first.');
+  const htlcAddr = HTLC_ADDRESSES[rec.toChain];
+  if (!htlcAddr) return say(`HTLC not configured on ${CHAIN_INFO[rec.toChain]?.label || rec.toChain}.`);
+  try {
+    await switchChain(rec.toChainId);
+    const provider = new ethers.BrowserProvider(window.ethereum);
+    const signer = await provider.getSigner();
+    const htlc = new ethers.Contract(htlcAddr, HTLC_ABI, signer);
+    const events = await htlc.queryFilter(htlc.filters.SwapCreated(null, null, wallet));
+    const match = events.find(e => e.args.hashlock === rec.hashlock);
+    if (!match) return say('The liquidity provider has not locked funds yet. Try again in a minute.');
+    const lock = await htlc.getSwap(match.args.swapId);
+    if (Number(lock.status) !== 1) return say(`Destination lock is ${STATUS[Number(lock.status)]}.`);
+    say('Confirm the claim in your wallet…');
+    const tx = await htlc.redeem(match.args.swapId, rec.preimage);
+    await tx.wait();
+    rec.claimed = true;
+    saveSwaps(loadSwaps().map(r => (r.hashlock === rec.hashlock ? rec : r)));
+    say('Claimed. Funds are in your wallet.');
+  } catch (e) {
+    say('Claim failed: ' + (e.shortMessage || e.message));
+  }
+  refreshMySwaps();
+}
+
+async function refund(rec) {
+  try {
+    await switchChain(rec.chainId);
+    const provider = new ethers.BrowserProvider(window.ethereum);
+    const signer = await provider.getSigner();
+    const htlc = new ethers.Contract(rec.htlc, HTLC_ABI, signer);
+    say('Confirm the refund in your wallet…');
+    await (await htlc.refund(rec.swapId)).wait();
+    say('Refunded to your wallet.');
+  } catch (e) {
+    say('Refund failed: ' + (e.shortMessage || e.message));
+  }
+  refreshMySwaps();
+}
+
+async function renderRow(rec) {
+  const row = el('div', 'myswap-row');
+  const head = el('div', 'myswap-head');
+  const from = CHAIN_INFO[rec.chain]?.label || rec.chain;
+  const to = CHAIN_INFO[rec.toChain]?.label || rec.toChain;
+  head.append(el('strong', '', `${rec.amount} ETH  ${from} → ${to}`));
+  row.append(head);
+
+  const info = el('div', 'myswap-info', 'Loading…');
+  row.append(info);
+  const actions = el('div', 'myswap-actions');
+  row.append(actions);
+
+  const now = Math.floor(Date.now() / 1000);
+  let state = null;
+  try { state = await readSource(rec); } catch (e) { info.textContent = 'Could not read status.'; }
+
+  if (!rec.swapId) {
+    info.textContent = 'Not confirmed on-chain (no swap id recorded).';
+  } else if (!state) {
+    info.textContent = `Switch to ${from} to see status.`;
+    const b = el('button', 'myswap-btn', `Switch to ${from}`);
+    b.onclick = async () => { try { await switchChain(rec.chainId); } catch (e) { say(e.shortMessage || e.message); } refreshMySwaps(); };
+    actions.append(b);
+  } else {
+    const left = state.timelock - now;
+    info.textContent = `${STATUS[state.status]}${state.status === 1 ? ' · ' + fmtLeft(left) : ''}`;
+    if (state.status === 1) {
+      if (!rec.claimed) {
+        const c = el('button', 'myswap-btn primary', `Claim on ${to}`);
+        c.onclick = () => claim(rec);
+        actions.append(c);
+      }
+      if (left <= 0) {
+        const r = el('button', 'myswap-btn', 'Refund');
+        r.onclick = () => refund(rec);
+        actions.append(r);
+      }
+    }
+  }
+  return row;
+}
+
+export async function refreshMySwaps() {
+  if (!listEl) return;
+  const swaps = loadSwaps().slice().reverse();
+  listEl.replaceChildren();
+  if (!swaps.length) {
+    listEl.append(el('p', 'myswap-empty', 'No swaps stored in this browser yet.'));
+    return;
+  }
+  for (const rec of swaps) listEl.append(await renderRow(rec));
+}
+
+function exportBackup() {
+  const blob = new Blob([JSON.stringify(loadSwaps(), null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'zenthis-swaps-backup.json';
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+export function initMySwaps(walletGetter) {
+  getWallet = walletGetter;
+  overlay = document.getElementById('mySwapsOverlay');
+  listEl = document.getElementById('mySwapsList');
+  msgEl = document.getElementById('mySwapsMsg');
+  const openBtn = document.getElementById('mySwapsBtn');
+  if (!overlay || !openBtn) return;
+
+  const close = () => { overlay.classList.remove('open'); document.body.style.overflow = ''; };
+  openBtn.addEventListener('click', () => {
+    overlay.classList.add('open');
+    document.body.style.overflow = 'hidden';
+    say('');
+    refreshMySwaps();
+  });
+  document.getElementById('mySwapsClose').addEventListener('click', close);
+  overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
+  document.getElementById('mySwapsExport').addEventListener('click', exportBackup);
+}

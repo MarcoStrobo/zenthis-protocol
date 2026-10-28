@@ -3,6 +3,8 @@
    ─────────────────────────────────────────────────────────────── */
 
 import { ethers } from 'https://cdn.jsdelivr.net/npm/ethers@6.13.5/dist/ethers.min.js';
+import { HTLC_ADDRESSES, LP_ADDRESS, LP_ADDRESS_TESTNET, HTLC_ABI, SWAP_STORE_KEY } from './config.js';
+import { initMySwaps, refreshMySwaps } from './myswaps.js';
 
 /* ─── Chain / token data ─── */
 const CHAINS = [
@@ -11,6 +13,7 @@ const CHAINS = [
   { id: '0x89',   decimal: 137,   key: 'POL',  label: 'Polygon',   color: '#8247e5' },
   { id: '0x38',   decimal: 56,    key: 'BNB',  label: 'BNB Chain', color: '#f0b90b' },
   { id: '0xa86a', decimal: 43114, key: 'AVAX', label: 'Avalanche', color: '#e84142' },
+  { id: '0x2105', decimal: 8453,  key: 'BASE', label: 'Base',      color: '#0052ff' },
 ];
 
 const TOKENS = {
@@ -47,6 +50,18 @@ const TOKENS = {
   ],
 };
 
+/* ─── Testnet mode: /app.html?testnet=1 ─── */
+const TESTNET = new URLSearchParams(location.search).has('testnet');
+if (TESTNET) {
+  CHAINS.length = 0;
+  CHAINS.push(
+    { id: '0x14a34', decimal: 84532,  key: 'BASE_SEP', label: 'Base Sepolia',     color: '#0052ff' },
+    { id: '0x66eee', decimal: 421614, key: 'ARB_SEP',  label: 'Arbitrum Sepolia', color: '#28a0f0' }
+  );
+  TOKENS.BASE_SEP = [{ sym: 'ETH', name: 'Sepolia Ether', cg: 'ethereum', dec: 18, logo: '🔷' }];
+  TOKENS.ARB_SEP  = [{ sym: 'ETH', name: 'Sepolia Ether', cg: 'ethereum', dec: 18, logo: '🔷' }];
+}
+
 const TICKER_TOKENS = ['ethereum','usd-coin','tether','wrapped-bitcoin','arbitrum','matic-network','binancecoin','avalanche-2'];
 
 /* ─── State ─── */
@@ -56,9 +71,9 @@ let walletBalances = {};  // { chain-key: { token-sym: amount } }
 let slippage = 0.5;
 
 let fromChain = CHAINS[0];          // Ethereum
-let fromToken = TOKENS.ETH[0];      // ETH
+let fromToken = TOKENS[fromChain.key][0];
 let toChain   = CHAINS[1];          // Arbitrum
-let toToken   = TOKENS.ARB[1];      // USDC
+let toToken   = TESTNET ? TOKENS[toChain.key][0] : TOKENS.ARB[1];      // USDC
 
 let assetTarget = 'from'; // which side is the modal opening for
 
@@ -105,9 +120,6 @@ const feeAmt          = $('feeAmt');
 const swapRate        = $('swapRate');
 const swapWarn        = $('swapWarn');
 const priceTicker     = $('priceTicker');
-
-const gateOverlay     = $('gateOverlay');
-const gateClose       = $('gateClose');
 
 /* ═══════════════════════════════════════════════════════════════
    PRICES
@@ -182,7 +194,7 @@ function updateCalculation() {
     return;
   }
 
-  const fee    = amt * 0.001;           // 0.10%
+  const fee    = amt * 0.002;           // 0.20%
   const netAmt = amt - fee;
   const out    = (netAmt * fp) / tp;
 
@@ -391,34 +403,6 @@ function switchFromTo() {
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   LAUNCH GATE + COUNTDOWN
-   ═══════════════════════════════════════════════════════════════ */
-const LAUNCH_DATE = new Date('2026-06-15T12:00:00Z');
-
-function updateCountdown() {
-  const now  = Date.now();
-  const diff = LAUNCH_DATE.getTime() - now;
-
-  if (diff <= 0) {
-    $('gcd-d').textContent = '00';
-    $('gcd-h').textContent = '00';
-    $('gcd-m').textContent = '00';
-    $('gcd-s').textContent = '00';
-    return;
-  }
-
-  const d = Math.floor(diff / 86400000);
-  const h = Math.floor((diff % 86400000) / 3600000);
-  const m = Math.floor((diff % 3600000) / 60000);
-  const s = Math.floor((diff % 60000) / 1000);
-
-  $('gcd-d').textContent = String(d).padStart(2, '0');
-  $('gcd-h').textContent = String(h).padStart(2, '0');
-  $('gcd-m').textContent = String(m).padStart(2, '0');
-  $('gcd-s').textContent = String(s).padStart(2, '0');
-}
-
-/* ═══════════════════════════════════════════════════════════════
    MODAL HELPERS
    ═══════════════════════════════════════════════════════════════ */
 function openModal(overlay)  { overlay.classList.add('open'); document.body.style.overflow = 'hidden'; }
@@ -475,42 +459,110 @@ document.addEventListener('DOMContentLoaded', async () => {
   fromAmount.addEventListener('input', updateCalculation);
 
   /* Swap CTA */
-  swapBtn.addEventListener('click', () => {
+  swapBtn.addEventListener('click', async () => {
     if (!walletAddress) { openModal(walletOverlay); return; }
     const amt = parseFloat(fromAmount.value);
     if (!amt || amt <= 0) return;
     if (window._zlog) window._zlog('swap_attempted', { from: fromToken.sym, to: toToken.sym, amount: amt });
-    // Show launch gate — swap live on June 15
-    openModal(gateOverlay);
+    
+    // Initiate HTLC atomic swap
+    try {
+      swapBtn.textContent = 'Locking funds…';
+      swapBtn.disabled = true;
+      
+      const provider = new ethers.BrowserProvider(window.ethereum);
+      const signer = await provider.getSigner();
+      
+      const htlcAddr = HTLC_ADDRESSES[fromChain.key];
+      
+      if (!htlcAddr) {
+        swapBtn.textContent = 'HTLC not deployed on this chain yet';
+        swapBtn.disabled = false;
+        return;
+      }
+      const lpAddr = TESTNET ? LP_ADDRESS_TESTNET : LP_ADDRESS;
+      if (!ethers.isAddress(lpAddr)) {
+        swapBtn.textContent = 'No liquidity provider configured yet';
+        swapBtn.disabled = false;
+        return;
+      }
+      
+      const htlc = new ethers.Contract(htlcAddr, HTLC_ABI, signer);
+      
+      // Generate random preimage and hashlock
+      const preimage = ethers.hexlify(ethers.randomBytes(32));
+      // ZenthisHTLC verifies sha256(preimage) — NOT keccak256.
+      const hashlock = ethers.sha256(preimage);
+      // Initiator leg must outlive the counterparty leg (LP locks for 1h) — use 2h.
+      const timelock = Math.floor(Date.now() / 1000) + 2 * 3600;
+      // Persist the secret BEFORE sending the tx: losing it means funds wait for refund.
+      const pending = {
+        preimage, hashlock, timelock, htlc: htlcAddr, createdAt: Date.now(),
+        chain: fromChain.key, chainId: fromChain.decimal,
+        toChain: toChain.key, toChainId: toChain.decimal,
+        initiator: walletAddress, amount: String(amt), swapId: null
+      };
+      try {
+        const store = JSON.parse(localStorage.getItem(SWAP_STORE_KEY) || '[]');
+        store.push(pending);
+        localStorage.setItem(SWAP_STORE_KEY, JSON.stringify(store));
+      } catch (e) {
+        swapBtn.textContent = 'Cannot save swap secret — aborted';
+        swapBtn.disabled = false;
+        return;
+      }
+      
+      if (fromToken.sym === 'ETH') {
+        // Native ETH swap
+        const tx = await htlc.newSwap(
+          lpAddr,
+          hashlock,
+          timelock,
+          { value: ethers.parseEther(String(amt)) }
+        );
+        swapBtn.textContent = 'Waiting for confirmation…';
+        const receipt = await tx.wait();
+        console.log('Swap created:', receipt);
+        try {
+          const ev = receipt.logs.map(l => { try { return htlc.interface.parseLog(l); } catch { return null; } })
+            .find(e => e && e.name === 'SwapCreated');
+          const store = JSON.parse(localStorage.getItem(SWAP_STORE_KEY) || '[]');
+          const rec = store.find(r => r.hashlock === hashlock);
+          if (rec && ev) { rec.swapId = ev.args.swapId; rec.txHash = receipt.hash; }
+          localStorage.setItem(SWAP_STORE_KEY, JSON.stringify(store));
+          refreshMySwaps();
+        } catch (e) { console.warn('Could not record swapId', e); }
+        if (window._zlog) window._zlog('swap_created', { tx: receipt.hash });
+        swapBtn.textContent = '✅ Swap created. Secret stored in this browser.';
+      } else {
+        // ERC-20 swap (needs approval first)
+        swapBtn.textContent = 'Token swaps coming soon — ETH available now';
+        swapBtn.disabled = false;
+      }
+    } catch (err) {
+      console.error('Swap failed:', err);
+      swapBtn.textContent = 'Swap failed — try again';
+      swapBtn.disabled = false;
+    }
   });
-
-  /* Gate modal */
-  gateClose.addEventListener('click', () => closeModal(gateOverlay));
-  gateOverlay.addEventListener('click', e => { if (e.target === gateOverlay) closeModal(gateOverlay); });
 
   /* Close any modal on Escape */
   document.addEventListener('keydown', e => {
     if (e.key === 'Escape') {
-      [walletOverlay, assetOverlay, settingsOverlay, gateOverlay].forEach(closeModal);
+      [walletOverlay, assetOverlay, settingsOverlay].forEach(closeModal);
     }
   });
 
   /* ─── Init ─── */
+  if (TESTNET) {
+    const badge = document.querySelector('.app-network-badge');
+    if (badge) badge.lastChild.textContent = ' Testnet';
+  }
+  initMySwaps(() => walletAddress);
   updatePanelUI();
   checkExistingWallet();
   await fetchPrices();
   setInterval(fetchPrices, 30_000);
-
-  updateCountdown();
-  setInterval(updateCountdown, 1_000);
-
-  // Show gate after 1.5s on first visit
-  setTimeout(() => {
-    if (!sessionStorage.getItem('gateSeen')) {
-      openModal(gateOverlay);
-      sessionStorage.setItem('gateSeen', '1');
-    }
-  }, 1500);
 
   // account change
   if (window.ethereum) {
