@@ -31,8 +31,9 @@ After deploying, load the landing page and the app and check the browser console
 ## 3. Custody of the ZTS supply (OPS-03)
 
 On 2026-10-28 the deployer EOA held 85,937,000 ZTS and co-owned the 2-of-2 Safe that owns the token.
+The supply was moved to the Safe that day (tx `0xf26390fc…78d2`). Remaining steps:
 
-1. Move the supply from the EOA to the Safe, or to a vesting contract with the intended schedules.
+1. Optionally move it on to a vesting contract with the intended schedules.
 2. Make the second Safe signer a hardware wallet; prefer a 2-of-3 Safe so one lost key does not freeze admin.
 3. Keep only gas money in the deployer; never keep a key that can move funds in a plaintext `.env` on a daily-use machine.
 4. Verify afterwards with `scripts/ops/check-owner.js` and a balance check.

@@ -36,7 +36,8 @@ Focus: **trustless cross-chain atomic swaps** (HTLC). Token and presale are seco
 - [ ] ERC-20 swaps in UI and bot
 - [ ] Hosted LP quote API (spread, limits) instead of constants in `config.js`
 - [ ] Rotate the SendGrid key and deploy the new Firestore rules (audit OPS-01, OPS-02)
-- [ ] Move the ZTS supply off the deployer EOA (audit OPS-03)
+- [x] Move the ZTS supply off the deployer EOA into the Safe (done 2026-10-28)
+- [ ] Replace the deployer signer with a hardware wallet / 2-of-3 Safe (audit OPS-03)
 - [ ] HTLC v2: `maxFeeBps`, balance-delta check, pull-based refund, `Ownable2Step` (audit HTLC-01..03)
 - [ ] External audit of `ZenthisHTLC` (356 lines), the LP bot and the relay
 - [ ] Safe multisig as owner of the HTLC; cap per swap on mainnet launch

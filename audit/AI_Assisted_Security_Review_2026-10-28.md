@@ -20,8 +20,8 @@ Report type: AI-assisted INTERNAL review. NOT an independent audit. Not affiliat
 
 | Severity | Count | Fixed in this PR | Open / accepted |
 |----------|:-----:|:----------------:|:---------------:|
-| Critical | 2 | 2 (repo side; credentials must still be rotated) | 0 |
-| High | 3 | 2 | 1 |
+| Critical | 2 | 2 (rules deployed to production; SendGrid key must still be rotated) | 0 |
+| High | 3 | 2 fixed, 1 mitigated | 0 |
 | Medium | 9 | 6 (4 fixed, 2 mitigated) | 3 |
 | Low | 9 | 5 (4 fixed, 1 mitigated) | 4 |
 | Informational | 4 | – | 4 |
@@ -68,7 +68,7 @@ the repository), economic/tokenomics review, legal review.
 |----|----------|-------|--------|
 | OPS-01 | Critical | SendGrid SMTP credentials committed to a public repository | Fixed in repo · **rotate key** |
 | OPS-02 | Critical | Firestore rules allow public waitlist dump and email relay | Fixed in repo · **deploy rules** |
-| OPS-03 | High | ~86% of ZTS supply sits in a hot EOA whose key is in plaintext | Open |
+| OPS-03 | High | ~86% of ZTS supply sat in a hot EOA whose key is in plaintext | Mitigated (moved to the 2-of-2 Safe; signer-key risk remains) |
 | UI-01 | High | Claim step did not authenticate the LP's destination lock | Fixed |
 | LP-01 | High | Ambiguous RPC failures could cause a double lock or lost state | Fixed |
 | HTLC-01 | Medium | Owner can change the fee instantly; no max-fee protection for users | Fixed (v2: `newSwapProtected`) |
@@ -128,7 +128,9 @@ plaintext in a developer `.env`.
 multisig. A 2-of-2 Safe also has no redundancy: losing either key permanently locks owner functions.
 **Recommendation:** move the supply to the Safe (or a vesting contract) and use a hardware wallet for
 the second signer; consider a 2-of-3 Safe; never keep large balances on the deployer.
-**Status:** Open (operational).
+**Status:** Mitigated on 2026-10-28: the 85,937,000 ZTS were moved to the 2-of-2 Safe (tx `0xf26390fc…78d2`), so
+moving them now needs both signers. The deployer key is still one of the two signers and is still in a plaintext
+`.env`, so replacing it with a hardware wallet (ideally in a 2-of-3 Safe) is still recommended.
 
 ### UI-01 — Claim step did not authenticate the LP's destination lock (High) — Fixed
 **Where:** `web/js/swapflow.js`, `waitAndClaim`.
