@@ -8,6 +8,12 @@ updates:
     groups:
       hardhat-toolchain:
         patterns: ["hardhat*", "@nomicfoundation/*"]
+    # Hardhat 3 is ESM-only; migrating the CJS config and tests is deferred until after the external audit.
+    ignore:
+      - dependency-name: "hardhat"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@nomicfoundation/*"
+        update-types: ["version-update:semver-major"]
   - package-ecosystem: github-actions
     directory: "/"
     schedule:
