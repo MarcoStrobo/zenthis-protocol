@@ -101,4 +101,4 @@ Mutation harness and Slither setup: see section 7 of the AI-assisted review. Tes
 
 ## 9. Contact
 
-Project: Zenthis (`MarcoStrobo/zenthis-protocol`). Contact via the repository owner.
+Project: Zenthis (`MarcoStrobo/zenthis-protocol`). Contact: zenthisio@proton.me.
