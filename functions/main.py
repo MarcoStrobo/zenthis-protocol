@@ -251,7 +251,7 @@ def send_email_resend(event: firestore_fn.Event) -> None:
         logger.error(f"send_email_resend error: {traceback.format_exc()}")
 
 
-@https_fn.on_request(timeout_sec=540, memory=512, secrets=[RESEND_API_KEY])
+@https_fn.on_request(timeout_sec=540, memory=512, secrets=[RESEND_API_KEY], invoker="private")
 def retry_emails(req: https_fn.Request) -> https_fn.Response:
     """Process backlog of failed emails. Trigger manually via HTTP."""
     import firebase_admin
@@ -344,45 +344,3 @@ def retry_emails(req: https_fn.Request) -> https_fn.Response:
     except Exception as e:
         logger.error(f"retry_emails error: {traceback.format_exc()}")
         return https_fn.Response(json.dumps({"error": str(e)}), status=500, content_type="application/json")
-
-
-@https_fn.on_request(timeout_sec=60, memory=256, secrets=[RESEND_API_KEY])
-def debug_send(req: https_fn.Request) -> https_fn.Response:
-    """Debug: send a test email from within Cloud Functions and return full response."""
-    import requests as _req
-    import firebase_admin
-    from firebase_admin import firestore as admin_fs
-    try:
-        api_key = os.environ.get("RESEND_API_KEY", "").strip()
-        if not firebase_admin._apps:
-            firebase_admin.initialize_app()
-        db = admin_fs.client()
-        # Get first mail doc
-        docs = list(db.collection("mail").limit(1).stream())
-        if not docs:
-            return https_fn.Response(json.dumps({"error": "no docs"}), status=404)
-        data = docs[0].to_dict()
-        to_email = data.get("to", "")
-        msg = data.get("message") or {}
-        mail_from = data.get("from", "Zenthis <noreply@zenthisprotocol.xyz>")
-        payload = {
-            "from": mail_from,
-            "to": [to_email],
-            "subject": msg.get("subject", "Test"),
-            "html": msg.get("html", "<p>Test</p>"),
-            "reply_to": data.get("replyTo", "noreply@zenthisprotocol.xyz"),
-        }
-        # Log exact payload for debugging
-        logger.info(f"Debug payload: {json.dumps(payload)[:500]}")
-        resp = _req.post(
-            "https://api.resend.com/emails",
-            headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
-            json=payload,
-            timeout=15,
-        )
-        return https_fn.Response(
-            json.dumps({"status": resp.status_code, "body": resp.text, "headers": dict(resp.headers), "to": to_email, "from_used": mail_from}),
-            status=200, content_type="application/json",
-        )
-    except Exception as e:
-        return https_fn.Response(json.dumps({"error": str(e), "trace": traceback.format_exc()}), status=500, content_type="application/json")
