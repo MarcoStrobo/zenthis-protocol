@@ -85,6 +85,8 @@ async function createTokenSwap(htlc, signer, recipient, tokenAddr, amount, hashl
 describe("ZenthisHTLC — Fuzz Tests", function () {
   const MIN_DELTA = 5 * 60;
   const MAX_DELTA = 2 * 86400;
+  // The tx mines in a later block than the one `now` was read from; keep timelocks clear of the minimum.
+  const BLOCK_SLACK = 60;
 
   let htlc, token;
   let owner, initiator, recipient, other;
@@ -113,7 +115,7 @@ describe("ZenthisHTLC — Fuzz Tests", function () {
       for (let i = 0; i < 50; i++) {
         const pre = randomPreimage();
         const h = hashlock(pre);
-        const tl = now + randInt(MIN_DELTA + 1, MAX_DELTA);
+        const tl = now + randInt(MIN_DELTA + BLOCK_SLACK, MAX_DELTA);
         const amount = randEthAmount();
 
         const swapId = await createEthSwap(htlc, initiator, recipient.address, h, tl, amount);
@@ -137,7 +139,7 @@ describe("ZenthisHTLC — Fuzz Tests", function () {
         const now = await getTimestamp();
         const pre = randomPreimage();
         const h = hashlock(pre);
-        const tl = now + MIN_DELTA + 5; // small safety buffer
+        const tl = now + MIN_DELTA + BLOCK_SLACK;
 
         const swapId = await createEthSwap(htlc, initiator, recipient.address, h, tl, 100n);
         expect((await htlc.getSwap(swapId)).status).to.equal(1n);
@@ -222,7 +224,7 @@ describe("ZenthisHTLC — Fuzz Tests", function () {
         const pre = randomPreimage();
         const h = hashlock(pre);
         const now = await getTimestamp();
-        const tl = now + randInt(MIN_DELTA + 1, MAX_DELTA);
+        const tl = now + randInt(MIN_DELTA + BLOCK_SLACK, MAX_DELTA);
 
         const swapId = await createEthSwap(
           htlc,
@@ -245,7 +247,7 @@ describe("ZenthisHTLC — Fuzz Tests", function () {
         const pre = randomPreimage();
         const h = hashlock(pre);
         const now = await getTimestamp();
-        const tl = now + MIN_DELTA + 5;
+        const tl = now + MIN_DELTA + BLOCK_SLACK;
 
         const swapId = await createEthSwap(
           htlc,
@@ -256,7 +258,7 @@ describe("ZenthisHTLC — Fuzz Tests", function () {
           ethers.parseEther("1"),
         );
 
-        await increaseTime(MIN_DELTA + 10);
+        await increaseTime(MIN_DELTA + BLOCK_SLACK + 10);
 
         await htlc.connect(initiator).refund(swapId);
 
@@ -301,7 +303,7 @@ describe("ZenthisHTLC — Fuzz Tests", function () {
         const now = await getTimestamp();
         const pre = randomPreimage();
         const h = hashlock(pre);
-        const tl = now + randInt(MIN_DELTA + 1, MAX_DELTA);
+        const tl = now + randInt(MIN_DELTA + BLOCK_SLACK, MAX_DELTA);
 
         // Use only 1% of the remaining balance to avoid draining
         const initBal = await token.balanceOf(initiator.address);
@@ -347,7 +349,7 @@ describe("ZenthisHTLC — Fuzz Tests", function () {
         for (let j = 0; j < 5; j++) {
           pres.push(randomPreimage());
           hashes.push(hashlock(pres[j]));
-          const tl = now + randInt(MIN_DELTA + 1, MAX_DELTA);
+          const tl = now + randInt(MIN_DELTA + BLOCK_SLACK, MAX_DELTA);
 
           const swapId = await createEthSwap(
             htlc,
